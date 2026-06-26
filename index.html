@@ -1802,7 +1802,8 @@ window.addEventListener('DOMContentLoaded', () => {
   renderGrid();
   update();
   updateChartTypeUI();
-  setTimeout(initFieldHovers, 300); // after chart renders
+  tagFieldRows();
+  setTimeout(initFieldHovers, 300); // after Highcharts SVG renders
 });
 
 /* ═══════════════════════════════════════════
@@ -1960,6 +1961,11 @@ function renderColourRows() {
       </div>
     </div>
   `).join('');
+  // Attach series highlight hovers
+  container.querySelectorAll('.series-colour-section').forEach((sec, i) => {
+    sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
+    sec.addEventListener('mouseleave', () => clearChartHighlight());
+  });
 }
 
 function setSeriesColour(i, colour) {
@@ -2264,7 +2270,7 @@ function updateChartTypeUI() {
   const map = { line:'Line chart', spline:'Smooth line', area:'Area chart', areaspline:'Smooth area', column:'Column chart', bar:'Bar chart', pie:'Pie chart', donut:'Donut chart', scatter:'Scatter plot', bubble:'Bubble chart' };
   document.getElementById('sidebar-chart-name').textContent = map[state.chartType] || state.chartType;
   const iconEl = document.getElementById('sidebar-chart-icon');
-  if (iconEl) iconEl.outerHTML = chartSvgIconSmall(state.chartType).replace('<svg ', '<svg id="sidebar-chart-icon" ');
+  if (iconEl) iconEl.innerHTML = chartSvgIconSmall(state.chartType).replace(/<svg[^>]*>/, '').replace('</svg>', '');
   updateAccLinesVisibility();
   updateDonutVisibility();
 }
@@ -3160,18 +3166,6 @@ function hideCmsTooltip() {
   if (tooltip) tooltip.style.display = 'none';
 }
 
-// Re-init hovers whenever sidebar content changes (after renderColourRows, etc.)
-const _origRenderColourRows = renderColourRows;
-function renderColourRows() {
-  _origRenderColourRows();
-  // Add hover to dynamically generated series colour rows
-  document.querySelectorAll('.series-colour-section').forEach((sec, i) => {
-    sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
-    sec.addEventListener('mouseleave', () => clearChartHighlight());
-  });
-  initFieldHovers();
-}
-
 function highlightSeriesEl(idx) {
   if (!chartInstance) return;
   try {
@@ -3198,14 +3192,7 @@ function highlightSeriesEl(idx) {
   } catch(e) {}
 }
 
-// Attach seg-group rows with data-hl at load
-window.addEventListener('DOMContentLoaded', () => {
-  // Tag seg-group rows that don't have a named input
-  const segRows = [
-    { nearId: 'acc-body-xaxis',   rows: [[1, 'xaxis', 'xLabelRotation']] },
-    { nearId: 'acc-body-legend',  rows: [[1, 'legend', 'legendPosition']] },
-    { nearId: 'acc-body-advanced',rows: [[1, null, 'stacking'],[2,null,'zoomType']] },
-  ];
+function tagFieldRows() {
   document.querySelectorAll('#acc-body-lines .field-row').forEach((row, i) => {
     const map = [
       { hl:'series', cms:'lineWidth' },
@@ -3232,9 +3219,7 @@ window.addEventListener('DOMContentLoaded', () => {
     ];
     if (map[i]) { row.dataset.hl = map[i].hl; row.dataset.cms = map[i].cms; }
   });
-  initFieldHovers();
-}, { once: true });
+}
 </script>
 </body>
 </html>
-</head>

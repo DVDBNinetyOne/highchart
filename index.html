@@ -3036,14 +3036,39 @@ init();
   // ── Call Claude Vision ──────────────────────
   async function callVision() {
     const apiKey = localStorage.getItem('n1_api_key') || '';
-    if (!apiKey) {
-      showErr(1, 'No API key found. Click "API Key" in the sidebar first.');
-      return false;
-    }
     if (!wiz.svgDataURL) {
       showErr(1, 'Please upload an image first.');
       return false;
     }
+
+    // ── Mock mode (no API key) ──────────────────
+    if (!apiKey) {
+      setLoading(true);
+      await new Promise(r => setTimeout(r, 900)); // simulate delay
+      wiz.aiResult = {
+        chartType: 'line',
+        title: 'Sample Chart (mock — add API key for real extraction)',
+        subtitle: '',
+        categories: ['2018', '2019', '2020', '2021', '2022', '2023'],
+        series: [
+          { name: 'Series A', color: '#009d80', data: [4.2, 6.1, 3.8, 7.4, 5.9, 8.3] },
+          { name: 'Series B', color: '#164848', data: [2.1, 3.5, 1.9, 4.2, 3.1, 5.7] }
+        ],
+        yAxisLabel: '',
+        valueSuffix: '%',
+        valuePrefix: '',
+        stacking: 'none',
+        height: 450,
+        showLegend: true,
+        confidence: 0
+      };
+      setLoading(false);
+      showErr(1, '');
+      // Show a note on step 2 that this is mock data
+      wiz._isMock = true;
+      return true;
+    }
+    wiz._isMock = false;
 
     showErr(1, '');
     setLoading(true);
@@ -3127,6 +3152,17 @@ Rules:
     const r = wiz.aiResult;
     if (!r) return;
     document.getElementById('ai-read-result').style.display = '';
+
+    // Mock mode banner
+    const existing = document.getElementById('wiz-mock-banner');
+    if (existing) existing.remove();
+    if (wiz._isMock) {
+      const banner = document.createElement('div');
+      banner.id = 'wiz-mock-banner';
+      banner.style.cssText = 'background:#fff8e1;border:1px solid #f0a500;border-radius:6px;padding:10px 14px;font-size:12px;color:#7a5800;margin-bottom:14px;';
+      banner.innerHTML = '⚠️ <strong>Mock data</strong> — no API key found, so sample values are shown. The full flow works: add your API key to get real extraction from the image.';
+      document.getElementById('wiz-step-2').prepend(banner);
+    }
 
     const rows = [];
     if (r.chartType) rows.push({ label: 'Chart type', value: r.chartType });

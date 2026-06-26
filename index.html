@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ninety One — Highcharts Chart Builder</title>
+<title>Ninety One Highchart Builder</title>
 
 <!-- Highcharts 11.2.0 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.js"></script>
@@ -1106,6 +1106,86 @@ pre#config-output {
 .hl-bool  { color: #7b0d8a; }
 .hl-null  { color: #888; }
 .hl-punct { color: #555; }
+
+/* ─── Mobile ─── */
+@media (max-width: 768px) {
+  body { overflow: auto; height: auto; min-height: 100vh; }
+
+  #topbar {
+    padding: 0 12px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 48px;
+    gap: 4px;
+  }
+
+  .logo { font-size: 13px; }
+
+  .nav-tabs { order: 3; width: 100%; border-top: 1px solid rgba(255,255,255,0.1); }
+  .nav-tab  { flex: 1; font-size: 12px; height: 36px; padding: 0 8px; }
+
+  .nav-actions { gap: 6px; }
+  .btn-outline, .btn-filled { padding: 4px 8px; font-size: 12px; }
+
+  #app {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  #main-area { overflow: visible; }
+
+  #settings-sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 2px solid #e8e8e8;
+    overflow: visible;
+  }
+
+  .card { margin: 12px; padding: 16px; }
+
+  .data-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px 12px 0;
+    padding: 10px 12px;
+  }
+
+  .spreadsheet-card { margin: 0 12px 12px; }
+
+  #chart-container { min-height: 280px; }
+
+  pre#config-output { font-size: 10px; max-height: 140px; }
+
+  .sidebar-type-btn { padding: 10px 12px; }
+
+  .accordion-body { padding: 10px 12px 14px; }
+
+  .field-row { flex-wrap: wrap; gap: 6px; }
+  .field-row label { min-width: unset; width: 100%; font-size: 11px; }
+  .field-input { height: 36px; font-size: 14px; }
+
+  .seg-group { flex: 1; }
+  .seg-btn   { padding: 6px 4px; font-size: 11px; }
+
+  .picker-grid { grid-template-columns: repeat(2, 1fr); }
+  .picker-card { height: 90px; }
+
+  #type-picker-modal { padding: 16px; max-height: 90vh; }
+
+  #import-wizard-overlay > div { width: 95vw; max-height: 90vh; }
+
+  .colour-swatches { gap: 6px; }
+  .colour-swatch   { width: 24px; height: 24px; }
+
+  #data-grid th, #data-grid td { min-width: 90px; }
+}
+
+@media (max-width: 420px) {
+  .logo span { display: none; }
+  .logo::after { content: 'N1 Charts'; color: #fff; font-size: 13px; font-weight: 600; }
+  .picker-grid { grid-template-columns: 1fr 1fr; }
+}
 </style>
 </head>
 <body>
@@ -1114,7 +1194,7 @@ pre#config-output {
 <div id="topbar">
   <div class="logo">
     <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="3" height="8" fill="#009d80"/><rect x="7" y="6" width="3" height="12" fill="#009d80"/><rect x="12" y="2" width="3" height="16" fill="#009d80"/></svg>
-    N1 Chart Builder
+    <span>Ninety One Highchart Builder</span>
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" id="tab-preview" onclick="switchTab('preview')">

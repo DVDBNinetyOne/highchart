@@ -15,6 +15,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/sunburst.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/packed-bubble.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/treemap.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
 /* ─── Reset & Base ─── */
@@ -2752,10 +2753,10 @@ init();
     <!-- STEP 1: Upload image -->
     <div id="wiz-step-1">
       <div class="drop-zone" id="img-drop-zone" tabindex="0">
-        <input type="file" id="img-file-input" accept="image/*,.svg">
+        <input type="file" id="img-file-input" accept="image/*,.svg,.pptx">
         <span class="drop-icon">🖼️</span>
-        <h3>Drop your chart image here</h3>
-        <p>PNG, JPG, SVG, or any chart screenshot.<br>Claude Vision will read the chart type, series, categories and colours.</p>
+        <h3>Drop your chart here</h3>
+        <p>PNG, JPG, SVG — or a <strong>PowerPoint (.pptx)</strong> file.<br>PPTX charts extract exact data instantly. Images use Claude Vision.</p>
         <div class="drop-or">or</div>
         <span class="browse-link" id="img-browse-link">browse files</span>
         <div id="img-file-badge" style="margin-top:10px;display:none"></div>
@@ -3153,16 +3154,22 @@ Rules:
     if (!r) return;
     document.getElementById('ai-read-result').style.display = '';
 
-    // Mock mode banner
+    // Source banner
     const existing = document.getElementById('wiz-mock-banner');
     if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id = 'wiz-mock-banner';
     if (wiz._isMock) {
-      const banner = document.createElement('div');
-      banner.id = 'wiz-mock-banner';
       banner.style.cssText = 'background:#fff8e1;border:1px solid #f0a500;border-radius:6px;padding:10px 14px;font-size:12px;color:#7a5800;margin-bottom:14px;';
-      banner.innerHTML = '⚠️ <strong>Mock data</strong> — no API key found, so sample values are shown. The full flow works: add your API key to get real extraction from the image.';
-      document.getElementById('wiz-step-2').prepend(banner);
+      banner.innerHTML = '⚠️ <strong>Mock data</strong> — no API key found, so sample values are shown. Add your API key to get real extraction from the image.';
+    } else if (wiz.aiResult?.confidence === 1) {
+      banner.style.cssText = 'background:#f0faf7;border:1px solid #009d80;border-radius:6px;padding:10px 14px;font-size:12px;color:#116e62;margin-bottom:14px;';
+      banner.innerHTML = '✓ <strong>Exact data extracted</strong> from PowerPoint chart object — no AI required. Values, series names and categories are precise.';
+    } else {
+      banner.style.cssText = 'background:#f0faf7;border:1px solid #7ab5b5;border-radius:6px;padding:10px 14px;font-size:12px;color:#116e62;margin-bottom:14px;';
+      banner.innerHTML = '✓ <strong>AI extracted</strong> this data from your image. Values are estimated — drop a CSV in the next step to use exact numbers.';
     }
+    document.getElementById('wiz-step-2').prepend(banner);
 
     const rows = [];
     if (r.chartType) rows.push({ label: 'Chart type', value: r.chartType });
@@ -3400,10 +3407,143 @@ Rules:
     return result;
   }
 
+  // ── PPTX Parser ─────────────────────────────
+  // Maps Office theme accent colours to N1 brand palette
+  const ACCENT_COLOURS = {
+    accent1: '#164848', accent2: '#009d80', accent3: '#7ab5b5',
+    accent4: '#f0a500', accent5: '#d83949', accent6: '#74908D',
+    dk1: '#221b3b', dk2: '#114141', lt1: '#ffffff', lt2: '#f5f3ec'
+  };
+
+  async function parsePPTX(file) {
+    const zip = await JSZip.loadAsync(file);
+
+    // Find all chart XML files
+    const chartFiles = Object.keys(zip.files).filter(n => /ppt\/charts\/chart\d+\.xml$/.test(n));
+    if (!chartFiles.length) return null;
+
+    // Parse the first chart
+    const xml = await zip.files[chartFiles[0]].async('string');
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+
+    const result = { chartType: 'line', title: '', categories: [], series: [], colours: [], valueSuffix: '' };
+
+    // ── Chart type ───────────────────────────
+    const typeMap = {
+      lineChart: 'line', barChart: 'bar', 'bar-clustered': 'bar',
+      columnChart: 'column', areaChart: 'area', pieChart: 'pie',
+      doughnutChart: 'donut', scatterChart: 'scatter', bubbleChart: 'bubble',
+      splineChart: 'spline'
+    };
+    const chartTypeEl = doc.querySelector(
+      'lineChart, barChart, areaChart, pieChart, doughnutChart, scatterChart, bubbleChart'
+    );
+    if (chartTypeEl) {
+      const tag = chartTypeEl.tagName.replace('c:', '');
+      result.chartType = typeMap[tag] || 'line';
+      // Bar vs column: barChart with dir=bar is horizontal
+      if (tag === 'barChart') {
+        const dir = chartTypeEl.querySelector('barDir');
+        result.chartType = (dir?.getAttribute('val') === 'bar') ? 'bar' : 'column';
+      }
+      // Stacking
+      const grouping = chartTypeEl.querySelector('grouping');
+      if (grouping) {
+        const g = grouping.getAttribute('val');
+        if (g === 'stacked') result.stacking = 'normal';
+        if (g === 'percentStacked') result.stacking = 'percent';
+      }
+    }
+
+    // ── Series ───────────────────────────────
+    const serEls = Array.from(doc.querySelectorAll('ser'));
+    serEls.forEach((ser, i) => {
+      // Name
+      const nameEl = ser.querySelector('tx strRef strCache pt v, tx v');
+      const name = nameEl ? nameEl.textContent.trim() : ('Series ' + (i + 1));
+
+      // Colour from spPr
+      const schemeClr = ser.querySelector('spPr ln solidFill schemeClr, spPr solidFill schemeClr');
+      const srgbClr   = ser.querySelector('spPr ln solidFill srgbClr, spPr solidFill srgbClr');
+      let colour = ACCENT_COLOURS['accent' + (i + 1)] || BRAND_COLOURS[i] || '#164848';
+      if (schemeClr) colour = ACCENT_COLOURS[schemeClr.getAttribute('val')] || colour;
+      if (srgbClr)   colour = '#' + srgbClr.getAttribute('val');
+
+      // Categories (from first series only)
+      if (i === 0) {
+        const catPts = Array.from(ser.querySelectorAll('cat strRef strCache pt v, cat numRef numCache pt v'));
+        result.categories = catPts.map(el => el.textContent.trim());
+      }
+
+      // Values
+      const valPts = Array.from(ser.querySelectorAll('val numRef numCache pt'));
+      // Build array with correct index order (some series have sparse data)
+      const ptCount = parseInt(ser.querySelector('val numRef numCache ptCount')?.getAttribute('val') || valPts.length);
+      const data = new Array(ptCount).fill(null);
+      valPts.forEach(pt => {
+        const idx = parseInt(pt.getAttribute('idx'));
+        data[idx] = parseFloat(pt.querySelector('v')?.textContent || 0);
+      });
+
+      // Dash style
+      const prstDash = ser.querySelector('spPr ln prstDash');
+      const dashStyle = prstDash ? ({ dash: 'Dash', sysDash: 'ShortDash', dot: 'Dot' }[prstDash.getAttribute('val')] || 'Solid') : 'Solid';
+
+      result.series.push({ name, color: colour, data: data.filter(v => v !== null), dashStyle });
+      result.colours.push(colour);
+    });
+
+    // ── Value suffix from number format ──────
+    const fmtCode = doc.querySelector('numFmt')?.getAttribute('formatCode') || '';
+    if (fmtCode.includes('%')) result.valueSuffix = '%';
+    if (fmtCode.includes('$')) result.valuePrefix = '$';
+
+    // ── Title from slide XML (best effort) ───
+    try {
+      const slideFiles = Object.keys(zip.files).filter(n => /ppt\/slides\/slide\d+\.xml$/.test(n));
+      if (slideFiles.length) {
+        const slideXml = await zip.files[slideFiles[0]].async('string');
+        const slideDoc = new DOMParser().parseFromString(slideXml, 'application/xml');
+        const titles = Array.from(slideDoc.querySelectorAll('sp txBody t'))
+          .map(el => el.textContent.trim())
+          .filter(t => t.length > 3 && t.length < 120);
+        if (titles.length) result.title = titles[0];
+      }
+    } catch(e) {}
+
+    result.confidence = 1; // exact data, not estimated
+    return result;
+  }
+
   // ── Navigation ──────────────────────────────
   document.getElementById('wiz-next-btn').addEventListener('click', async () => {
     if (wiz.step === 1) {
-      if (!wiz.svgDataURL) { showErr(1, 'Please upload a chart image first.'); return; }
+      if (!wiz.svgFile) { showErr(1, 'Please upload a chart file first.'); return; }
+
+      const isPPTX = wiz.svgFile.name.toLowerCase().endsWith('.pptx');
+      if (isPPTX) {
+        setLoading(true);
+        showErr(1, '');
+        try {
+          const parsed = await parsePPTX(wiz.svgFile);
+          if (!parsed || !parsed.series.length) {
+            showErr(1, 'No chart data found in this PPTX. The file may contain an image instead of a chart object.');
+            setLoading(false);
+            return;
+          }
+          wiz.aiResult = parsed;
+          wiz._isMock = false;
+          setLoading(false);
+          renderAIResult();
+          showStep(2);
+        } catch(e) {
+          showErr(1, 'Could not read PPTX: ' + e.message);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Image/SVG — use AI vision (or mock if no key)
       const ok = await callVision();
       if (!ok) return;
       renderAIResult();

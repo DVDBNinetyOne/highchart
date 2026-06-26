@@ -2849,7 +2849,7 @@ init();
     // Back button visibility
     document.getElementById('wiz-back-btn').style.visibility = n === 1 ? 'hidden' : 'visible';
     // Next label
-    const labels = { 1: 'Analyse image →', 2: 'Next: add CSV →', 3: 'Next: confirm →', 4: 'Apply to chart ✓' };
+    const labels = { 1: 'Next: add CSV →', 2: 'Next: add CSV →', 3: 'Next: confirm →', 4: 'Apply to chart ✓' };
     document.getElementById('wiz-next-label').textContent = labels[n];
   }
 
@@ -3256,16 +3256,11 @@ Rules:
   // ── Navigation ──────────────────────────────
   document.getElementById('wiz-next-btn').addEventListener('click', async () => {
     if (wiz.step === 1) {
-      if (!wiz.svgDataURL) { showErr(1, 'Please upload a chart image first.'); return; }
-      const ok = await callVision();
-      if (!ok) return;
-      renderAIResult();
-      showStep(2);
-
-    } else if (wiz.step === 2) {
+      // Skip AI — go straight to CSV
       showStep(3);
 
     } else if (wiz.step === 3) {
+      if (!wiz.csvRows?.length) { showErr(3, 'Please upload a CSV file first.'); return; }
       buildConfirmSummary();
       showStep(4);
 
@@ -3275,7 +3270,8 @@ Rules:
   });
 
   document.getElementById('wiz-back-btn').addEventListener('click', () => {
-    if (wiz.step > 1) showStep(wiz.step - 1);
+    if (wiz.step === 4) showStep(3);
+    else if (wiz.step === 3) showStep(1);
   });
 
   // ── Open / close ────────────────────────────

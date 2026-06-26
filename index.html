@@ -212,46 +212,47 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
-  padding: 6px 8px 5px;
-  border: 2px solid #eee;
-  border-radius: 7px;
-  background: #fafafa;
+  gap: 5px;
+  padding: 8px 10px 6px;
+  border: 1.5px solid #d0d0d0;
+  border-radius: 8px;
+  background: #fff;
   cursor: pointer;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  color: #888;
+  color: #444;
   white-space: nowrap;
   transition: border-color 0.13s, background 0.13s, color 0.13s, box-shadow 0.13s;
-  min-width: 70px;
+  min-width: 72px;
   flex-shrink: 0;
   position: relative;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .ct-btn:hover {
   border-color: #009d80;
   background: #f0faf8;
-  color: #009d80;
-  box-shadow: 0 2px 8px rgba(0,157,128,0.12);
+  color: #007a62;
+  box-shadow: 0 3px 10px rgba(0,157,128,0.14);
+  transform: translateY(-1px);
 }
 .ct-btn.active {
   border-color: #009d80;
-  background: #e8f7f4;
-  color: #007a62;
-  box-shadow: 0 2px 8px rgba(0,157,128,0.15);
+  border-width: 2px;
+  background: #e4f5f1;
+  color: #006b55;
+  box-shadow: 0 3px 10px rgba(0,157,128,0.18);
 }
-.ct-btn.active::after {
-  content: '';
+.ct-btn.active::before {
+  content: '✓';
   position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #009d80;
+  top: 4px;
+  right: 6px;
+  font-size: 9px;
+  color: #009d80;
+  font-weight: 700;
 }
-.ct-btn.dev-type { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.ct-btn.dev-type { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .ct-btn svg { display: block; }
 
 /* ─── App Body ─── */
@@ -1609,6 +1610,19 @@ pre#config-output {
           <label>Fill strength</label>
           <input type="range" min="0" max="1" step="0.05" value="0.3" style="flex:1" id="fill-opacity-slider" oninput="onFillOpacity(this.value)">
         </div>
+        <div class="field-row">
+          <label>Connect gaps</label>
+          <button class="toggle-pill" id="toggle-connectnulls" onclick="toggleSetting('connectNulls')"></button>
+        </div>
+        <div class="field-row">
+          <label>Step line</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setStep('')">Off</button>
+            <button class="seg-btn" onclick="setStep('left')">Left</button>
+            <button class="seg-btn" onclick="setStep('center')">Centre</button>
+            <button class="seg-btn" onclick="setStep('right')">Right</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1629,6 +1643,15 @@ pre#config-output {
         <div class="field-row">
           <label>Show values</label>
           <button class="toggle-pill" id="toggle-datalabels" onclick="toggleSetting('dataLabels')"></button>
+        </div>
+        <div class="field-row">
+          <label>Decimal places</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setDecimals(null)">Auto</button>
+            <button class="seg-btn" onclick="setDecimals(0)">0</button>
+            <button class="seg-btn" onclick="setDecimals(1)">1</button>
+            <button class="seg-btn" onclick="setDecimals(2)">2</button>
+          </div>
         </div>
         <div class="field-row">
           <label>Value format</label>
@@ -1693,6 +1716,22 @@ pre#config-output {
           <label>Value format</label>
           <input class="field-input" id="sb-y-format" placeholder="{value}%" oninput="onField('yFormat',this.value)">
         </div>
+        <div class="field-row">
+          <label>Scale type</label>
+          <div class="seg-group">
+            <button class="seg-btn active" id="seg-linear" onclick="setYScale('linear')">Linear</button>
+            <button class="seg-btn" id="seg-log" onclick="setYScale('logarithmic')">Log</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Second axis</label>
+          <button class="toggle-pill" id="toggle-yaxis2" onclick="toggleSetting('yAxis2')"></button>
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0">
+          <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px">Reference lines</div>
+          <div id="y-plotlines-list"></div>
+          <button onclick="addYPlotLine()" style="font-size:11px;color:#009d80;background:none;border:1px dashed #009d80;border-radius:4px;padding:4px 10px;cursor:pointer;width:100%;margin-top:4px">+ Add reference line</button>
+        </div>
       </div>
     </div>
 
@@ -1726,6 +1765,22 @@ pre#config-output {
         <div class="field-row">
           <label>Show on hover</label>
           <button class="toggle-pill on" id="toggle-tooltip" onclick="toggleSetting('tooltip')"></button>
+        </div>
+        <div class="field-row">
+          <label>Mode</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setTooltipMode('single')">Single</button>
+            <button class="seg-btn" onclick="setTooltipMode('shared')">Shared</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Decimal places</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setDecimals(null)">Auto</button>
+            <button class="seg-btn" onclick="setDecimals(0)">0</button>
+            <button class="seg-btn" onclick="setDecimals(1)">1</button>
+            <button class="seg-btn" onclick="setDecimals(2)">2</button>
+          </div>
         </div>
         <div class="field-row">
           <label>Value prefix</label>
@@ -1776,6 +1831,20 @@ pre#config-output {
         <div class="field-row">
           <label>API key (Vision)</label>
           <input class="field-input" id="sb-api-key" type="password" placeholder="sk-ant-..." oninput="saveApiKey(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordion: Export -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('export')">
+        Export <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-export">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button onclick="exportChart('png')" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;color:#333" onmouseover="this.style.borderColor='#009d80'" onmouseout="this.style.borderColor='#ddd'">⬇ Download PNG</button>
+          <button onclick="exportChart('svg')" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;color:#333" onmouseover="this.style.borderColor='#009d80'" onmouseout="this.style.borderColor='#ddd'">⬇ Download SVG</button>
+          <button onclick="exportCsv()" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;color:#333" onmouseover="this.style.borderColor='#009d80'" onmouseout="this.style.borderColor='#ddd'">⬇ Download CSV</button>
         </div>
       </div>
     </div>
@@ -1891,6 +1960,13 @@ let state = {
   innerSize: 60,
   csvUrl: '',
   theme: 'light',
+  yScale: 'linear',
+  yAxis2: false,
+  connectNulls: false,
+  stepLine: '',
+  decimals: null,
+  tooltipMode: 'single',
+  yPlotLines: [],
 };
 
 let cmsAvailability = {};
@@ -1927,6 +2003,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   renderChartTypeBar();
   renderColourRows();
+  renderYPlotLines();
   renderGrid();
   update();
   updateChartTypeUI();
@@ -2534,16 +2611,25 @@ function update() {
       lineWidth: s.xLine ? 1 : 0,
       tickWidth: s.xLine ? 1 : 0,
     },
-    yAxis: isPie ? undefined : {
-      title: { text: s.yTitle || null, style: { color: textCol } },
-      min: s.yMin,
-      max: s.yMax,
-      gridLineColor: s.gridLines ? gridCol : 'transparent',
-      labels: {
-        format: s.yFormat || undefined,
-        style: { color: textCol },
+    yAxis: isPie ? undefined : [
+      {
+        title: { text: s.yTitle || null, style: { color: textCol } },
+        min: s.yMin,
+        max: s.yMax,
+        type: s.yScale === 'logarithmic' ? 'logarithmic' : 'linear',
+        gridLineColor: s.gridLines ? gridCol : 'transparent',
+        labels: { format: s.yFormat || undefined, style: { color: textCol } },
+        plotLines: s.yPlotLines.map(pl => ({
+          value: pl.value,
+          color: pl.color || '#d83949',
+          width: 1.5,
+          dashStyle: 'Dash',
+          label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
+          zIndex: 5,
+        })),
       },
-    },
+      s.yAxis2 ? { opposite: true, title: { text: null }, linkedTo: 0 } : null,
+    ].filter(Boolean),
     legend: {
       enabled: s.legend && !isPie,
       verticalAlign: s.legendPos === 'top' ? 'top' : s.legendPos === 'right' ? 'middle' : 'bottom',
@@ -2553,11 +2639,17 @@ function update() {
     },
     tooltip: {
       enabled: s.tooltip,
+      shared: s.tooltipMode === 'shared',
       valuePrefix: s.ttPrefix || undefined,
       valueSuffix: s.ttSuffix || undefined,
+      valueDecimals: s.decimals,
     },
     plotOptions: {
-      series: { stacking: s.stacking || undefined },
+      series: {
+        stacking: s.stacking || undefined,
+        connectNulls: s.connectNulls,
+        step: s.stepLine || undefined,
+      },
     },
     credits: { enabled: false },
     series,
@@ -2610,6 +2702,13 @@ function generateConfig() {
   if (s.xRotation !== 0) cfg.xLabelRotation = s.xRotation;
   if (s.csvUrl)    cfg.csvUrl = s.csvUrl;
   if (s.chartHeight !== 450) cfg.chartHeight = s.chartHeight;
+  if (s.yScale === 'logarithmic') cfg.yAxisType = 'logarithmic';
+  if (s.yAxis2)    cfg.secondAxis = true;
+  if (s.connectNulls) cfg.connectNulls = true;
+  if (s.stepLine)  cfg.stepLine = s.stepLine;
+  if (s.decimals !== null) cfg.decimalPlaces = s.decimals;
+  if (s.tooltipMode === 'shared') cfg.sharedTooltip = true;
+  if (s.yPlotLines.length) cfg.yPlotLines = s.yPlotLines;
 
   if (!s.csvUrl) {
     cfg.categories = s.categories;
@@ -3177,6 +3276,66 @@ function searchSidebar(query) {
 /* ═══════════════════════════════════════════
    UTILS
 ═══════════════════════════════════════════ */
+function setYScale(s) {
+  state.yScale = s;
+  document.getElementById('seg-linear')?.classList.toggle('active', s === 'linear');
+  document.getElementById('seg-log')?.classList.toggle('active', s === 'logarithmic');
+  schedUpdate(); persist();
+}
+
+function setStep(s) { state.stepLine = s; schedUpdate(); persist(); }
+function setDecimals(n) { state.decimals = n; schedUpdate(); persist(); }
+function setTooltipMode(m) { state.tooltipMode = m; schedUpdate(); persist(); }
+
+function addYPlotLine() {
+  state.yPlotLines.push({ value: 0, label: '', color: '#d83949' });
+  renderYPlotLines();
+  schedUpdate(); persist();
+}
+
+function removeYPlotLine(i) {
+  state.yPlotLines.splice(i, 1);
+  renderYPlotLines();
+  schedUpdate(); persist();
+}
+
+function updateYPlotLine(i, key, val) {
+  state.yPlotLines[i][key] = key === 'value' ? parseFloat(val) : val;
+  schedUpdate(); persist();
+}
+
+function renderYPlotLines() {
+  const el = document.getElementById('y-plotlines-list');
+  if (!el) return;
+  el.innerHTML = state.yPlotLines.map((pl, i) => `
+    <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
+      <input type="number" value="${pl.value}" placeholder="Value" style="width:56px;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'value',this.value)">
+      <input value="${escHtml(pl.label)}" placeholder="Label" style="flex:1;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'label',this.value)">
+      <input type="color" value="${pl.color}" style="width:28px;height:28px;border:1px solid #ddd;border-radius:4px;padding:1px;cursor:pointer" onchange="updateYPlotLine(${i},'color',this.value)">
+      <button onclick="removeYPlotLine(${i})" style="background:none;border:none;color:#d83949;cursor:pointer;font-size:14px;padding:0 2px">×</button>
+    </div>
+  `).join('');
+}
+
+function exportChart(type) {
+  if (!chartInstance) return;
+  chartInstance.exportChart({ type: type === 'png' ? 'image/png' : 'image/svg+xml', filename: 'n1-chart' });
+}
+
+function exportCsv() {
+  const s = state;
+  const rows = [['Category', ...s.series.map(sr => sr.name)]];
+  s.categories.forEach((cat, i) => {
+    rows.push([cat, ...s.series.map(sr => sr.data[i] ?? '')]);
+  });
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'n1-chart-data.csv';
+  a.click();
+}
+
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

@@ -1108,3 +1108,1485 @@ pre#config-output {
 .hl-punct { color: #555; }
 </style>
 </head>
+<body>
+
+<!-- ─── Top Bar ─── -->
+<div id="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="3" height="8" fill="#009d80"/><rect x="7" y="6" width="3" height="12" fill="#009d80"/><rect x="12" y="2" width="3" height="16" fill="#009d80"/></svg>
+    N1 Chart Builder
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tab-preview" onclick="switchTab('preview')">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px;margin-right:5px"><rect x="1" y="5" width="2" height="7" fill="currentColor"/><rect x="5" y="3" width="2" height="9" fill="currentColor"/><rect x="9" y="1" width="2" height="11" fill="currentColor"/><rect x="13" y="6" width="1" height="1" fill="currentColor"/></svg>
+      Preview
+    </button>
+    <button class="nav-tab" id="tab-data" onclick="switchTab('data')">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px;margin-right:5px"><rect x="1" y="1" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="5" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="9" width="12" height="2" rx="1" fill="currentColor"/></svg>
+      Data
+    </button>
+  </div>
+  <div class="nav-actions">
+    <button class="btn-outline" onclick="openImportWizard()">⬆ Import</button>
+    <button class="btn-filled" onclick="copyConfig()">Copy config</button>
+  </div>
+</div>
+
+<!-- ─── App Body ─── -->
+<div id="app">
+
+  <!-- ─── Main Area ─── -->
+  <div id="main-area">
+
+    <!-- Preview Tab -->
+    <div id="preview-tab-content">
+      <div class="card">
+        <div class="theme-toggle-wrap">
+          <div class="theme-pill">
+            <button id="theme-light" class="active" onclick="setTheme('light')">Light</button>
+            <button id="theme-dark" onclick="setTheme('dark')">Dark</button>
+          </div>
+        </div>
+        <div id="chart-container"></div>
+      </div>
+      <div class="card" style="padding:16px 24px">
+        <div class="config-label">CMS CONFIG — paste into Sitecore</div>
+        <div class="pre-wrap">
+          <pre id="config-output"></pre>
+          <button class="copy-btn-small" onclick="copyConfig()">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Tab -->
+    <div id="data-tab-content">
+      <div id="example-banner" class="example-banner">
+        <span>Showing example data — replace with your own</span>
+        <button onclick="dismissBanner()" title="Dismiss">×</button>
+      </div>
+      <div class="data-toolbar">
+        <span class="data-toolbar-hint" id="data-hint">Each column is a data series. The first column holds category labels (e.g. dates or names).</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn-outline" style="border-color:#009d80;color:#009d80;font-size:12px" onclick="openImportWizard()">⬆ Import file</button>
+          <button class="btn-outline" style="font-size:12px" onclick="addSeries()">+ Add series</button>
+        </div>
+      </div>
+      <div class="spreadsheet-card">
+        <table id="data-grid"></table>
+      </div>
+    </div>
+
+  </div><!-- /main-area -->
+
+  <!-- ─── Settings Sidebar ─── -->
+  <div id="settings-sidebar">
+    <!-- Chart type button -->
+    <button class="sidebar-type-btn" onclick="openTypePicker()">
+      <div class="sidebar-type-info">
+        <svg id="sidebar-chart-icon" width="22" height="22" viewBox="0 0 22 22" fill="none"><polyline points="2,16 7,8 12,12 17,4" stroke="#009d80" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/></svg>
+        <span id="sidebar-chart-name">Line chart</span>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="color:#888"><polyline points="3,5 7,9 11,5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    </button>
+    <div class="sidebar-divider"></div>
+
+    <!-- Accordion: Colours -->
+    <div class="accordion-section" id="acc-colours">
+      <button class="accordion-header open" onclick="toggleAccordion('colours')">
+        Colours <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body open" id="acc-body-colours">
+        <div id="series-colour-rows"></div>
+      </div>
+    </div>
+
+    <!-- Accordion: Lines & Markers -->
+    <div class="accordion-section" id="acc-lines" style="display:none">
+      <button class="accordion-header" onclick="toggleAccordion('lines')">
+        Lines &amp; markers <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-lines">
+        <div class="field-row">
+          <label>Thickness</label>
+          <div class="seg-group">
+            <button class="seg-btn" data-lw="1" onclick="setLineWidth(1)">Thin</button>
+            <button class="seg-btn active" data-lw="2" onclick="setLineWidth(2)">Medium</button>
+            <button class="seg-btn" data-lw="4" onclick="setLineWidth(4)">Thick</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Show dots</label>
+          <button class="toggle-pill" id="toggle-markers" onclick="toggleSetting('markers')"></button>
+        </div>
+        <div class="field-row">
+          <label>Style</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setDashStyle('Solid')">Solid</button>
+            <button class="seg-btn" onclick="setDashStyle('Dash')">Dashed</button>
+            <button class="seg-btn" onclick="setDashStyle('Dot')">Dotted</button>
+          </div>
+        </div>
+        <div class="field-row" id="fill-row">
+          <label>Fill strength</label>
+          <input type="range" min="0" max="1" step="0.05" value="0.3" style="flex:1" id="fill-opacity-slider" oninput="onFillOpacity(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordion: Labels -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('labels')">
+        Labels <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-labels">
+        <div class="field-row">
+          <label>Chart title</label>
+          <input class="field-input" id="sb-title" placeholder="e.g. Fund performance" oninput="onField('title',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Subtitle</label>
+          <input class="field-input" id="sb-subtitle" placeholder="Optional subtitle" oninput="onField('subtitle',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Show values</label>
+          <button class="toggle-pill" id="toggle-datalabels" onclick="toggleSetting('dataLabels')"></button>
+        </div>
+        <div class="field-row">
+          <label>Value format</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setValFmt('')">None</button>
+            <button class="seg-btn" onclick="setValFmt('%')">%</button>
+            <button class="seg-btn" onclick="setValFmt('$')">$</button>
+          </div>
+          <input class="field-input" id="sb-val-suffix" placeholder="Custom suffix" style="width:80px;flex:none" oninput="onField('valSuffix',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordion: Horizontal axis -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('xaxis')">
+        Horizontal axis <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-xaxis">
+        <div class="field-row">
+          <label>Axis title</label>
+          <input class="field-input" id="sb-x-title" placeholder="e.g. Year" oninput="onField('xTitle',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Label angle</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setXRot(0)">0°</button>
+            <button class="seg-btn" onclick="setXRot(-45)">−45°</button>
+            <button class="seg-btn" onclick="setXRot(-90)">−90°</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Show axis line</label>
+          <button class="toggle-pill on" id="toggle-xline" onclick="toggleSetting('xLine')"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordion: Vertical axis -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('yaxis')">
+        Vertical axis <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-yaxis">
+        <div class="field-row">
+          <label>Axis title</label>
+          <input class="field-input" id="sb-y-title" placeholder="e.g. Return (%)" oninput="onField('yTitle',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Min value</label>
+          <input class="field-input" id="sb-ymin" placeholder="Auto" type="number" oninput="onField('yMin',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Max value</label>
+          <input class="field-input" id="sb-ymax" placeholder="Auto" type="number" oninput="onField('yMax',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Grid lines</label>
+          <button class="toggle-pill on" id="toggle-gridlines" onclick="toggleSetting('gridLines')"></button>
+        </div>
+        <div class="field-row">
+          <label>Value format</label>
+          <input class="field-input" id="sb-y-format" placeholder="{value}%" oninput="onField('yFormat',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordion: Legend -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('legend')">
+        Legend <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-legend">
+        <div class="field-row">
+          <label>Show legend</label>
+          <button class="toggle-pill on" id="toggle-legend" onclick="toggleSetting('legend')"></button>
+        </div>
+        <div class="field-row">
+          <label>Position</label>
+          <div class="seg-group">
+            <button class="seg-btn" onclick="setLegendPos('top')">Top</button>
+            <button class="seg-btn active" onclick="setLegendPos('bottom')">Bottom</button>
+            <button class="seg-btn" onclick="setLegendPos('right')">Right</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordion: Hover info box -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('tooltip')">
+        Hover info box <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-tooltip">
+        <div class="field-row">
+          <label>Show on hover</label>
+          <button class="toggle-pill on" id="toggle-tooltip" onclick="toggleSetting('tooltip')"></button>
+        </div>
+        <div class="field-row">
+          <label>Value prefix</label>
+          <input class="field-input" id="sb-tt-prefix" placeholder="e.g. $" oninput="onField('ttPrefix',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Value suffix</label>
+          <input class="field-input" id="sb-tt-suffix" placeholder="e.g. %" oninput="onField('ttSuffix',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Accordion: Advanced -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('advanced')">
+        Advanced <span class="chevron">▾</span>
+      </button>
+      <div class="accordion-body" id="acc-body-advanced">
+        <div class="field-row">
+          <label>Chart height</label>
+          <input class="field-input" id="sb-height" type="number" value="450" placeholder="450" oninput="onField('chartHeight',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Stacking</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setStack('')">Off</button>
+            <button class="seg-btn" onclick="setStack('normal')">Stack</button>
+            <button class="seg-btn" onclick="setStack('percent')">%</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Allow zoom</label>
+          <div class="seg-group">
+            <button class="seg-btn active" onclick="setZoom('')">None</button>
+            <button class="seg-btn" onclick="setZoom('x')">X</button>
+            <button class="seg-btn" onclick="setZoom('y')">Y</button>
+            <button class="seg-btn" onclick="setZoom('xy')">XY</button>
+          </div>
+        </div>
+        <div class="field-row" id="donut-row" style="display:none">
+          <label>Donut hole</label>
+          <input class="field-input" id="sb-inner-size" type="number" value="60" placeholder="60" oninput="onField('innerSize',this.value)">
+        </div>
+        <div class="field-row">
+          <label>CSV data URL</label>
+          <input class="field-input" id="sb-csv-url" placeholder="Sitecore media link" oninput="onField('csvUrl',this.value)">
+        </div>
+        <div class="field-row">
+          <label>API key (Vision)</label>
+          <input class="field-input" id="sb-api-key" type="password" placeholder="sk-ant-..." oninput="saveApiKey(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="sidebar-search" style="margin-top:auto">
+      <input type="text" placeholder="Search settings..." oninput="searchSidebar(this.value)">
+    </div>
+  </div><!-- /settings-sidebar -->
+
+</div><!-- /app -->
+
+<!-- ─── Chart Type Picker Overlay ─── -->
+<div id="type-picker-overlay" onclick="closeTypePicker(event)">
+  <div id="type-picker-modal">
+    <div class="picker-header">
+      <h2>Choose chart type</h2>
+      <button class="picker-close" onclick="closeTypePicker()">×</button>
+    </div>
+    <div id="picker-body"></div>
+    <div style="margin-top:16px;text-align:right;font-size:12px;color:#888">
+      <a href="#" onclick="toggleCmsEdit(event)" id="cms-edit-link">Edit availability</a>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Import Wizard Overlay ─── -->
+<div id="import-wizard-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:700;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:8px;width:640px;max-width:94vw;max-height:86vh;overflow-y:auto;position:relative">
+    <!-- Step indicators -->
+    <div style="padding:16px 24px;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:600;color:#333">Import chart data</div>
+      <button onclick="closeImportWizard()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888;line-height:1">×</button>
+    </div>
+    <div id="import-steps-indicator" style="padding:12px 24px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #e8e8e8;font-size:12px;color:#888">
+      <span id="step-ind-1" style="color:#009d80;font-weight:700">1. Upload</span>
+      <span>›</span><span id="step-ind-2">2. Review</span>
+      <span>›</span><span id="step-ind-3">3. Data</span>
+      <span>›</span><span id="step-ind-4">4. Apply</span>
+    </div>
+    <div id="import-wizard-body" style="padding:24px"></div>
+    <div style="padding:12px 24px;border-top:1px solid #e8e8e8;display:flex;align-items:center;justify-content:space-between">
+      <button id="import-nav-back" class="btn-outline" style="border-color:#ddd;color:#555" onclick="wizardBack()" disabled>Back</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="import-error" class="wizard-error"></span>
+        <button id="import-nav-next" class="btn-filled" onclick="wizardNext()">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Toast ─── -->
+<div id="copy-toast">Copied ✓</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+const N1_PALETTE = ['#164848','#009d80','#7ab5b5','#c8e0e0','#FBAA96','#d83949','#74908D','#f0a500','#116e62','#199e81','#f8aa96','#c1756e','#dc4354','#114141','#b2a896','#221b3b'];
+
+const CHART_TYPES = [
+  { group:'Trends over time', charts:[
+    { type:'line',      label:'Line',       desc:'Show changes over time',        icon:'line',    cms:true },
+    { type:'spline',    label:'Smooth line',desc:'Curved line chart',             icon:'spline',  cms:true },
+    { type:'area',      label:'Area',       desc:'Line with filled area below',   icon:'area',    cms:true },
+    { type:'areaspline',label:'Smooth area',desc:'Curved area chart',             icon:'areaspline',cms:true },
+  ]},
+  { group:'Compare values', charts:[
+    { type:'column',    label:'Column',     desc:'Vertical bars for comparison',  icon:'column',  cms:true },
+    { type:'bar',       label:'Bar',        desc:'Horizontal bars for comparison',icon:'bar',     cms:true },
+  ]},
+  { group:'Show proportions', charts:[
+    { type:'pie',       label:'Pie',        desc:'Parts of a whole',              icon:'pie',     cms:true },
+    { type:'donut',     label:'Donut',      desc:'Pie with a hole in the middle', icon:'donut',   cms:true },
+  ]},
+  { group:'Relationships', charts:[
+    { type:'scatter',   label:'Scatter',    desc:'Compare two numeric variables', icon:'scatter', cms:false },
+    { type:'bubble',    label:'Bubble',     desc:'Like scatter with a third value',icon:'bubble', cms:false },
+  ]},
+  { group:'Ask your developer', dev:true, charts:[
+    { type:'sunburst',     label:'Sunburst',     desc:'Hierarchical data',  icon:'dev', cms:false },
+    { type:'treemap',      label:'Treemap',       desc:'Nested rectangles', icon:'dev', cms:false },
+    { type:'packedbubble', label:'Packed bubble', desc:'Bubble clusters',   icon:'dev', cms:false },
+  ]},
+];
+
+let state = {
+  chartType: 'line',
+  title: '',
+  subtitle: '',
+  categories: ['2019','2020','2021','2022','2023'],
+  series: [
+    { name:'Fund A',    data:[12.4, 8.1, 15.2, -3.5, 9.8],  color:'#164848' },
+    { name:'Fund B',    data:[9.2,  11.5, 7.8,  2.1, 12.3], color:'#009d80' },
+    { name:'Benchmark', data:[7.5,  6.9,  10.1, 1.2, 8.4],  color:'#7ab5b5' },
+  ],
+  lineWidth: 2,
+  markers: false,
+  dashStyle: 'Solid',
+  fillOpacity: 0.3,
+  dataLabels: false,
+  valSuffix: '',
+  xTitle: '',
+  xRotation: 0,
+  xLine: true,
+  yTitle: '',
+  yMin: null,
+  yMax: null,
+  gridLines: true,
+  yFormat: '',
+  legend: true,
+  legendPos: 'bottom',
+  tooltip: true,
+  ttPrefix: '',
+  ttSuffix: '',
+  chartHeight: 450,
+  stacking: '',
+  zoom: '',
+  innerSize: 60,
+  csvUrl: '',
+  theme: 'light',
+};
+
+let cmsAvailability = {};
+let cmsEditMode = false;
+let chartInstance = null;
+let debounceTimer = null;
+let wizardStep = 1;
+let wizardData = {};
+let showingExampleData = true;
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  // Load persisted state
+  try {
+    const saved = localStorage.getItem('n1_last_session');
+    if (saved) {
+      const s = JSON.parse(saved);
+      Object.assign(state, s);
+      showingExampleData = false;
+      document.getElementById('example-banner').style.display = 'none';
+      syncSidebarToState();
+    }
+  } catch(e) {}
+
+  try {
+    const ca = localStorage.getItem('n1_cms_availability');
+    if (ca) cmsAvailability = JSON.parse(ca);
+  } catch(e) {}
+
+  const key = localStorage.getItem('n1_api_key');
+  if (key) document.getElementById('sb-api-key').value = key;
+
+  renderColourRows();
+  renderGrid();
+  update();
+  updateChartTypeUI();
+});
+
+/* ═══════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════ */
+function switchTab(tab) {
+  const isPreview = tab === 'preview';
+  document.getElementById('preview-tab-content').style.display = isPreview ? 'flex' : 'none';
+  document.getElementById('data-tab-content').style.display = isPreview ? 'none' : 'flex';
+  document.getElementById('tab-preview').classList.toggle('active', isPreview);
+  document.getElementById('tab-data').classList.toggle('active', !isPreview);
+  if (!isPreview) renderGrid();
+}
+
+/* ═══════════════════════════════════════════
+   ACCORDION
+═══════════════════════════════════════════ */
+function toggleAccordion(id) {
+  const header = document.querySelector(`#acc-body-${id}`).previousElementSibling;
+  const body = document.getElementById(`acc-body-${id}`);
+  const isOpen = body.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.accordion-body.open').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.accordion-header.open').forEach(h => h.classList.remove('open'));
+  if (!isOpen) {
+    body.classList.add('open');
+    header.classList.add('open');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS — field handlers
+═══════════════════════════════════════════ */
+function onField(key, val) {
+  if (key === 'yMin' || key === 'yMax') val = val === '' ? null : parseFloat(val);
+  if (key === 'chartHeight') val = parseInt(val) || 450;
+  state[key] = val;
+  schedUpdate();
+  persist();
+}
+
+function toggleSetting(key) {
+  const mapping = { markers:'markers', dataLabels:'dataLabels', xLine:'xLine', gridLines:'gridLines', legend:'legend', tooltip:'tooltip' };
+  state[mapping[key]] = !state[mapping[key]];
+  const el = document.getElementById('toggle-'+key.toLowerCase().replace('line','line').replace('gridlines','gridlines').replace('datalabels','datalabels'));
+  if (el) el.classList.toggle('on', state[mapping[key]]);
+  schedUpdate();
+  persist();
+}
+
+function setLineWidth(w) {
+  state.lineWidth = w;
+  document.querySelectorAll('[data-lw]').forEach(b => b.classList.toggle('active', +b.dataset.lw === w));
+  schedUpdate(); persist();
+}
+
+function setDashStyle(ds) {
+  state.dashStyle = ds;
+  schedUpdate(); persist();
+}
+
+function onFillOpacity(v) {
+  state.fillOpacity = parseFloat(v);
+  schedUpdate(); persist();
+}
+
+function setValFmt(v) {
+  state.valSuffix = v;
+  document.getElementById('sb-val-suffix').value = '';
+  schedUpdate(); persist();
+}
+
+function setXRot(r) {
+  state.xRotation = r;
+  schedUpdate(); persist();
+}
+
+function setLegendPos(pos) {
+  state.legendPos = pos;
+  schedUpdate(); persist();
+}
+
+function setStack(s) {
+  state.stacking = s;
+  schedUpdate(); persist();
+}
+
+function setZoom(z) {
+  state.zoom = z;
+  schedUpdate(); persist();
+}
+
+function setTheme(t) {
+  state.theme = t;
+  document.getElementById('theme-light').classList.toggle('active', t === 'light');
+  document.getElementById('theme-dark').classList.toggle('active', t === 'dark');
+  schedUpdate(); persist();
+}
+
+function saveApiKey(v) {
+  localStorage.setItem('n1_api_key', v);
+}
+
+function syncSidebarToState() {
+  const s = state;
+  const g = id => document.getElementById(id);
+  if (g('sb-title'))      g('sb-title').value = s.title || '';
+  if (g('sb-subtitle'))   g('sb-subtitle').value = s.subtitle || '';
+  if (g('sb-x-title'))    g('sb-x-title').value = s.xTitle || '';
+  if (g('sb-y-title'))    g('sb-y-title').value = s.yTitle || '';
+  if (g('sb-ymin'))       g('sb-ymin').value = s.yMin ?? '';
+  if (g('sb-ymax'))       g('sb-ymax').value = s.yMax ?? '';
+  if (g('sb-y-format'))   g('sb-y-format').value = s.yFormat || '';
+  if (g('sb-val-suffix')) g('sb-val-suffix').value = s.valSuffix || '';
+  if (g('sb-height'))     g('sb-height').value = s.chartHeight || 450;
+  if (g('sb-csv-url'))    g('sb-csv-url').value = s.csvUrl || '';
+  if (g('sb-tt-prefix'))  g('sb-tt-prefix').value = s.ttPrefix || '';
+  if (g('sb-tt-suffix'))  g('sb-tt-suffix').value = s.ttSuffix || '';
+  const toggles = ['markers','dataLabels','gridlines','legend','tooltip','xline'];
+  ['markers','dataLabels','gridLines','legend','tooltip','xLine'].forEach((k,i) => {
+    const el = g('toggle-'+['markers','datalabels','gridlines','legend','tooltip','xline'][i]);
+    if (el) el.classList.toggle('on', !!s[k]);
+  });
+  updateAccLinesVisibility();
+  updateDonutVisibility();
+}
+
+function updateAccLinesVisibility() {
+  const lineTypes = ['line','spline','area','areaspline'];
+  const show = lineTypes.includes(state.chartType);
+  document.getElementById('acc-lines').style.display = show ? '' : 'none';
+  const fillRow = document.getElementById('fill-row');
+  if (fillRow) fillRow.style.display = ['area','areaspline'].includes(state.chartType) ? '' : 'none';
+}
+
+function updateDonutVisibility() {
+  const dr = document.getElementById('donut-row');
+  if (dr) dr.style.display = state.chartType === 'donut' ? '' : 'none';
+}
+
+/* ═══════════════════════════════════════════
+   COLOURS
+═══════════════════════════════════════════ */
+function renderColourRows() {
+  const container = document.getElementById('series-colour-rows');
+  if (!container) return;
+  container.innerHTML = state.series.map((s, i) => `
+    <div class="series-colour-section">
+      <div class="series-name-label">${escHtml(s.name)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="colour-swatches">
+          ${N1_PALETTE.map(c => `<div class="colour-swatch${s.color===c?' selected':''}" style="background:${c}" onclick="setSeriesColour(${i},'${c}')" title="${c}"></div>`).join('')}
+        </div>
+        <input class="hex-input" value="${s.color||''}" maxlength="7" placeholder="#hex" onchange="setSeriesColour(${i},this.value)">
+      </div>
+    </div>
+  `).join('');
+}
+
+function setSeriesColour(i, colour) {
+  state.series[i].color = colour;
+  renderColourRows();
+  schedUpdate(); persist();
+}
+
+/* ═══════════════════════════════════════════
+   DATA GRID
+═══════════════════════════════════════════ */
+function renderGrid() {
+  const table = document.getElementById('data-grid');
+  if (!table) return;
+  const cats = state.categories;
+  const sers = state.series;
+  const rows = Math.max(cats.length, ...sers.map(s => s.data.length));
+
+  let html = '<thead><tr>';
+  html += '<th class="row-num-col"></th>';
+  html += '<th><div class="col-header-wrap"><div class="col-type-badge">ABC</div><input class="col-name-input" value="Category" readonly></div></th>';
+  sers.forEach((s, i) => {
+    html += `<th><div class="col-header-wrap"><div class="col-type-badge">123</div><input class="col-name-input" value="${escHtml(s.name)}" onchange="renameSeriesFromGrid(${i},this.value)"></div></th>`;
+  });
+  html += '<th class="add-series-th" onclick="addSeries()" title="Add series">+</th>';
+  html += '</tr></thead><tbody>';
+
+  for (let r = 0; r < rows; r++) {
+    html += `<tr>`;
+    html += `<td class="row-num-col"><button class="row-del-btn" onclick="deleteRow(${r})" title="Delete row">×</button><span style="pointer-events:none">${r+1}</span></td>`;
+    html += `<td><input value="${escHtml(cats[r]||'')}" onchange="updateCat(${r},this.value)" onkeydown="gridNav(event,${r},-1)"></td>`;
+    sers.forEach((s, i) => {
+      const v = s.data[r] !== undefined ? s.data[r] : '';
+      html += `<td><input type="number" value="${v}" onchange="updateVal(${r},${i},this.value)" onkeydown="gridNav(event,${r},${i})"></td>`;
+    });
+    html += `<td></td></tr>`;
+  }
+
+  html += `<tr><td colspan="${sers.length+3}" class="add-row-cell" onclick="addRow()">+ Add row</td></tr>`;
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function updateCat(r, v) { state.categories[r] = v; schedUpdate(); persist(); }
+function updateVal(r, si, v) {
+  while (state.series[si].data.length <= r) state.series[si].data.push(null);
+  state.series[si].data[r] = v === '' ? null : parseFloat(v);
+  schedUpdate(); persist();
+}
+function renameSeriesFromGrid(i, name) { state.series[i].name = name; renderColourRows(); schedUpdate(); persist(); }
+function addRow() {
+  state.categories.push('');
+  state.series.forEach(s => s.data.push(null));
+  renderGrid(); persist();
+}
+function deleteRow(r) {
+  state.categories.splice(r, 1);
+  state.series.forEach(s => s.data.splice(r, 1));
+  renderGrid(); schedUpdate(); persist();
+}
+function addSeries() {
+  const colours = N1_PALETTE;
+  const ci = state.series.length % colours.length;
+  state.series.push({ name:'New series', data: state.categories.map(()=>null), color: colours[ci] });
+  renderGrid(); renderColourRows(); schedUpdate(); persist();
+}
+function dismissBanner() {
+  showingExampleData = false;
+  document.getElementById('example-banner').style.display = 'none';
+}
+function gridNav(e, row, col) {
+  if (e.key === 'Tab') { e.preventDefault(); /* handled by browser */ }
+  if (e.key === 'Enter') { e.preventDefault(); /* move to next row same col */ }
+}
+
+/* ═══════════════════════════════════════════
+   CHART TYPE PICKER
+═══════════════════════════════════════════ */
+function openTypePicker() {
+  renderPickerBody();
+  document.getElementById('type-picker-overlay').classList.add('open');
+}
+
+function closeTypePicker(e) {
+  if (!e || e.target === document.getElementById('type-picker-overlay') || e.type === 'click' && !e.target.closest('#type-picker-modal')) {
+    document.getElementById('type-picker-overlay').classList.remove('open');
+  } else if (e && !e.target.closest('#type-picker-modal')) {
+    document.getElementById('type-picker-overlay').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('type-picker-overlay').classList.remove('open'); });
+
+function renderPickerBody() {
+  let html = '';
+  CHART_TYPES.forEach(group => {
+    const avail = group.charts.filter(c => !group.dev || cmsAvailability[c.type] !== undefined ? cmsAvailability[c.type] : c.cms);
+    html += `<div class="picker-group-label">${group.group}</div><div class="picker-grid">`;
+    group.charts.forEach(c => {
+      const isSelected = state.chartType === c.type;
+      const isDev = group.dev;
+      const isCms = cmsAvailability[c.type] !== undefined ? cmsAvailability[c.type] : c.cms;
+      let cls = 'picker-card' + (isSelected ? ' selected' : '') + (isDev ? ' dev-card' : '');
+      const badge = isCms ? '<span style="font-size:10px;background:#e8f7f4;color:#009d80;border-radius:3px;padding:2px 5px">CMS Ready</span>' : '<span style="font-size:10px;background:#f0f0f0;color:#888;border-radius:3px;padding:2px 5px">Dev needed</span>';
+      html += `<button class="${cls}" onclick="selectChartType('${c.type}')" ${isDev ? 'disabled title="Requires developer setup"' : ''}>
+        ${chartSvgIcon(c.icon)}
+        <div class="picker-card-name">${c.label}</div>
+        <div class="picker-card-desc">${c.desc}</div>
+        ${cmsEditMode ? `<label style="font-size:10px;cursor:pointer"><input type="checkbox" ${isCms?'checked':''} onchange="toggleCmsType('${c.type}',this.checked)" onclick="event.stopPropagation()"> CMS</label>` : badge}
+      </button>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('picker-body').innerHTML = html;
+}
+
+function chartSvgIcon(type) {
+  const icons = {
+    line: '<svg width="40" height="28" viewBox="0 0 40 28"><polyline points="2,22 12,10 22,16 32,5 38,9" stroke="#009d80" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+    spline: '<svg width="40" height="28" viewBox="0 0 40 28"><path d="M2,22 C10,14 14,8 20,14 C26,20 28,6 38,6" stroke="#009d80" stroke-width="2" fill="none"/></svg>',
+    area: '<svg width="40" height="28" viewBox="0 0 40 28"><polyline points="2,22 12,10 22,16 32,5 38,9 38,26 2,26" stroke="#009d80" stroke-width="2" fill="#c8e0e0" fill-opacity="0.5"/></svg>',
+    areaspline: '<svg width="40" height="28" viewBox="0 0 40 28"><path d="M2,22 C10,14 14,8 20,14 C26,20 28,6 38,6 L38,26 L2,26 Z" stroke="#009d80" stroke-width="2" fill="#c8e0e0" fill-opacity="0.5"/></svg>',
+    column: '<svg width="40" height="28" viewBox="0 0 40 28"><rect x="4" y="12" width="7" height="14" fill="#164848"/><rect x="16" y="6" width="7" height="20" fill="#009d80"/><rect x="28" y="16" width="7" height="10" fill="#7ab5b5"/></svg>',
+    bar: '<svg width="40" height="28" viewBox="0 0 40 28"><rect x="4" y="4" width="18" height="6" fill="#164848"/><rect x="4" y="13" width="28" height="6" fill="#009d80"/><rect x="4" y="22" width="13" height="6" fill="#7ab5b5"/></svg>',
+    pie: '<svg width="40" height="28" viewBox="0 0 40 28"><circle cx="20" cy="14" r="11" fill="#c8e0e0"/><path d="M20,14 L20,3 A11,11 0 0,1 30.5,19.5 Z" fill="#164848"/><path d="M20,14 L30.5,19.5 A11,11 0 0,1 9.5,19.5 Z" fill="#009d80"/></svg>',
+    donut: '<svg width="40" height="28" viewBox="0 0 40 28"><circle cx="20" cy="14" r="11" fill="none" stroke="#c8e0e0" stroke-width="7"/><path d="M20,3 A11,11 0 0,1 30.5,19.5" fill="none" stroke="#164848" stroke-width="7"/><path d="M30.5,19.5 A11,11 0 0,1 9.5,19.5" fill="none" stroke="#009d80" stroke-width="7"/></svg>',
+    scatter: '<svg width="40" height="28" viewBox="0 0 40 28"><circle cx="8" cy="20" r="2.5" fill="#164848"/><circle cx="16" cy="10" r="2.5" fill="#009d80"/><circle cx="22" cy="18" r="2.5" fill="#7ab5b5"/><circle cx="30" cy="6" r="2.5" fill="#f0a500"/><circle cx="36" cy="14" r="2.5" fill="#d83949"/></svg>',
+    bubble: '<svg width="40" height="28" viewBox="0 0 40 28"><circle cx="10" cy="20" r="5" fill="#164848" fill-opacity="0.7"/><circle cx="24" cy="10" r="8" fill="#009d80" fill-opacity="0.7"/><circle cx="34" cy="20" r="4" fill="#7ab5b5" fill-opacity="0.7"/></svg>',
+    dev: '<svg width="40" height="28" viewBox="0 0 40 28"><rect x="4" y="4" width="32" height="20" rx="4" fill="#e0e0e0"/><text x="20" y="17" text-anchor="middle" font-size="9" fill="#888">DEV</text></svg>',
+  };
+  return icons[type] || icons.dev;
+}
+
+function selectChartType(type) {
+  state.chartType = type;
+  document.getElementById('type-picker-overlay').classList.remove('open');
+  updateChartTypeUI();
+  schedUpdate(); persist();
+}
+
+function updateChartTypeUI() {
+  const map = { line:'Line chart', spline:'Smooth line', area:'Area chart', areaspline:'Smooth area', column:'Column chart', bar:'Bar chart', pie:'Pie chart', donut:'Donut chart', scatter:'Scatter plot', bubble:'Bubble chart' };
+  document.getElementById('sidebar-chart-name').textContent = map[state.chartType] || state.chartType;
+  document.getElementById('sidebar-chart-icon').innerHTML = chartSvgIcon(state.chartType).replace(/<svg[^>]*>/, '').replace('</svg>','');
+  updateAccLinesVisibility();
+  updateDonutVisibility();
+}
+
+function toggleCmsEdit(e) {
+  e.preventDefault();
+  cmsEditMode = !cmsEditMode;
+  document.getElementById('cms-edit-link').textContent = cmsEditMode ? 'Done editing' : 'Edit availability';
+  renderPickerBody();
+}
+
+function toggleCmsType(type, val) {
+  cmsAvailability[type] = val;
+  localStorage.setItem('n1_cms_availability', JSON.stringify(cmsAvailability));
+}
+
+/* ═══════════════════════════════════════════
+   HIGHCHARTS RENDER
+═══════════════════════════════════════════ */
+function schedUpdate() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(update, 80);
+}
+
+function update() {
+  const s = state;
+  const isDark = s.theme === 'dark';
+  const bg = isDark ? '#221b3b' : 'transparent';
+  const textCol = isDark ? '#f0f0f0' : '#333333';
+  const gridCol = isDark ? 'rgba(255,255,255,0.08)' : '#e6e6e6';
+
+  const hcType = s.chartType === 'donut' ? 'pie' : s.chartType;
+  const isPie = ['pie','donut'].includes(s.chartType);
+
+  let series;
+  if (isPie) {
+    const first = s.series[0] || { name:'Series 1', data:[], color:'#164848' };
+    series = [{
+      type: 'pie',
+      name: first.name,
+      innerSize: s.chartType === 'donut' ? (s.innerSize + '%') : '0%',
+      data: s.categories.map((cat, i) => ({
+        name: cat,
+        y: first.data[i] || 0,
+        color: N1_PALETTE[i % N1_PALETTE.length],
+      })),
+      dataLabels: { enabled: s.dataLabels },
+    }];
+  } else {
+    series = s.series.map(sr => ({
+      type: hcType,
+      name: sr.name,
+      data: sr.data.map(v => v === null ? null : v),
+      color: sr.color,
+      lineWidth: s.lineWidth,
+      dashStyle: s.dashStyle,
+      marker: { enabled: s.markers },
+      fillOpacity: ['area','areaspline'].includes(hcType) ? s.fillOpacity : undefined,
+      dataLabels: {
+        enabled: s.dataLabels,
+        format: s.valSuffix ? `{y}${s.valSuffix}` : '{y}',
+      },
+      stacking: s.stacking || undefined,
+    }));
+  }
+
+  const opts = {
+    chart: {
+      type: hcType,
+      backgroundColor: bg,
+      height: s.chartHeight,
+      style: { fontFamily: 'system-ui, -apple-system, sans-serif' },
+      zoomType: s.zoom || undefined,
+      animation: false,
+    },
+    title: { text: s.title || null, style: { color: textCol } },
+    subtitle: { text: s.subtitle || null, style: { color: textCol } },
+    xAxis: isPie ? undefined : {
+      categories: s.categories,
+      title: { text: s.xTitle || null, style: { color: textCol } },
+      labels: { rotation: s.xRotation, style: { color: textCol } },
+      lineWidth: s.xLine ? 1 : 0,
+      tickWidth: s.xLine ? 1 : 0,
+    },
+    yAxis: isPie ? undefined : {
+      title: { text: s.yTitle || null, style: { color: textCol } },
+      min: s.yMin,
+      max: s.yMax,
+      gridLineColor: s.gridLines ? gridCol : 'transparent',
+      labels: {
+        format: s.yFormat || undefined,
+        style: { color: textCol },
+      },
+    },
+    legend: {
+      enabled: s.legend && !isPie,
+      verticalAlign: s.legendPos === 'top' ? 'top' : s.legendPos === 'right' ? 'middle' : 'bottom',
+      align: s.legendPos === 'right' ? 'right' : 'center',
+      layout: s.legendPos === 'right' ? 'vertical' : 'horizontal',
+      itemStyle: { color: textCol, fontWeight: 'normal' },
+    },
+    tooltip: {
+      enabled: s.tooltip,
+      valuePrefix: s.ttPrefix || undefined,
+      valueSuffix: s.ttSuffix || undefined,
+    },
+    plotOptions: {
+      series: { stacking: s.stacking || undefined },
+    },
+    credits: { enabled: false },
+    series,
+  };
+
+  const container = document.getElementById('chart-container');
+  if (chartInstance) { try { chartInstance.destroy(); } catch(e){} }
+  chartInstance = Highcharts.chart(container, opts);
+  container.style.height = s.chartHeight + 'px';
+
+  renderConfig();
+}
+
+/* ═══════════════════════════════════════════
+   CONFIG OUTPUT
+═══════════════════════════════════════════ */
+function renderConfig() {
+  const cfg = generateConfig();
+  const formatted = formatConfig(cfg);
+  document.getElementById('config-output').innerHTML = highlighted(formatted);
+}
+
+function generateConfig() {
+  const s = state;
+  const isPie = ['pie','donut'].includes(s.chartType);
+  const cfg = {};
+
+  cfg.type = s.chartType;
+  if (s.title)    cfg.title = s.title;
+  if (s.subtitle) cfg.subtitle = s.subtitle;
+  if (s.xTitle)   cfg.xAxisTitle = s.xTitle;
+  if (s.yTitle)   cfg.yAxisTitle = s.yTitle;
+  if (s.yMin != null) cfg.yAxisMin = s.yMin;
+  if (s.yMax != null) cfg.yAxisMax = s.yMax;
+  if (s.yFormat)  cfg.yAxisFormat = s.yFormat;
+  if (s.stacking) cfg.stacking = s.stacking;
+  if (s.valSuffix) cfg.valueSuffix = s.valSuffix;
+  if (s.ttPrefix)  cfg.tooltipPrefix = s.ttPrefix;
+  if (s.ttSuffix)  cfg.tooltipSuffix = s.ttSuffix;
+  if (!s.legend)   cfg.showLegend = false;
+  if (s.legendPos !== 'bottom') cfg.legendPosition = s.legendPos;
+  if (!s.tooltip)  cfg.showTooltip = false;
+  if (s.dataLabels) cfg.showDataLabels = true;
+  if (s.chartType === 'donut') cfg.innerSize = s.innerSize + '%';
+  if (s.zoom)      cfg.zoomType = s.zoom;
+  if (s.lineWidth !== 2) cfg.lineWidth = s.lineWidth;
+  if (s.dashStyle !== 'Solid') cfg.dashStyle = s.dashStyle;
+  if (s.markers)   cfg.showMarkers = true;
+  if (s.xRotation !== 0) cfg.xLabelRotation = s.xRotation;
+  if (s.csvUrl)    cfg.csvUrl = s.csvUrl;
+  if (s.chartHeight !== 450) cfg.chartHeight = s.chartHeight;
+
+  if (!s.csvUrl) {
+    cfg.categories = s.categories;
+    cfg.series = s.series.map(sr => ({
+      name: sr.name,
+      data: sr.data,
+      color: sr.color,
+    }));
+  }
+
+  return cfg;
+}
+
+function formatConfig(obj, indent = 0) {
+  const pad = '  '.repeat(indent);
+  const lines = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === null || v === undefined || v === '') continue;
+    if (Array.isArray(v)) {
+      if (v.length === 0) continue;
+      if (typeof v[0] === 'object' && v[0] !== null) {
+        lines.push(`${pad}${k}: [`);
+        v.forEach(item => {
+          lines.push(`${pad}  {`);
+          for (const [sk, sv] of Object.entries(item)) {
+            if (sv === null || sv === undefined || sv === '') continue;
+            if (Array.isArray(sv)) {
+              lines.push(`${pad}    ${sk}: [${sv.join(', ')}]`);
+            } else if (typeof sv === 'string') {
+              lines.push(`${pad}    ${sk}: '${sv}'`);
+            } else {
+              lines.push(`${pad}    ${sk}: ${sv}`);
+            }
+          }
+          lines.push(`${pad}  }`);
+        });
+        lines.push(`${pad}]`);
+      } else {
+        const vals = v.map(x => typeof x === 'string' ? `'${x}'` : x === null ? 'null' : x);
+        lines.push(`${pad}${k}: [${vals.join(', ')}]`);
+      }
+    } else if (typeof v === 'object') {
+      lines.push(`${pad}${k}: {`);
+      lines.push(formatConfig(v, indent + 1));
+      lines.push(`${pad}}`);
+    } else if (typeof v === 'string') {
+      lines.push(`${pad}${k}: '${v}'`);
+    } else {
+      lines.push(`${pad}${k}: ${v}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+function highlighted(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^(\s*)(\w+):/gm, '$1<span class="hl-key">$2</span>:')
+    .replace(/'([^']*)'/g, "'<span class=\"hl-str\">$1</span>'")
+    .replace(/:\s*(-?\d+\.?\d*)/g, ': <span class="hl-num">$1</span>')
+    .replace(/:\s*(true|false)/g, ': <span class="hl-bool">$1</span>')
+    .replace(/:\s*(null)/g, ': <span class="hl-null">$1</span>');
+}
+
+function copyConfig() {
+  const text = document.getElementById('config-output').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const t = document.getElementById('copy-toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   PERSISTENCE
+═══════════════════════════════════════════ */
+function persist() {
+  try { localStorage.setItem('n1_last_session', JSON.stringify(state)); } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════
+   IMPORT WIZARD
+═══════════════════════════════════════════ */
+function openImportWizard() {
+  wizardStep = 1;
+  wizardData = {};
+  document.getElementById('import-wizard-overlay').style.display = 'flex';
+  renderWizardStep();
+}
+
+function closeImportWizard() {
+  document.getElementById('import-wizard-overlay').style.display = 'none';
+}
+
+function updateStepIndicators() {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('step-ind-' + i);
+    if (el) {
+      el.style.color = i === wizardStep ? '#009d80' : '#aaa';
+      el.style.fontWeight = i === wizardStep ? '700' : 'normal';
+    }
+  }
+  document.getElementById('import-nav-back').disabled = wizardStep === 1;
+}
+
+function renderWizardStep() {
+  updateStepIndicators();
+  const body = document.getElementById('import-wizard-body');
+  const nextBtn = document.getElementById('import-nav-next');
+  const errEl = document.getElementById('import-error');
+  errEl.style.display = 'none';
+
+  if (wizardStep === 1) {
+    nextBtn.textContent = 'Next';
+    body.innerHTML = `
+      <p style="font-size:13px;color:#555;margin-bottom:16px">Upload a PPTX, SVG, or image file. We'll extract the chart data for you.</p>
+      <div id="drop-zone" style="border:2px dashed #ddd;border-radius:8px;padding:48px 24px;text-align:center;cursor:pointer;transition:border-color 0.15s" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#009d80'" ondragleave="this.style.borderColor='#ddd'" ondrop="handleFileDrop(event)">
+        <div style="font-size:32px;margin-bottom:8px">📁</div>
+        <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:4px">Drop file here or click to browse</div>
+        <div style="font-size:12px;color:#888">PPTX, SVG, PNG, JPG, GIF, WEBP</div>
+      </div>
+      <input type="file" id="file-input" accept=".pptx,.svg,.png,.jpg,.jpeg,.gif,.webp,image/*" style="display:none" onchange="handleFileSelect(this.files[0])">
+      <div id="file-name-display" style="margin-top:12px;font-size:12px;color:#009d80;font-weight:600"></div>
+      <div style="margin-top:20px;border-top:1px solid #eee;padding-top:16px">
+        <div style="font-size:12px;color:#888;margin-bottom:8px">Or enter an Anthropic API key for AI-powered image reading:</div>
+        <input type="password" id="wiz-api-key" class="field-input" placeholder="sk-ant-..." style="width:100%" value="${localStorage.getItem('n1_api_key')||''}">
+      </div>
+    `;
+  } else if (wizardStep === 2) {
+    nextBtn.textContent = 'Use this data';
+    const cfg = wizardData.parsedConfig || {};
+    const src = wizardData.source || 'unknown';
+    const bannerColor = src === 'pptx' ? '#009d80' : src === 'ai' ? '#1a5c9a' : '#c07000';
+    const bannerLabel = src === 'pptx' ? 'Exact data from PPTX' : src === 'ai' ? 'AI Vision result' : 'Example data (mock)';
+
+    body.innerHTML = `
+      <div style="background:${bannerColor};color:#fff;border-radius:4px;padding:8px 14px;font-size:12px;font-weight:600;margin-bottom:16px">${bannerLabel}</div>
+      <div style="margin-bottom:12px;font-size:13px;color:#555">Extracted ${cfg.series ? cfg.series.length : 0} series, ${cfg.categories ? cfg.categories.length : 0} categories.</div>
+      <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
+        <table style="border-collapse:collapse;width:100%;font-size:12px">
+          <thead><tr>
+            <th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px;text-align:left">Category</th>
+            ${(cfg.series||[]).map(s=>`<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px">${escHtml(s.name||'')}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+            ${(cfg.categories||[]).map((cat,i)=>`<tr>
+              <td style="border:1px solid #e8e8e8;padding:6px 8px">${escHtml(cat)}</td>
+              ${(cfg.series||[]).map(s=>`<td style="border:1px solid #e8e8e8;padding:6px 8px;text-align:right">${s.data&&s.data[i]!=null?s.data[i]:''}</td>`).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if (wizardStep === 3) {
+    nextBtn.textContent = 'Apply to chart';
+    body.innerHTML = `
+      <p style="font-size:13px;color:#555;margin-bottom:16px">Optionally upload a CSV to replace the data values (keep the extracted series structure).</p>
+      <div id="csv-drop-zone" style="border:2px dashed #ddd;border-radius:8px;padding:32px 24px;text-align:center;cursor:pointer" onclick="document.getElementById('csv-file-input').click()">
+        <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:4px">Drop CSV here or click to browse</div>
+        <div style="font-size:12px;color:#888">Optional — skip if you want to use extracted data</div>
+      </div>
+      <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none" onchange="handleCsvSelect(this.files[0])">
+      <div id="csv-preview" style="margin-top:12px;font-size:12px;color:#009d80;font-weight:600"></div>
+      <div style="margin-top:16px;text-align:right">
+        <button class="btn-outline" style="font-size:12px;border-color:#009d80;color:#009d80" onclick="skipCsv()">Skip CSV and apply →</button>
+      </div>
+    `;
+  } else if (wizardStep === 4) {
+    nextBtn.textContent = 'Done';
+    body.innerHTML = `
+      <div style="text-align:center;padding:32px 0">
+        <div style="font-size:40px;margin-bottom:12px">✅</div>
+        <div style="font-size:16px;font-weight:600;color:#333;margin-bottom:8px">Chart updated!</div>
+        <div style="font-size:13px;color:#888">Your chart has been updated with the imported data. Switch to Preview to see it.</div>
+      </div>
+    `;
+    nextBtn.textContent = 'Close';
+  }
+}
+
+function wizardNext() {
+  const errEl = document.getElementById('import-error');
+  errEl.style.display = 'none';
+
+  if (wizardStep === 1) {
+    if (!wizardData.file && !wizardData.parsedConfig) {
+      errEl.textContent = 'Please select a file first.';
+      errEl.style.display = 'block';
+      return;
+    }
+    const apiKey = document.getElementById('wiz-api-key')?.value?.trim();
+    if (apiKey) localStorage.setItem('n1_api_key', apiKey);
+    processFile();
+  } else if (wizardStep === 2) {
+    wizardStep = 3;
+    renderWizardStep();
+  } else if (wizardStep === 3) {
+    applyAndFinish();
+  } else if (wizardStep === 4) {
+    closeImportWizard();
+  }
+}
+
+function wizardBack() {
+  if (wizardStep > 1) { wizardStep--; renderWizardStep(); }
+}
+
+function handleFileSelect(file) {
+  if (!file) return;
+  wizardData.file = file;
+  const display = document.getElementById('file-name-display');
+  if (display) display.textContent = '✓ ' + file.name;
+  const zone = document.getElementById('drop-zone');
+  if (zone) zone.style.borderColor = '#009d80';
+}
+
+function handleFileDrop(event) {
+  event.preventDefault();
+  const file = event.dataTransfer.files[0];
+  if (file) { wizardData.file = file; handleFileSelect(file); }
+}
+
+function handleCsvSelect(file) {
+  if (!file) return;
+  wizardData.csvFile = file;
+  const preview = document.getElementById('csv-preview');
+  if (preview) preview.textContent = '✓ ' + file.name;
+}
+
+function skipCsv() {
+  wizardData.csvFile = null;
+  applyAndFinish();
+}
+
+async function processFile() {
+  const file = wizardData.file;
+  const nextBtn = document.getElementById('import-nav-next');
+  const errEl = document.getElementById('import-error');
+  nextBtn.disabled = true;
+  nextBtn.textContent = 'Processing…';
+
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'pptx') {
+      wizardData.parsedConfig = await parsePPTX(file);
+      wizardData.source = 'pptx';
+    } else if (ext === 'svg') {
+      const text = await file.text();
+      wizardData.parsedConfig = parseSVG(text);
+      if (!wizardData.parsedConfig || !wizardData.parsedConfig.series?.length) {
+        wizardData.parsedConfig = await callVision(file);
+        wizardData.source = wizardData.parsedConfig._mock ? 'mock' : 'ai';
+      } else {
+        wizardData.source = 'svg';
+      }
+    } else {
+      wizardData.parsedConfig = await callVision(file);
+      wizardData.source = wizardData.parsedConfig._mock ? 'mock' : 'ai';
+    }
+
+    wizardStep = 2;
+    renderWizardStep();
+  } catch(e) {
+    errEl.textContent = 'Error: ' + (e.message || e);
+    errEl.style.display = 'block';
+  } finally {
+    nextBtn.disabled = false;
+    nextBtn.textContent = 'Next';
+  }
+}
+
+async function applyAndFinish() {
+  const cfg = wizardData.parsedConfig;
+  if (!cfg) { closeImportWizard(); return; }
+
+  if (wizardData.csvFile) {
+    const text = await wizardData.csvFile.text();
+    const csvData = parseCSV(text);
+    if (csvData.categories) cfg.categories = csvData.categories;
+    if (csvData.series) {
+      cfg.series = cfg.series ? cfg.series.map((s, i) => ({
+        ...s,
+        data: (csvData.series[i] || csvData.series[0] || s).data,
+      })) : csvData.series;
+    }
+  }
+
+  applyAIConfig(cfg);
+  wizardStep = 4;
+  renderWizardStep();
+  dismissBanner();
+}
+
+/* ═══════════════════════════════════════════
+   APPLY CONFIG FROM IMPORT
+═══════════════════════════════════════════ */
+function applyAIConfig(cfg) {
+  if (!cfg) return;
+  if (cfg.type)       state.chartType = cfg.type;
+  if (cfg.title)      state.title = cfg.title;
+  if (cfg.subtitle)   state.subtitle = cfg.subtitle;
+  if (cfg.categories?.length) state.categories = cfg.categories;
+  if (cfg.series?.length)     state.series = cfg.series.map((s, i) => ({
+    name: s.name || 'Series ' + (i+1),
+    data: s.data || [],
+    color: s.color || N1_PALETTE[i % N1_PALETTE.length],
+  }));
+  if (cfg.xAxisTitle) state.xTitle = cfg.xAxisTitle;
+  if (cfg.yAxisTitle) state.yTitle = cfg.yAxisTitle;
+
+  syncSidebarToState();
+  renderColourRows();
+  renderGrid();
+  updateChartTypeUI();
+  update();
+  persist();
+}
+
+/* ═══════════════════════════════════════════
+   PPTX PARSER
+═══════════════════════════════════════════ */
+const ACCENT_COLOURS = {
+  accent1:'#164848', accent2:'#009d80', accent3:'#7ab5b5',
+  accent4:'#f0a500', accent5:'#d83949', accent6:'#74908D',
+  dk1:'#221b3b', dk2:'#114141', lt1:'#ffffff', lt2:'#f5f3ec',
+};
+
+async function parsePPTX(file) {
+  const zip = await JSZip.loadAsync(file);
+  const chartFiles = Object.keys(zip.files).filter(n => n.match(/ppt\/charts\/chart\d+\.xml/));
+  if (!chartFiles.length) throw new Error('No charts found in PPTX');
+
+  const xml = await zip.files[chartFiles[0]].async('text');
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'application/xml');
+
+  const ns = { c: 'http://schemas.openxmlformats.org/drawingml/2006/chart' };
+  const getEl = (parent, tag) => parent.getElementsByTagNameNS(ns.c.split(':')[0] === 'c' ? 'http://schemas.openxmlformats.org/drawingml/2006/chart' : ns.c, tag);
+
+  function getNodes(parent, tagLocalName) {
+    const all = parent.getElementsByTagName('*');
+    return Array.from(all).filter(el => el.localName === tagLocalName);
+  }
+
+  function getNodeText(parent, tagLocalName) {
+    const nodes = getNodes(parent, tagLocalName);
+    return nodes.length ? nodes[0].textContent.trim() : '';
+  }
+
+  const plotArea = getNodes(doc, 'plotArea')[0];
+  if (!plotArea) throw new Error('No chart plot area found');
+
+  const serNodes = getNodes(plotArea, 'ser');
+  if (!serNodes.length) throw new Error('No series found in chart');
+
+  // Detect chart type
+  const parentTag = plotArea.children[0]?.localName || 'lineChart';
+  let chartType = 'line';
+  if (parentTag.includes('bar')) chartType = 'column';
+  if (parentTag.includes('pie')) chartType = 'pie';
+  if (parentTag.includes('area')) chartType = 'area';
+  if (parentTag.includes('scatter')) chartType = 'scatter';
+
+  // Get categories from first series
+  let categories = [];
+  const firstSer = serNodes[0];
+  const catNodes = getNodes(firstSer, 'cat');
+  if (catNodes.length) {
+    const strRef = getNodes(catNodes[0], 'strRef')[0] || getNodes(catNodes[0], 'numRef')[0];
+    if (strRef) {
+      const ptNodes = getNodes(strRef, 'pt');
+      categories = ptNodes.map(pt => getNodeText(pt, 'v'));
+    }
+  }
+  if (!categories.length) {
+    // Try numRef
+    const numCatNodes = getNodes(firstSer, 'numRef');
+    if (numCatNodes.length) {
+      const ptNodes = getNodes(numCatNodes[0], 'pt');
+      categories = ptNodes.map(pt => getNodeText(pt, 'v'));
+    }
+  }
+
+  const series = serNodes.map((ser, i) => {
+    // Name
+    let name = 'Series ' + (i+1);
+    const txNodes = getNodes(ser, 'tx');
+    if (txNodes.length) {
+      const strRef = getNodes(txNodes[0], 'strRef')[0];
+      if (strRef) {
+        const ptNode = getNodes(strRef, 'pt')[0];
+        if (ptNode) name = getNodeText(ptNode, 'v');
+      } else {
+        const vNode = getNodes(txNodes[0], 'v')[0];
+        if (vNode) name = vNode.textContent.trim();
+      }
+    }
+
+    // Values
+    const valNodes = getNodes(ser, 'val');
+    let data = [];
+    if (valNodes.length) {
+      const numRef = getNodes(valNodes[0], 'numRef')[0];
+      if (numRef) {
+        const ptNodes = getNodes(numRef, 'pt');
+        data = ptNodes.map(pt => parseFloat(getNodeText(pt, 'v')));
+      }
+    }
+    if (!data.length) {
+      const yValNodes = getNodes(ser, 'yVal');
+      if (yValNodes.length) {
+        const numRef = getNodes(yValNodes[0], 'numRef')[0];
+        if (numRef) {
+          const ptNodes = getNodes(numRef, 'pt');
+          data = ptNodes.map(pt => parseFloat(getNodeText(pt, 'v')));
+        }
+      }
+    }
+
+    // Colour
+    let color = N1_PALETTE[i % N1_PALETTE.length];
+    const spPrNodes = getNodes(ser, 'spPr');
+    if (spPrNodes.length) {
+      const solidFill = getNodes(spPrNodes[0], 'solidFill')[0];
+      if (solidFill) {
+        const srgb = getNodes(solidFill, 'srgbClr')[0];
+        if (srgb) {
+          const hex = srgb.getAttribute('val');
+          if (hex) color = '#' + hex;
+        }
+        const schemeClr = getNodes(solidFill, 'schemeClr')[0];
+        if (schemeClr) {
+          const val = schemeClr.getAttribute('val');
+          if (val && ACCENT_COLOURS[val]) color = ACCENT_COLOURS[val];
+        }
+      }
+    }
+
+    return { name, data, color };
+  });
+
+  return { type: chartType, categories, series };
+}
+
+/* ═══════════════════════════════════════════
+   SVG PARSER (Highcharts SVGs only)
+═══════════════════════════════════════════ */
+function parseSVG(svgText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, 'image/svg+xml');
+
+  // Try to extract text elements as categories/values
+  const textEls = Array.from(doc.querySelectorAll('text'));
+  if (!textEls.length) return null;
+
+  // Look for Highcharts class markers
+  const cats = [], series = [];
+  const xAxisTexts = textEls.filter(t => t.closest('.highcharts-xaxis-labels') || t.getAttribute('class')?.includes('xaxis'));
+  if (xAxisTexts.length) {
+    xAxisTexts.forEach(t => cats.push(t.textContent.trim()));
+  }
+
+  return cats.length ? { categories: cats, series } : null;
+}
+
+/* ═══════════════════════════════════════════
+   CSV PARSER
+═══════════════════════════════════════════ */
+function parseCSV(text) {
+  const lines = text.trim().split('\n').map(l => l.split(',').map(c => c.trim().replace(/^"|"$/g,'')));
+  if (lines.length < 2) return {};
+  const headers = lines[0];
+  const categories = [];
+  const series = headers.slice(1).map(h => ({ name: h, data: [] }));
+  lines.slice(1).forEach(row => {
+    categories.push(row[0] || '');
+    series.forEach((s, i) => {
+      const v = parseFloat(row[i+1]);
+      s.data.push(isNaN(v) ? null : v);
+    });
+  });
+  return { categories, series };
+}
+
+/* ═══════════════════════════════════════════
+   CLAUDE VISION API
+═══════════════════════════════════════════ */
+async function callVision(file) {
+  const apiKey = localStorage.getItem('n1_api_key');
+
+  if (!apiKey) {
+    // Mock mode
+    await new Promise(r => setTimeout(r, 900));
+    return {
+      _mock: true,
+      type: 'line',
+      title: 'Example chart (mock)',
+      categories: ['Jan','Feb','Mar','Apr','May','Jun'],
+      series: [
+        { name:'Fund A', data:[12.4, 8.1, 15.2, 11.3, 9.8, 14.1], color:'#164848' },
+        { name:'Benchmark', data:[7.5, 6.9, 10.1, 8.2, 8.4, 9.0], color:'#009d80' },
+      ],
+    };
+  }
+
+  // Convert to base64
+  const base64 = await new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result.split(',')[1]);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+
+  const mediaType = file.type || 'image/png';
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: `Analyse this chart image and return a JSON object (no markdown, no explanation) with these exact keys:
+{
+  "type": "line|column|bar|area|pie|scatter",
+  "title": "chart title or null",
+  "categories": ["label1","label2",...],
+  "series": [
+    {"name":"Series A","data":[1.2, 3.4, ...],"color":"#hexcolor or null"}
+  ],
+  "xAxisTitle": "x axis label or null",
+  "yAxisTitle": "y axis label or null"
+}
+Read ALL values as accurately as possible. Return only valid JSON.` }
+        ],
+      }],
+    }),
+  });
+
+  if (!resp.ok) throw new Error('Vision API error: ' + resp.status);
+  const json = await resp.json();
+  const raw = json.content[0].text.trim();
+  return JSON.parse(raw.replace(/^```json\s*/,'').replace(/\s*```$/,''));
+}
+
+/* ═══════════════════════════════════════════
+   SIDEBAR SEARCH
+═══════════════════════════════════════════ */
+function searchSidebar(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.accordion-section').forEach(sec => {
+    const text = sec.textContent.toLowerCase();
+    sec.style.display = !q || text.includes(q) ? '' : 'none';
+  });
+}
+
+/* ═══════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════ */
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
+</head>

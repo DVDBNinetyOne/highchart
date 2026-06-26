@@ -2811,6 +2811,9 @@ init();
         <p class="csv-preview-note" id="csv-preview-note"></p>
       </div>
       <div class="wizard-error" id="wiz-err-3"></div>
+      <p style="font-size:12px;color:#888;margin-top:12px;text-align:center">
+        Don't have your CSV yet? <a href="#" id="skip-csv-link" style="color:var(--teal-green)">Skip this step →</a>
+      </p>
     </div>
 
     <!-- STEP 4: Confirm & apply -->
@@ -3260,13 +3263,19 @@ Rules:
       showStep(3);
 
     } else if (wiz.step === 3) {
-      if (!wiz.csvRows?.length) { showErr(3, 'Please upload a CSV file first.'); return; }
+      // CSV is optional — user can skip and apply with just the image reference
       buildConfirmSummary();
       showStep(4);
 
     } else if (wiz.step === 4) {
       applyToBuilder();
     }
+  });
+
+  document.getElementById('skip-csv-link').addEventListener('click', e => {
+    e.preventDefault();
+    buildConfirmSummary();
+    showStep(4);
   });
 
   document.getElementById('wiz-back-btn').addEventListener('click', () => {

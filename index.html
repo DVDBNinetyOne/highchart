@@ -2852,7 +2852,7 @@ init();
     // Back button visibility
     document.getElementById('wiz-back-btn').style.visibility = n === 1 ? 'hidden' : 'visible';
     // Next label
-    const labels = { 1: 'Read SVG →', 2: 'Next: add CSV →', 3: 'Next: confirm →', 4: 'Apply to chart ✓' };
+    const labels = { 1: 'Analyse image →', 2: 'Next: add CSV →', 3: 'Next: confirm →', 4: 'Apply to chart ✓' };
     document.getElementById('wiz-next-label').textContent = labels[n];
   }
 
@@ -3260,7 +3260,7 @@ Rules:
   function parseSVG(svgText) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgText, 'image/svg+xml');
-    const result = { chartType: 'line', title: '', categories: [], series: [], colours: [], valueSuffix: '' };
+    const result = { chartType: 'line', title: '', categories: [], series: [], colours: [], valueSuffix: '', _warnings: [] };
 
     const txt = sel => Array.from(doc.querySelectorAll(sel))
       .map(el => el.textContent.trim()).filter(t => t.length > 0 && t.length < 120);
@@ -3367,22 +3367,11 @@ Rules:
   // ── Navigation ──────────────────────────────
   document.getElementById('wiz-next-btn').addEventListener('click', async () => {
     if (wiz.step === 1) {
-      if (!wiz.svgFile) { showErr(1, 'Please upload a chart image first.'); return; }
-
-      // For SVG files: parse client-side. For raster images: skip to CSV step.
-      const isSVG = wiz.svgFile.type === 'image/svg+xml' || wiz.svgFile.name.endsWith('.svg');
-      if (isSVG) {
-        setLoading(true);
-        const text = await wiz.svgFile.text();
-        wiz.aiResult = parseSVG(text);
-        setLoading(false);
-        renderAIResult();
-        showStep(2);
-      } else {
-        // Raster image — skip extraction, go to CSV
-        wiz.aiResult = null;
-        showStep(3);
-      }
+      if (!wiz.svgDataURL) { showErr(1, 'Please upload a chart image first.'); return; }
+      const ok = await callVision();
+      if (!ok) return;
+      renderAIResult();
+      showStep(2);
 
     } else if (wiz.step === 2) {
       showStep(3);
@@ -3404,7 +3393,7 @@ Rules:
 
   document.getElementById('wiz-back-btn').addEventListener('click', () => {
     if (wiz.step === 4) showStep(3);
-    else if (wiz.step === 3) showStep(wiz.aiResult ? 2 : 1);
+    else if (wiz.step === 3) showStep(2);
     else if (wiz.step === 2) showStep(1);
   });
 

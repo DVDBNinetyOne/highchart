@@ -3260,66 +3260,106 @@ Rules:
   function parseSVG(svgText) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgText, 'image/svg+xml');
-    const result = { chartType: null, title: '', categories: [], series: [], colours: [] };
+    const result = { chartType: 'line', title: '', categories: [], series: [], colours: [], valueSuffix: '' };
 
-    // Collect all text nodes, stripping whitespace
-    const allText = Array.from(doc.querySelectorAll('text, tspan'))
-      .map(el => el.textContent.trim())
-      .filter(t => t.length > 0 && t.length < 80);
+    const txt = sel => Array.from(doc.querySelectorAll(sel))
+      .map(el => el.textContent.trim()).filter(t => t.length > 0 && t.length < 120);
 
-    // Deduplicate
-    const uniqueText = [...new Set(allText)];
+    // ── Highcharts-specific classes ──────────────
+    const hcTitle      = txt('.highcharts-title, [class*="highcharts-title"]');
+    const hcSubtitle   = txt('.highcharts-subtitle');
+    const hcAxisLabels = txt('.highcharts-xaxis-labels text, .highcharts-xaxis-labels tspan');
+    const hcYLabels    = txt('.highcharts-yaxis-labels text, .highcharts-yaxis-labels tspan');
+    const hcLegend     = txt('.highcharts-legend-item text, .highcharts-legend-item tspan');
+    const hcDataLabels = txt('.highcharts-data-labels text, .highcharts-data-labels tspan');
 
-    // Collect fill/stroke colours from drawn elements
-    const colourEls = Array.from(doc.querySelectorAll('path, rect, circle, line, polyline, polygon'));
-    const rawColours = colourEls.map(el => {
-      const fill = el.getAttribute('fill') || el.style.fill || '';
-      const stroke = el.getAttribute('stroke') || el.style.stroke || '';
-      return [fill, stroke];
-    }).flat().filter(c => c && c !== 'none' && c !== 'transparent' && c.startsWith('#'));
-    result.colours = [...new Set(rawColours)].slice(0, 8);
+    // ── Title ────────────────────────────────────
+    if (hcTitle.length) result.title = hcTitle[0];
+    if (hcSubtitle.length) result.subtitle = hcSubtitle[0];
 
-    // Guess chart type from element types
-    const hasBars = doc.querySelectorAll('rect[width][height]').length > 3;
-    const hasLines = doc.querySelectorAll('polyline, path[d]').length > 0;
-    const hasCircles = doc.querySelectorAll('circle').length > 3;
-    if (hasBars && !hasLines) result.chartType = 'bar';
-    else if (hasLines) result.chartType = 'line';
-    else if (hasCircles) result.chartType = 'scatter';
-    else result.chartType = 'line';
-
-    // Heuristic: numbers are data values or axis ticks, text strings are labels/categories/series names
-    const numbers = uniqueText.filter(t => /^-?[\d,.]+%?$/.test(t)).map(t => parseFloat(t.replace(/,/g, '')));
-    const labels  = uniqueText.filter(t => !/^-?[\d,.]+%?$/.test(t));
-
-    // First label is often the title
-    if (labels.length > 0) result.title = labels[0];
-
-    // Remaining labels — try to split into categories vs series names
-    // Categories tend to be dates/years/short words repeated on an axis
-    const rest = labels.slice(1);
-    const datelike = rest.filter(t => /^\d{4}$|Q[1-4]|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/i.test(t));
-    const otherLabels = rest.filter(t => !datelike.includes(t));
-
-    if (datelike.length >= 2) {
-      result.categories = datelike;
-      result.series = otherLabels.slice(0, 6).map((name, i) => ({
-        name,
-        color: result.colours[i] || '',
-        data: numbers.slice(i * datelike.length, (i + 1) * datelike.length)
-      }));
-    } else if (otherLabels.length >= 2) {
-      // Treat short labels as categories
-      result.categories = otherLabels.slice(0, 12);
-      result.series = [{ name: 'Series 1', color: result.colours[0] || '', data: numbers.slice(0, result.categories.length) }];
-    } else {
-      result.categories = numbers.slice(0, 8).map(String);
-      result.series = [{ name: 'Series 1', color: result.colours[0] || '', data: [] }];
+    // ── Categories from X axis labels ────────────
+    if (hcAxisLabels.length >= 2) {
+      result.categories = [...new Set(hcAxisLabels)];
     }
 
-    // Value suffix heuristic
-    const pctText = uniqueText.find(t => t.includes('%'));
-    if (pctText) result.valueSuffix = '%';
+    // ── Series names from legend ──────────────────
+    const seriesNames = [...new Set(hcLegend)].filter(t => t.length > 0);
+
+    // ── Colours — prefer Highcharts series groups ─
+    const seriesGroups = Array.from(doc.querySelectorAll('[class*="highcharts-series"]'));
+    const seriesColours = seriesGroups.map(g => {
+      const el = g.querySelector('path, rect, area, line, circle');
+      if (!el) return null;
+      return el.getAttribute('fill') || el.getAttribute('stroke') || el.style.fill || el.style.stroke || null;
+    }).filter(c => c && c !== 'none' && /^#|^rgb/.test(c));
+
+    // Fallback: all coloured drawn elements
+    if (!seriesColours.length) {
+      Array.from(doc.querySelectorAll('path, rect, circle, polyline')).forEach(el => {
+        const c = el.getAttribute('fill') || el.getAttribute('stroke') || '';
+        if (c && c !== 'none' && c.startsWith('#')) seriesColours.push(c);
+      });
+    }
+    result.colours = [...new Set(seriesColours)].slice(0, 8);
+
+    // ── Chart type from Highcharts classes ────────
+    const hasColumnSeries = doc.querySelector('.highcharts-column-series, .highcharts-bar-series');
+    const hasLineSeries   = doc.querySelector('.highcharts-line-series, .highcharts-spline-series, .highcharts-area-series');
+    const hasPieSeries    = doc.querySelector('.highcharts-pie-series');
+    const hasScatterSeries= doc.querySelector('.highcharts-scatter-series');
+    if (hasPieSeries)     result.chartType = 'pie';
+    else if (hasColumnSeries) result.chartType = doc.querySelector('.highcharts-bar-series') ? 'bar' : 'column';
+    else if (hasScatterSeries) result.chartType = 'scatter';
+    else if (hasLineSeries) result.chartType = doc.querySelector('.highcharts-area-series') ? 'area' : 'line';
+    else {
+      // Fallback heuristics from raw elements
+      const rectCount = doc.querySelectorAll('rect').length;
+      const pathCount = doc.querySelectorAll('path').length;
+      if (rectCount > 6 && rectCount > pathCount) result.chartType = 'column';
+    }
+
+    // ── Data values ───────────────────────────────
+    // Try data labels first, then Y axis labels as a fallback range
+    const dataLabelNums = hcDataLabels
+      .map(t => parseFloat(t.replace(/[,%$]/g, '')))
+      .filter(n => !isNaN(n));
+
+    const yAxisNums = hcYLabels
+      .map(t => parseFloat(t.replace(/[,%$]/g, '')))
+      .filter(n => !isNaN(n));
+
+    // Value suffix from Y axis labels
+    if (hcYLabels.some(t => t.includes('%'))) result.valueSuffix = '%';
+    if (hcYLabels.some(t => t.startsWith('$'))) result.valuePrefix = '$';
+
+    // ── Build series ──────────────────────────────
+    const catCount = result.categories.length || Math.max(dataLabelNums.length, 4);
+    if (seriesNames.length >= 1 && dataLabelNums.length >= catCount) {
+      // Distribute data labels across series
+      result.series = seriesNames.map((name, i) => ({
+        name,
+        color: result.colours[i] || '',
+        data: dataLabelNums.slice(i * catCount, (i + 1) * catCount)
+      }));
+    } else if (seriesNames.length >= 1) {
+      result.series = seriesNames.map((name, i) => ({
+        name,
+        color: result.colours[i] || '',
+        data: []
+      }));
+    } else if (dataLabelNums.length) {
+      result.series = [{ name: 'Series 1', color: result.colours[0] || '#164848', data: dataLabelNums }];
+    } else if (result.chartType === 'pie' || result.chartType === 'donut') {
+      // Pie: categories become segment names, yAxis numbers become values
+      result.series = [{ name: 'Value', color: result.colours[0] || '#164848', data: yAxisNums }];
+    } else {
+      result.series = [{ name: 'Series 1', color: result.colours[0] || '#164848', data: [] }];
+    }
+
+    // ── Fill categories if still empty ───────────
+    if (!result.categories.length && result.series[0]?.data?.length) {
+      result.categories = result.series[0].data.map((_, i) => 'Item ' + (i + 1));
+    }
 
     return result;
   }

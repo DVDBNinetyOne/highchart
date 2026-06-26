@@ -1100,6 +1100,54 @@ pre#config-output {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ─── Syntax highlight helpers ─── */
+/* ─── Field hover ─── */
+.field-row { border-radius: 3px; transition: background 0.1s; cursor: default; }
+.field-row:hover { background: rgba(0,157,128,0.06); }
+
+/* ─── Chart highlight ring ─── */
+#chart-hl-ring {
+  position: fixed;
+  display: none;
+  border: 2px solid #009d80;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 200;
+  box-shadow: 0 0 0 4px rgba(0,157,128,0.18);
+  animation: hlPulse 1.4s ease-in-out infinite;
+  transition: left 0.12s, top 0.12s, width 0.12s, height 0.12s;
+}
+@keyframes hlPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(0,157,128,0.18); }
+  50%       { box-shadow: 0 0 0 10px rgba(0,157,128,0.05); }
+}
+
+/* ─── CMS key tooltip ─── */
+#cms-key-tooltip {
+  position: fixed;
+  display: none;
+  background: #1a1a1a;
+  color: #a8f0e0;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 500;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+#cms-key-tooltip .tt-label { color: #888; font-family: system-ui, sans-serif; font-size: 10px; display: block; margin-bottom: 1px; }
+#cms-key-tooltip::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-left-color: #1a1a1a;
+  border-right: none;
+}
+
 .hl-key   { color: #116e62; }
 .hl-str   { color: #8b4513; }
 .hl-num   { color: #1a5c9a; }
@@ -1531,6 +1579,12 @@ pre#config-output {
 <!-- ─── Toast ─── -->
 <div id="copy-toast">Copied ✓</div>
 
+<!-- ─── Chart highlight ring ─── -->
+<div id="chart-hl-ring"></div>
+
+<!-- ─── CMS key tooltip ─── -->
+<div id="cms-key-tooltip"><span class="tt-label">Sitecore key</span><span id="cms-key-value"></span></div>
+
 <script>
 /* ═══════════════════════════════════════════
    STATE
@@ -1636,6 +1690,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderGrid();
   update();
   updateChartTypeUI();
+  setTimeout(initFieldHovers, 300); // after chart renders
 });
 
 /* ═══════════════════════════════════════════
@@ -2056,6 +2111,7 @@ function update() {
   container.style.height = s.chartHeight + 'px';
 
   renderConfig();
+  setTimeout(initFieldHovers, 50);
 }
 
 /* ═══════════════════════════════════════════
@@ -2666,6 +2722,245 @@ function searchSidebar(query) {
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+/* ═══════════════════════════════════════════
+   FIELD HOVER → CHART HIGHLIGHT + CMS TOOLTIP
+═══════════════════════════════════════════ */
+
+// Map: input element ID → { hl: chart target, cms: Sitecore key }
+const FIELD_MAP = {
+  'sb-title':         { hl: 'title',      cms: 'title' },
+  'sb-subtitle':      { hl: 'subtitle',   cms: 'subtitle' },
+  'toggle-datalabels':{ hl: 'datalabels', cms: 'showDataLabels' },
+  'sb-val-suffix':    { hl: 'datalabels', cms: 'valueSuffix' },
+  'sb-x-title':       { hl: 'xaxis',      cms: 'xAxisTitle' },
+  'toggle-xline':     { hl: 'xaxis',      cms: null },
+  'sb-y-title':       { hl: 'yaxis',      cms: 'yAxisTitle' },
+  'sb-ymin':          { hl: 'yaxis',      cms: 'yAxisMin' },
+  'sb-ymax':          { hl: 'yaxis',      cms: 'yAxisMax' },
+  'toggle-gridlines': { hl: 'yaxis',      cms: null },
+  'sb-y-format':      { hl: 'yaxis',      cms: 'yAxisFormat' },
+  'toggle-legend':    { hl: 'legend',     cms: 'showLegend' },
+  'toggle-tooltip':   { hl: 'tooltip',    cms: 'showTooltip' },
+  'sb-tt-prefix':     { hl: 'tooltip',    cms: 'tooltipPrefix' },
+  'sb-tt-suffix':     { hl: 'tooltip',    cms: 'tooltipSuffix' },
+  'sb-height':        { hl: null,         cms: 'chartHeight' },
+  'sb-csv-url':       { hl: null,         cms: 'csvUrl' },
+  'sb-inner-size':    { hl: null,         cms: 'innerSize' },
+  'toggle-markers':   { hl: 'series',     cms: 'showMarkers' },
+  'sb-api-key':       { hl: null,         cms: null },
+};
+
+// Accordion-level highlights (hover entire section header)
+const SECTION_MAP = {
+  'acc-body-colours': { hl: 'series',   cms: null },
+  'acc-body-lines':   { hl: 'series',   cms: null },
+  'acc-body-xaxis':   { hl: 'xaxis',    cms: null },
+  'acc-body-yaxis':   { hl: 'yaxis',    cms: null },
+  'acc-body-legend':  { hl: 'legend',   cms: null },
+  'acc-body-tooltip': { hl: 'tooltip',  cms: null },
+  'acc-body-labels':  { hl: 'title',    cms: null },
+};
+
+function initFieldHovers() {
+  // Per-field hover
+  Object.entries(FIELD_MAP).forEach(([id, cfg]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const row = el.closest('.field-row');
+    if (!row) return;
+    row.addEventListener('mouseenter', e => {
+      if (cfg.hl) highlightChartEl(cfg.hl);
+      if (cfg.cms) showCmsTooltip(row, cfg.cms);
+    });
+    row.addEventListener('mouseleave', () => { clearChartHighlight(); hideCmsTooltip(); });
+  });
+
+  // Seg-group field rows — match by data attributes set in renderSegGroups
+  document.querySelectorAll('.field-row[data-hl]').forEach(row => {
+    row.addEventListener('mouseenter', () => {
+      highlightChartEl(row.dataset.hl);
+      if (row.dataset.cms) showCmsTooltip(row, row.dataset.cms);
+    });
+    row.addEventListener('mouseleave', () => { clearChartHighlight(); hideCmsTooltip(); });
+  });
+
+  // Section-level hover on accordion headers
+  Object.entries(SECTION_MAP).forEach(([bodyId, cfg]) => {
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    const header = body.previousElementSibling;
+    if (!header) return;
+    header.addEventListener('mouseenter', () => { if (cfg.hl) highlightChartEl(cfg.hl); });
+    header.addEventListener('mouseleave', () => clearChartHighlight());
+  });
+}
+
+// Ring element
+const hlRing = document.getElementById('chart-hl-ring');
+let hlClearTimer = null;
+
+function highlightChartEl(target) {
+  if (!chartInstance) return;
+  clearTimeout(hlClearTimer);
+  const chart = chartInstance;
+
+  let svgEl = null;
+  try {
+    switch (target) {
+      case 'title':
+        svgEl = chart.title?.element; break;
+      case 'subtitle':
+        svgEl = chart.subtitle?.element; break;
+      case 'xaxis':
+        svgEl = chart.xAxis?.[0]?.labelGroup?.element
+             || chart.xAxis?.[0]?.axisLine?.element; break;
+      case 'yaxis':
+        svgEl = chart.yAxis?.[0]?.labelGroup?.element
+             || chart.yAxis?.[0]?.gridGroup?.element; break;
+      case 'legend':
+        svgEl = chart.legend?.group?.element; break;
+      case 'tooltip':
+        // Highlight the plot area (where tooltip appears)
+        svgEl = chart.plotBackground?.element || chart.container; break;
+      case 'datalabels':
+        svgEl = chart.container.querySelector('.highcharts-data-labels'); break;
+      case 'series':
+        // Highlight the entire plot area / series group
+        svgEl = chart.seriesGroup?.element
+             || chart.container.querySelector('.highcharts-series-group'); break;
+      default: break;
+    }
+  } catch(e) {}
+
+  if (!svgEl) { hlRing.style.display = 'none'; return; }
+
+  const rect = svgEl.getBoundingClientRect();
+  if (!rect.width && !rect.height) { hlRing.style.display = 'none'; return; }
+
+  const pad = 6;
+  hlRing.style.cssText = `
+    position: fixed;
+    display: block;
+    left: ${rect.left - pad}px;
+    top: ${rect.top - pad}px;
+    width: ${rect.width + pad * 2}px;
+    height: ${rect.height + pad * 2}px;
+    border: 2px solid #009d80;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 200;
+    animation: hlPulse 1.4s ease-in-out infinite;
+    box-shadow: 0 0 0 4px rgba(0,157,128,0.18);
+  `;
+}
+
+function clearChartHighlight() {
+  hlRing.style.display = 'none';
+}
+
+function showCmsTooltip(rowEl, cmsKey) {
+  const tooltip = document.getElementById('cms-key-tooltip');
+  const keyEl = document.getElementById('cms-key-value');
+  if (!tooltip || !keyEl) return;
+  keyEl.textContent = cmsKey;
+  const rect = rowEl.getBoundingClientRect();
+  const tooltipW = 160;
+  // Position to the left of sidebar
+  let left = rect.left - tooltipW - 12;
+  if (left < 8) left = rect.right + 8; // fallback: right side
+  const top = rect.top + rect.height / 2 - 18;
+  tooltip.style.cssText = `
+    position: fixed;
+    display: block;
+    left: ${left}px;
+    top: ${top}px;
+    z-index: 500;
+    pointer-events: none;
+  `;
+  // Flip arrow direction if tooltip moved to right
+  tooltip.style.setProperty('--arrow-dir', left > rect.left ? 'right' : 'left');
+}
+
+function hideCmsTooltip() {
+  const tooltip = document.getElementById('cms-key-tooltip');
+  if (tooltip) tooltip.style.display = 'none';
+}
+
+// Re-init hovers whenever sidebar content changes (after renderColourRows, etc.)
+const _origRenderColourRows = renderColourRows;
+function renderColourRows() {
+  _origRenderColourRows();
+  // Add hover to dynamically generated series colour rows
+  document.querySelectorAll('.series-colour-section').forEach((sec, i) => {
+    sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
+    sec.addEventListener('mouseleave', () => clearChartHighlight());
+  });
+  initFieldHovers();
+}
+
+function highlightSeriesEl(idx) {
+  if (!chartInstance) return;
+  try {
+    const s = chartInstance.series[idx];
+    const svgEl = s?.group?.element || s?.graph?.element;
+    if (svgEl) {
+      const rect = svgEl.getBoundingClientRect();
+      const pad = 6;
+      hlRing.style.cssText = `
+        position: fixed;
+        display: block;
+        left: ${rect.left - pad}px;
+        top: ${rect.top - pad}px;
+        width: ${rect.width + pad * 2}px;
+        height: ${rect.height + pad * 2}px;
+        border: 2px solid #009d80;
+        border-radius: 4px;
+        pointer-events: none;
+        z-index: 200;
+        animation: hlPulse 1.4s ease-in-out infinite;
+        box-shadow: 0 0 0 4px rgba(0,157,128,0.18);
+      `;
+    }
+  } catch(e) {}
+}
+
+// Attach seg-group rows with data-hl at load
+window.addEventListener('DOMContentLoaded', () => {
+  // Tag seg-group rows that don't have a named input
+  const segRows = [
+    { nearId: 'acc-body-xaxis',   rows: [[1, 'xaxis', 'xLabelRotation']] },
+    { nearId: 'acc-body-legend',  rows: [[1, 'legend', 'legendPosition']] },
+    { nearId: 'acc-body-advanced',rows: [[1, null, 'stacking'],[2,null,'zoomType']] },
+  ];
+  document.querySelectorAll('#acc-body-lines .field-row').forEach((row, i) => {
+    const map = [
+      { hl:'series', cms:'lineWidth' },
+      { hl:'series', cms:'showMarkers' },
+      { hl:'series', cms:'dashStyle' },
+      { hl:'series', cms:null },
+    ];
+    if (map[i]) { row.dataset.hl = map[i].hl; if (map[i].cms) row.dataset.cms = map[i].cms; }
+  });
+  document.querySelectorAll('#acc-body-xaxis .field-row').forEach((row, i) => {
+    row.dataset.hl = 'xaxis';
+    if (i === 1) row.dataset.cms = 'xLabelRotation';
+  });
+  document.querySelectorAll('#acc-body-legend .field-row').forEach((row, i) => {
+    row.dataset.hl = 'legend';
+    if (i === 1) row.dataset.cms = 'legendPosition';
+  });
+  document.querySelectorAll('#acc-body-labels .field-row').forEach((row, i) => {
+    const map = [
+      { hl:'title',      cms:'title' },
+      { hl:'subtitle',   cms:'subtitle' },
+      { hl:'datalabels', cms:'showDataLabels' },
+      { hl:'datalabels', cms:'valueSuffix' },
+    ];
+    if (map[i]) { row.dataset.hl = map[i].hl; row.dataset.cms = map[i].cms; }
+  });
+  initFieldHovers();
+}, { once: true });
 </script>
 </body>
 </html>

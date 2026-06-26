@@ -126,84 +126,133 @@ body {
 .btn-filled:hover { background: #007d66; }
 
 /* ─── Chart Type Bar ─── */
+#chart-type-bar-wrap {
+  background: #fff;
+  border-bottom: 2px solid #e8e8e8;
+  flex-shrink: 0;
+  padding: 0 16px;
+}
+
+#chart-type-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 6px;
+  gap: 12px;
+}
+
+#chart-type-bar-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+#hc-demo-link {
+  font-size: 11px;
+  color: #009d80;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+#hc-demo-link:hover { opacity: 1; }
+
 #chart-type-bar {
   display: flex;
   align-items: stretch;
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
   overflow-x: auto;
-  flex-shrink: 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  gap: 0;
+  padding-bottom: 8px;
+  gap: 8px;
 }
 #chart-type-bar::-webkit-scrollbar { display: none; }
 
 .ct-group {
   display: flex;
-  align-items: stretch;
-  gap: 0;
+  align-items: flex-end;
+  gap: 4px;
+  padding-right: 12px;
   border-right: 1px solid #ececec;
-  padding: 0 4px;
+  flex-shrink: 0;
 }
-.ct-group:last-child { border-right: none; }
+.ct-group:last-child { border-right: none; padding-right: 0; }
+
+.ct-group-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
 
 .ct-group-label {
-  writing-mode: initial;
   font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #ccc;
-  padding: 0 6px;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
+  letter-spacing: 0.07em;
+  color: #bbb;
+  font-weight: 700;
+  padding-left: 2px;
   user-select: none;
+}
+
+.ct-cards-row {
+  display: flex;
+  gap: 4px;
 }
 
 .ct-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding: 6px 10px;
-  border: none;
-  background: none;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 6px 8px 5px;
+  border: 2px solid #eee;
+  border-radius: 7px;
+  background: #fafafa;
   cursor: pointer;
   font-family: inherit;
   font-size: 10px;
+  font-weight: 600;
   color: #888;
-  font-weight: 500;
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-  min-width: 64px;
+  transition: border-color 0.13s, background 0.13s, color 0.13s, box-shadow 0.13s;
+  min-width: 70px;
   flex-shrink: 0;
   position: relative;
 }
-.ct-btn:hover { background: #f5faf9; color: #333; }
-.ct-btn.active { color: #009d80; border-bottom-color: #009d80; background: #f0faf8; }
-.ct-btn.dev-type { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
-
-.ct-btn svg { display: block; }
-
-/* Tooltip on chart type button */
-.ct-btn[title]:hover::after {
-  content: attr(title);
+.ct-btn:hover {
+  border-color: #009d80;
+  background: #f0faf8;
+  color: #009d80;
+  box-shadow: 0 2px 8px rgba(0,157,128,0.12);
+}
+.ct-btn.active {
+  border-color: #009d80;
+  background: #e8f7f4;
+  color: #007a62;
+  box-shadow: 0 2px 8px rgba(0,157,128,0.15);
+}
+.ct-btn.active::after {
+  content: '';
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: -8px;
   left: 50%;
   transform: translateX(-50%);
-  background: #1a1a1a;
-  color: #fff;
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 400;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #009d80;
 }
+.ct-btn.dev-type { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.ct-btn svg { display: block; }
 
 /* ─── App Body ─── */
 #app {
@@ -1300,13 +1349,9 @@ pre#config-output {
   border-radius: 4px;
   pointer-events: none;
   z-index: 200;
-  box-shadow: 0 0 0 4px rgba(0,157,128,0.18);
-  animation: hlPulse 1.4s ease-in-out infinite;
-  transition: left 0.12s, top 0.12s, width 0.12s, height 0.12s;
-}
-@keyframes hlPulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(0,157,128,0.18); }
-  50%       { box-shadow: 0 0 0 10px rgba(0,157,128,0.05); }
+  box-shadow: 0 0 0 3px rgba(0,157,128,0.15);
+  transition: left 0.1s, top 0.1s, width 0.1s, height 0.1s;
+  background: rgba(0,157,128,0.04);
 }
 
 /* ─── CMS key tooltip ─── */
@@ -1345,10 +1390,11 @@ pre#config-output {
 
 /* ─── Mobile ─── */
 @media (max-width: 768px) {
-  #chart-type-bar { gap: 0; }
-  .ct-group-label { display: none; }
-  .ct-btn { min-width: 52px; padding: 5px 6px; font-size: 9px; }
-  .ct-btn svg { width: 26px; height: 18px; }
+  #chart-type-bar-header { padding: 6px 0 4px; }
+  #chart-type-bar-wrap { padding: 0 10px; }
+  .ct-group-label { font-size: 8px; }
+  .ct-btn { min-width: 54px; padding: 5px 6px 4px; font-size: 9px; }
+  .ct-btn svg { width: 28px; height: 20px; }
 
   body { overflow: auto; height: auto; min-height: 100vh; }
 
@@ -1454,7 +1500,16 @@ pre#config-output {
 </div>
 
 <!-- ─── Chart Type Bar ─── -->
-<div id="chart-type-bar"></div>
+<div id="chart-type-bar-wrap">
+  <div id="chart-type-bar-header">
+    <span id="chart-type-bar-title">Chart type</span>
+    <a id="hc-demo-link" href="https://www.highcharts.com/demo/" target="_blank" rel="noopener">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7 1h4v4M11 1L5 7M2 3H1v8h8V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Highcharts demo library
+    </a>
+  </div>
+  <div id="chart-type-bar"></div>
+</div>
 
 <!-- ─── App Body ─── -->
 <div id="app">
@@ -2139,13 +2194,14 @@ function renderChartTypeBar() {
   if (!bar) return;
   let html = '';
   CHART_TYPES.forEach(group => {
-    html += `<div class="ct-group">`;
-    html += `<div class="ct-group-label">${group.group.split(' ')[0]}</div>`;
+    const isDev = !!group.dev;
+    html += `<div class="ct-group">
+      <div class="ct-group-stack">
+        <div class="ct-group-label">${group.group}</div>
+        <div class="ct-cards-row">`;
     group.charts.forEach(c => {
       const isActive = state.chartType === c.type;
-      const isDev = !!group.dev;
       const isCms = cmsAvailability[c.type] !== undefined ? cmsAvailability[c.type] : c.cms;
-      const cmsBadge = isCms ? '' : ' ⚙';
       html += `<button
         class="ct-btn${isActive ? ' active' : ''}${isDev ? ' dev-type' : ''}"
         onclick="selectChartType('${c.type}')"
@@ -2154,10 +2210,10 @@ function renderChartTypeBar() {
         title="${c.desc}"
         ${isDev ? 'disabled' : ''}>
         ${chartMiniSvgBar(c.type)}
-        ${c.label}${cmsBadge}
+        ${c.label}
       </button>`;
     });
-    html += `</div>`;
+    html += `</div></div></div>`;
   });
   bar.innerHTML = html;
 }

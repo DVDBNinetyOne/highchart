@@ -485,6 +485,17 @@ pre#config-output {
   border-radius: 4px;
   white-space: pre;
   margin: 0;
+  transition: max-height 0.25s ease;
+}
+
+pre#config-output.expanded {
+  max-height: 60vh;
+}
+
+#config-expand-btn {
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 8px;
 }
 
 .copy-btn-small {
@@ -1666,10 +1677,15 @@ pre#config-output {
         <div id="chart-container"></div>
       </div>
       <div class="card" style="padding:16px 24px">
-        <div class="config-label">CMS CONFIG — paste into Sitecore</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="config-label">CMS CONFIG — paste into Sitecore</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="copy-btn-small" onclick="copyConfig()" style="position:static">Copy</button>
+            <button id="config-expand-btn" class="copy-btn-small" onclick="toggleConfigExpand()" style="position:static;background:#555" title="Expand/collapse">⤢</button>
+          </div>
+        </div>
         <div class="pre-wrap">
           <pre id="config-output"></pre>
-          <button class="copy-btn-small" onclick="copyConfig()">Copy</button>
         </div>
       </div>
     </div>
@@ -3072,7 +3088,7 @@ function update() {
 function renderConfig() {
   const cfg = generateConfig();
   const inner = formatConfig(cfg, 1);
-  const full = `var chartConfig = {\n${inner}\n};`;
+  const full = `{\n${inner}\n}`;
   document.getElementById('config-output').innerHTML = highlighted(full);
 }
 
@@ -3270,6 +3286,14 @@ function highlighted(text) {
     .replace(/:\s*(-?\d+\.?\d*)/g, ': <span class="hl-num">$1</span>')
     .replace(/:\s*(true|false)/g, ': <span class="hl-bool">$1</span>')
     .replace(/:\s*(null)/g, ': <span class="hl-null">$1</span>');
+}
+
+function toggleConfigExpand() {
+  const pre = document.getElementById('config-output');
+  const btn = document.getElementById('config-expand-btn');
+  const expanded = pre.classList.toggle('expanded');
+  btn.textContent = expanded ? '⤡' : '⤢';
+  btn.title = expanded ? 'Collapse' : 'Expand';
 }
 
 function copyConfig() {

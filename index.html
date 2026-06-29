@@ -2290,6 +2290,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const key = localStorage.getItem('n1_api_key');
   if (key) document.getElementById('sb-api-key').value = key;
 
+  applyThemeCss(selectedTheme);
   renderChartTypeBar();
   renderThemePills();
   renderColourRows();
@@ -2422,10 +2423,75 @@ function renderThemePills() {
   }).join('');
 }
 
+function applyThemeCss(key) {
+  const t = N1_THEMES[key] || N1_THEMES['springbok-cream'];
+  const textRgb  = hexToRgb(t.bodyColor);
+  const accentRgb = hexToRgb(t.accentColor);
+  const border   = `rgba(${textRgb},0.15)`;
+  const muted    = `rgba(${textRgb},0.5)`;
+  const hover    = `rgba(${textRgb},0.06)`;
+  const inputBg  = `rgba(${textRgb},0.07)`;
+  const ac       = t.accentColor;
+
+  const css = `
+    body, #main-area { background: ${t.pageBackground} !important; color: ${t.bodyColor} !important; }
+    #chart-type-bar-wrap { background: ${t.contentBackground} !important; border-bottom-color: ${border} !important; }
+    #chart-type-bar-title, .ct-group-label { color: ${muted} !important; }
+    .ct-group { border-right-color: ${border} !important; }
+    .ct-btn { background: ${t.contentBackground} !important; border-color: ${border} !important; color: ${t.bodyColor} !important; box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important; }
+    .ct-btn:hover { background: ${hover} !important; border-color: ${ac} !important; color: ${ac} !important; box-shadow: 0 3px 10px rgba(${accentRgb},0.2) !important; }
+    .ct-btn.active { background: rgba(${accentRgb},0.14) !important; border-color: ${ac} !important; color: ${ac} !important; }
+    .ct-btn.active::before { color: ${ac} !important; }
+    #hc-demo-link, #hc-demo-link svg path { color: ${ac} !important; stroke: ${ac} !important; }
+    #settings-sidebar { background: ${t.contentBackground} !important; border-left-color: ${border} !important; }
+    .sidebar-type-btn { color: ${t.bodyColor} !important; border-bottom-color: ${border} !important; background: none !important; }
+    .sidebar-type-btn:hover { background: ${hover} !important; }
+    .sidebar-divider { background: ${border} !important; }
+    .accordion-section { border-bottom-color: ${border} !important; }
+    .accordion-header { color: ${muted} !important; background: none !important; }
+    .accordion-header:hover { background: ${hover} !important; }
+    .accordion-header .chevron { color: ${muted} !important; }
+    .field-row label { color: ${muted} !important; }
+    .field-input { background: ${inputBg} !important; color: ${t.bodyColor} !important; border-color: ${border} !important; }
+    .field-input:focus { border-color: ${ac} !important; box-shadow: 0 0 0 2px rgba(${accentRgb},0.15) !important; }
+    .seg-group { border-color: ${border} !important; }
+    .seg-btn { background: ${inputBg} !important; color: ${muted} !important; }
+    .seg-btn.active { background: ${t.bodyColor} !important; color: ${t.pageBackground} !important; }
+    .series-colour-section { border-bottom-color: ${border} !important; }
+    .series-name-label { color: ${t.bodyColor} !important; }
+    .hex-input { background: ${inputBg} !important; color: ${t.bodyColor} !important; border-color: ${border} !important; }
+    .sidebar-search { background: ${t.contentBackground} !important; border-top-color: ${border} !important; }
+    .sidebar-search input { background: ${inputBg} !important; color: ${t.bodyColor} !important; border-color: ${border} !important; }
+    .card { background: ${t.contentBackground} !important; box-shadow: 0 1px 6px rgba(0,0,0,0.14) !important; }
+    .config-label { color: ${muted} !important; }
+    pre#config-output { background: ${t.pageBackground} !important; color: ${t.bodyColor} !important; }
+    .pre-wrap { border-color: ${border} !important; }
+    .theme-selector-label { color: ${muted} !important; }
+    .ts-info { background: ${border} !important; color: ${t.bodyColor} !important; }
+    .data-toolbar { background: ${t.contentBackground} !important; }
+    .data-toolbar-hint { color: ${muted} !important; }
+    .spreadsheet-card { background: ${t.contentBackground} !important; }
+    #data-grid th { background: ${t.contentBackground} !important; color: ${muted} !important; border-color: ${border} !important; }
+    #data-grid td { border-color: ${border} !important; background: ${t.pageBackground} !important; }
+    #data-grid td input { color: ${t.bodyColor} !important; background: transparent !important; }
+    #data-grid td input:focus { background: ${hover} !important; }
+    .add-row-cell { color: ${ac} !important; border-top-color: ${border} !important; }
+    .add-series-th { background: ${t.contentBackground} !important; color: ${ac} !important; }
+    .colour-swatch.selected { border-color: ${t.bodyColor} !important; }
+    .colour-override-warning { background: rgba(${hexToRgb(t.headingColor)},0.12) !important; border-color: rgba(${hexToRgb(t.headingColor)},0.4) !important; color: ${t.bodyColor} !important; }
+    .colour-override-warning .warn-close { color: ${muted} !important; }
+  `;
+
+  let el = document.getElementById('n1-theme-css');
+  if (!el) { el = document.createElement('style'); el.id = 'n1-theme-css'; document.head.appendChild(el); }
+  el.textContent = css;
+}
+
 function applyTheme(key) {
   if (!N1_THEMES[key]) return;
   selectedTheme = key;
   try { localStorage.setItem('n1_selected_theme', key); } catch(e) {}
+  applyThemeCss(key);
   renderThemePills();
   renderColourRows();
   schedUpdate();
@@ -2926,12 +2992,6 @@ function update() {
   const headCol = theme.headingColor;
   const gridCol = `rgba(${hexToRgb(theme.bodyColor)},0.12)`;
 
-  // Apply preview panel background
-  const previewCard = document.getElementById('preview-card');
-  if (previewCard) {
-    previewCard.style.background = theme.previewBg;
-    previewCard.style.color = theme.previewText;
-  }
 
   const hcType = s.chartType === 'donut' ? 'pie' : s.chartType;
   const isPie = ['pie','donut'].includes(s.chartType);

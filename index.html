@@ -2031,149 +2031,168 @@ pre#config-output {
 ═══════════════════════════════════════════ */
 const N1_PALETTE = ['#164848','#009d80','#7ab5b5','#c8e0e0','#FBAA96','#d83949','#74908D','#f0a500','#116e62','#199e81','#f8aa96','#c1756e','#dc4354','#114141','#b2a896','#221b3b'];
 
+// Ninety One official Sitecore theme combinations — Primary + Accent
 const N1_THEMES = {
-  'springbok-cream': {
-    label: 'Springbok Cream',
-    primaryColor: '#e8e5ce',
-    pageBackground: '#e8e5ce',
-    contentBackground: '#f0ede0',
-    headingColor: '#009d80',
-    bodyColor: '#164848',
-    accentColor: '#009d80',
+  // ── Springbok Cream primary ──
+  'springbok-cream_ocean-teal': {
+    label: 'Springbok Cream', sublabel: 'Ocean Teal',
+    primaryColor: '#e8e5ce', pageBackground: '#e8e5ce', contentBackground: '#f0ede0',
+    headingColor: '#009d80', bodyColor: '#164848', accentColor: '#009d80',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#009d80','#7ab5b5','#FBAA96','#f0a500','#8a8a8a'],
-    previewBg: '#e8e5ce',
-    previewText: '#164848'
+    chartSeriesColors: ['#164848','#009d80','#7ab5b5','#FBAA96','#f0a500','#74908D'],
+    previewBg: '#e8e5ce', previewText: '#164848',
   },
-  'agulhas-indigo': {
-    label: 'Agulhas Indigo',
-    primaryColor: '#122b39',
-    pageBackground: '#122b39',
-    contentBackground: '#1a3545',
-    headingColor: '#FBAA96',
-    bodyColor: '#e8e5ce',
-    accentColor: '#FBAA96',
+  'springbok-cream_pinotage-burgundy': {
+    label: 'Springbok Cream', sublabel: 'Pinotage Burgundy',
+    primaryColor: '#e8e5ce', pageBackground: '#e8e5ce', contentBackground: '#f0ede0',
+    headingColor: '#571b39', bodyColor: '#164848', accentColor: '#571b39',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#164848','#571b39','#009d80','#7ab5b5','#FBAA96','#74908D'],
+    previewBg: '#e8e5ce', previewText: '#164848',
+  },
+  'springbok-cream_protea-red': {
+    label: 'Springbok Cream', sublabel: 'Protea Red',
+    primaryColor: '#e8e5ce', pageBackground: '#e8e5ce', contentBackground: '#f0ede0',
+    headingColor: '#d83949', bodyColor: '#164848', accentColor: '#d83949',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#164848','#d83949','#009d80','#7ab5b5','#FBAA96','#74908D'],
+    previewBg: '#e8e5ce', previewText: '#164848',
+  },
+  // ── Agulhas Indigo primary ──
+  'agulhas-indigo_cape-coral': {
+    label: 'Agulhas Indigo', sublabel: 'Cape Coral',
+    primaryColor: '#122b39', pageBackground: '#122b39', contentBackground: '#1a3848',
+    headingColor: '#FBAA96', bodyColor: '#e8e5ce', accentColor: '#FBAA96',
     chartBackground: 'transparent',
     chartSeriesColors: ['#FBAA96','#009d80','#7ab5b5','#c8e0e0','#f0a500','#74908D'],
-    previewBg: '#122b39',
-    previewText: '#e8e5ce'
+    previewBg: '#122b39', previewText: '#e8e5ce',
   },
-  'leatherback-green': {
-    label: 'Leatherback Green',
-    primaryColor: '#164848',
-    pageBackground: '#164848',
-    contentBackground: '#1a5252',
-    headingColor: '#FBAA96',
-    bodyColor: '#e8e5ce',
-    accentColor: '#FBAA96',
+  'agulhas-indigo_gazania-gold': {
+    label: 'Agulhas Indigo', sublabel: 'Gazania Gold',
+    primaryColor: '#122b39', pageBackground: '#122b39', contentBackground: '#1a3848',
+    headingColor: '#cf6f13', bodyColor: '#e8e5ce', accentColor: '#cf6f13',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#cf6f13','#FBAA96','#009d80','#c8e0e0','#7ab5b5','#74908D'],
+    previewBg: '#122b39', previewText: '#e8e5ce',
+  },
+  'agulhas-indigo_ocean-teal': {
+    label: 'Agulhas Indigo', sublabel: 'Ocean Teal',
+    primaryColor: '#122b39', pageBackground: '#122b39', contentBackground: '#1a3848',
+    headingColor: '#009d80', bodyColor: '#e8e5ce', accentColor: '#009d80',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#009d80','#FBAA96','#7ab5b5','#c8e0e0','#f0a500','#74908D'],
+    previewBg: '#122b39', previewText: '#e8e5ce',
+  },
+  'agulhas-indigo_protea-red': {
+    label: 'Agulhas Indigo', sublabel: 'Protea Red',
+    primaryColor: '#122b39', pageBackground: '#122b39', contentBackground: '#1a3848',
+    headingColor: '#d83949', bodyColor: '#e8e5ce', accentColor: '#d83949',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#d83949','#FBAA96','#009d80','#7ab5b5','#f0a500','#74908D'],
+    previewBg: '#122b39', previewText: '#e8e5ce',
+  },
+  'agulhas-indigo_warm-yellowwood': {
+    label: 'Agulhas Indigo', sublabel: 'Warm Yellowwood',
+    primaryColor: '#122b39', pageBackground: '#122b39', contentBackground: '#1a3848',
+    headingColor: '#f0a500', bodyColor: '#e8e5ce', accentColor: '#f0a500',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#f0a500','#FBAA96','#009d80','#7ab5b5','#c8e0e0','#74908D'],
+    previewBg: '#122b39', previewText: '#e8e5ce',
+  },
+  // ── Leatherback Green primary ──
+  'leatherback-green_cape-coral': {
+    label: 'Leatherback Green', sublabel: 'Cape Coral',
+    primaryColor: '#164848', pageBackground: '#164848', contentBackground: '#1c5555',
+    headingColor: '#FBAA96', bodyColor: '#e8e5ce', accentColor: '#FBAA96',
     chartBackground: 'transparent',
     chartSeriesColors: ['#FBAA96','#f0a500','#7ab5b5','#c8e0e0','#009d80','#74908D'],
-    previewBg: '#164848',
-    previewText: '#e8e5ce'
+    previewBg: '#164848', previewText: '#e8e5ce',
   },
-  'marula-green': {
-    label: 'Marula Green',
-    primaryColor: '#3a4333',
-    pageBackground: '#3a4333',
-    contentBackground: '#424b3a',
-    headingColor: '#FBAA96',
-    bodyColor: '#e8e5ce',
-    accentColor: '#FBAA96',
+  'leatherback-green_warm-yellowwood': {
+    label: 'Leatherback Green', sublabel: 'Warm Yellowwood',
+    primaryColor: '#164848', pageBackground: '#164848', contentBackground: '#1c5555',
+    headingColor: '#f0a500', bodyColor: '#e8e5ce', accentColor: '#f0a500',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#f0a500','#FBAA96','#7ab5b5','#c8e0e0','#009d80','#74908D'],
+    previewBg: '#164848', previewText: '#e8e5ce',
+  },
+  // ── Marula Green primary ──
+  'marula-green_cape-coral': {
+    label: 'Marula Green', sublabel: 'Cape Coral',
+    primaryColor: '#3a4333', pageBackground: '#3a4333', contentBackground: '#444d3c',
+    headingColor: '#FBAA96', bodyColor: '#e8e5ce', accentColor: '#FBAA96',
     chartBackground: 'transparent',
     chartSeriesColors: ['#FBAA96','#009d80','#f0a500','#7ab5b5','#c8e0e0','#74908D'],
-    previewBg: '#3a4333',
-    previewText: '#e8e5ce'
+    previewBg: '#3a4333', previewText: '#e8e5ce',
   },
-  'ocean-teal': {
-    label: 'Ocean Teal',
-    primaryColor: '#009d80',
-    pageBackground: '#009d80',
-    contentBackground: '#00b090',
-    headingColor: '#164848',
-    bodyColor: '#164848',
-    accentColor: '#164848',
+  'marula-green_gazania-gold': {
+    label: 'Marula Green', sublabel: 'Gazania Gold',
+    primaryColor: '#3a4333', pageBackground: '#3a4333', contentBackground: '#444d3c',
+    headingColor: '#cf6f13', bodyColor: '#e8e5ce', accentColor: '#cf6f13',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#FBAA96','#f0a500','#221b3b','#c8e0e0','#74908D'],
-    previewBg: '#009d80',
-    previewText: '#164848'
+    chartSeriesColors: ['#cf6f13','#FBAA96','#009d80','#7ab5b5','#c8e0e0','#74908D'],
+    previewBg: '#3a4333', previewText: '#e8e5ce',
   },
-  'cape-coral': {
-    label: 'Cape Coral',
-    primaryColor: '#FBAA96',
-    pageBackground: '#FBAA96',
-    contentBackground: '#fbb8a6',
-    headingColor: '#164848',
-    bodyColor: '#164848',
-    accentColor: '#164848',
+  'marula-green_ocean-teal': {
+    label: 'Marula Green', sublabel: 'Ocean Teal',
+    primaryColor: '#3a4333', pageBackground: '#3a4333', contentBackground: '#444d3c',
+    headingColor: '#009d80', bodyColor: '#e8e5ce', accentColor: '#009d80',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#009d80','#221b3b','#7ab5b5','#f0a500','#74908D'],
-    previewBg: '#FBAA96',
-    previewText: '#164848'
+    chartSeriesColors: ['#009d80','#FBAA96','#f0a500','#7ab5b5','#c8e0e0','#74908D'],
+    previewBg: '#3a4333', previewText: '#e8e5ce',
   },
-  'gazania-gold': {
-    label: 'Gazania Gold',
-    primaryColor: '#cf6f13',
-    pageBackground: '#cf6f13',
-    contentBackground: '#d97a1a',
-    headingColor: '#164848',
-    bodyColor: '#164848',
-    accentColor: '#164848',
+  // ── Galjoen Grey primary ──
+  'galjoen-grey_cape-coral': {
+    label: 'Galjoen Grey', sublabel: 'Cape Coral',
+    primaryColor: '#5c686a', pageBackground: '#5c686a', contentBackground: '#67757a',
+    headingColor: '#FBAA96', bodyColor: '#e8e5ce', accentColor: '#FBAA96',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#221b3b','#009d80','#FBAA96','#7ab5b5','#74908D'],
-    previewBg: '#cf6f13',
-    previewText: '#164848'
+    chartSeriesColors: ['#FBAA96','#e8e5ce','#009d80','#f0a500','#7ab5b5','#c8e0e0'],
+    previewBg: '#5c686a', previewText: '#e8e5ce',
   },
-  'pinotage-burgundy': {
-    label: 'Pinotage Burgundy',
-    primaryColor: '#571b39',
-    pageBackground: '#571b39',
-    contentBackground: '#62203f',
-    headingColor: '#FBAA96',
-    bodyColor: '#e8e5ce',
-    accentColor: '#FBAA96',
+  'galjoen-grey_marula-green': {
+    label: 'Galjoen Grey', sublabel: 'Marula Green',
+    primaryColor: '#5c686a', pageBackground: '#5c686a', contentBackground: '#67757a',
+    headingColor: '#FBAA96', bodyColor: '#e8e5ce', accentColor: '#FBAA96',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#FBAA96','#009d80','#f0a500','#7ab5b5','#c8e0e0','#74908D'],
-    previewBg: '#571b39',
-    previewText: '#e8e5ce'
+    chartSeriesColors: ['#e8e5ce','#FBAA96','#009d80','#f0a500','#7ab5b5','#c8e0e0'],
+    previewBg: '#5c686a', previewText: '#e8e5ce',
   },
-  'protea-red': {
-    label: 'Protea Red',
-    primaryColor: '#d83949',
-    pageBackground: '#d83949',
-    contentBackground: '#e04050',
-    headingColor: '#e8e5ce',
-    bodyColor: '#e8e5ce',
-    accentColor: '#e8e5ce',
-    chartBackground: 'transparent',
-    chartSeriesColors: ['#e8e5ce','#FBAA96','#f0a500','#164848','#7ab5b5','#74908D'],
-    previewBg: '#d83949',
-    previewText: '#e8e5ce'
-  },
-  'vervet-grey': {
-    label: 'Vervet Grey',
-    primaryColor: '#4f6266',
-    pageBackground: '#4f6266',
-    contentBackground: '#586c70',
-    headingColor: '#FBAA96',
-    bodyColor: '#e8e5ce',
-    accentColor: '#FBAA96',
+  // ── Vervet Grey primary ──
+  'vervet-grey_cape-coral': {
+    label: 'Vervet Grey', sublabel: 'Cape Coral',
+    primaryColor: '#4f6266', pageBackground: '#4f6266', contentBackground: '#586c70',
+    headingColor: '#FBAA96', bodyColor: '#e8e5ce', accentColor: '#FBAA96',
     chartBackground: 'transparent',
     chartSeriesColors: ['#FBAA96','#009d80','#f0a500','#c8e0e0','#164848','#221b3b'],
-    previewBg: '#4f6266',
-    previewText: '#e8e5ce'
+    previewBg: '#4f6266', previewText: '#e8e5ce',
   },
-  'warm-yellowwood': {
-    label: 'Warm Yellowwood',
-    primaryColor: '#f0a500',
-    pageBackground: '#f0a500',
-    contentBackground: '#f5b020',
-    headingColor: '#164848',
-    bodyColor: '#164848',
-    accentColor: '#164848',
+  // ── Pinotage Burgundy primary ──
+  'pinotage-burgundy_cape-coral': {
+    label: 'Pinotage Burgundy', sublabel: 'Cape Coral',
+    primaryColor: '#571b39', pageBackground: '#571b39', contentBackground: '#641f41',
+    headingColor: '#FBAA96', bodyColor: '#e8e5ce', accentColor: '#FBAA96',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#009d80','#221b3b','#FBAA96','#7ab5b5','#74908D'],
-    previewBg: '#f0a500',
-    previewText: '#164848'
+    chartSeriesColors: ['#FBAA96','#009d80','#f0a500','#7ab5b5','#c8e0e0','#74908D'],
+    previewBg: '#571b39', previewText: '#e8e5ce',
+  },
+  // ── Protea Red primary ──
+  'protea-red_springbok-cream': {
+    label: 'Protea Red', sublabel: 'Springbok Cream',
+    primaryColor: '#d83949', pageBackground: '#d83949', contentBackground: '#e04050',
+    headingColor: '#e8e5ce', bodyColor: '#e8e5ce', accentColor: '#e8e5ce',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#e8e5ce','#FBAA96','#f0a500','#164848','#7ab5b5','#74908D'],
+    previewBg: '#d83949', previewText: '#e8e5ce',
+  },
+  // ── Cape Coral primary ──
+  'cape-coral_pinotage-burgundy': {
+    label: 'Cape Coral', sublabel: 'Pinotage Burgundy',
+    primaryColor: '#FBAA96', pageBackground: '#FBAA96', contentBackground: '#fbb8a6',
+    headingColor: '#571b39', bodyColor: '#164848', accentColor: '#571b39',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#571b39','#164848','#009d80','#221b3b','#7ab5b5','#74908D'],
+    previewBg: '#FBAA96', previewText: '#164848',
   },
 };
 
@@ -2203,7 +2222,7 @@ const CHART_TYPES = [
   ]},
 ];
 
-let selectedTheme = 'springbok-cream';
+let selectedTheme = 'springbok-cream_ocean-teal';
 let overrideWarningDismissed = false;
 
 let state = {
@@ -2413,9 +2432,12 @@ function renderThemePills() {
       `<span style="width:7px;height:7px;border-radius:50%;background:${c};display:inline-block"></span>`
     ).join('');
     const isActive = selectedTheme === key;
-    return `<div class="atm-card${isActive ? ' active' : ''}" onclick="applyTheme('${key}')" title="${t.label}">
+    const fullLabel = t.sublabel ? `${t.label} — ${t.sublabel}` : t.label;
+    return `<div class="atm-card${isActive ? ' active' : ''}" onclick="applyTheme('${key}')" title="${fullLabel}">
       <div class="atm-card-bg" style="background:${t.previewBg}">
-        <div class="atm-card-label" style="color:${t.headingColor}">${t.label}</div>
+        <div class="atm-card-label" style="color:${t.headingColor};line-height:1.3">
+          ${t.label}<br><span style="opacity:0.75;font-weight:500">${t.sublabel || ''}</span>
+        </div>
         <div class="atm-series-bars">${bars}</div>
       </div>
       <div class="atm-card-footer" style="color:${t.bodyColor};background:${t.contentBackground}">${dots}</div>

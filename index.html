@@ -693,6 +693,36 @@ body {
   animation: n1-fade-up .3s .1s ease both;
 }
 
+/* ─── Config resize handle ─── */
+.config-resize-handle {
+  height: 12px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 4px;
+  margin: 2px 0;
+  user-select: none;
+  transition: background .15s;
+}
+.config-resize-handle:hover,
+.config-resize-handle.dragging { background: rgba(0,157,128,.07); }
+
+.config-resize-grip {
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d8d6cf;
+  transition: background .15s, width .15s;
+}
+.config-resize-handle:hover .config-resize-grip,
+.config-resize-handle.dragging .config-resize-grip {
+  background: #009d80;
+  width: 56px;
+}
+
 /* ─── Config card ─── */
 #config-card {
   background: #fff;
@@ -700,6 +730,11 @@ body {
   border: 0.5px solid #e0e0e0;
   overflow: hidden;
   animation: n1-fade-up .3s .2s ease both;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 220px;
+  min-height: 44px;
 }
 
 .config-card-head {
@@ -709,6 +744,7 @@ body {
   padding: 10px 14px;
   border-bottom: 0.5px solid #e0e0e0;
   background: #fafafa;
+  flex-shrink: 0;
 }
 
 .config-card-label {
@@ -723,7 +759,12 @@ body {
 }
 
 .config-card-actions { display: flex; gap: 6px; }
-.config-card-body { padding: 0; }
+.config-card-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
 /* ─── Right Panel ─── */
 #right-panel {
@@ -957,25 +998,26 @@ body {
 
 .pre-wrap {
   position: relative;
-  margin-top: 8px;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 pre#config-output {
-  max-height: 180px;
+  flex: 1;
   overflow-y: auto;
   background: #f8f8f8;
   font-family: monospace;
   font-size: 11px;
   padding: 12px;
-  border-radius: 4px;
+  border-radius: 0;
   white-space: pre;
   margin: 0;
-  transition: max-height 0.25s ease;
+  scrollbar-width: thin;
 }
-
-pre#config-output.expanded {
-  max-height: 60vh;
-}
+pre#config-output::-webkit-scrollbar { width: 4px; }
+pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
 
 #config-expand-btn {
   font-size: 14px;
@@ -2194,12 +2236,16 @@ pre#config-output.expanded {
           </div>
           <div id="chart-container"></div>
         </div>
+        <!-- Drag handle to resize config panel -->
+        <div class="config-resize-handle" id="config-resize-handle" title="Drag to resize">
+          <span class="config-resize-grip"></span>
+        </div>
+
         <div id="config-card">
           <div class="config-card-head">
             <span class="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions">
               <button class="copy-btn-small" onclick="copyConfig()" style="position:static">Copy</button>
-              <button id="config-expand-btn" class="copy-btn-small" onclick="toggleConfigExpand()" style="position:static;background:#555" title="Expand/collapse">⤢</button>
             </div>
           </div>
           <div class="config-card-body">
@@ -2867,6 +2913,7 @@ window.addEventListener('DOMContentLoaded', () => {
   checkColourOverrides();
   tagFieldRows();
   setTimeout(initFieldHovers, 300); // after Highcharts SVG renders
+  initConfigResize();
 });
 
 /* ═══════════════════════════════════════════
@@ -3820,12 +3867,57 @@ function highlighted(text) {
     .replace(/:\s*(null)/g, ': <span class="hl-null">$1</span>');
 }
 
-function toggleConfigExpand() {
-  const pre = document.getElementById('config-output');
-  const btn = document.getElementById('config-expand-btn');
-  const expanded = pre.classList.toggle('expanded');
-  btn.textContent = expanded ? '⤡' : '⤢';
-  btn.title = expanded ? 'Collapse' : 'Expand';
+/* ═══════════════════════════════════════════
+   CONFIG PANEL DRAG-TO-RESIZE
+═══════════════════════════════════════════ */
+function initConfigResize() {
+  const handle = document.getElementById('config-resize-handle');
+  const card   = document.getElementById('config-card');
+  if (!handle || !card) return;
+
+  let startY = 0, startH = 0, dragging = false;
+
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startY   = e.clientY;
+    startH   = card.getBoundingClientRect().height;
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp, { once: true });
+  });
+
+  function onMove(e) {
+    if (!dragging) return;
+    const delta = startY - e.clientY;  // drag up → bigger
+    const newH  = Math.max(44, Math.min(900, startH + delta));
+    card.style.height = newH + 'px';
+  }
+
+  function onUp() {
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMove);
+  }
+
+  // Touch support
+  handle.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startH = card.getBoundingClientRect().height;
+    handle.classList.add('dragging');
+  }, { passive: true });
+
+  handle.addEventListener('touchmove', e => {
+    const delta = startY - e.touches[0].clientY;
+    const newH  = Math.max(44, Math.min(900, startH + delta));
+    card.style.height = newH + 'px';
+  }, { passive: true });
+
+  handle.addEventListener('touchend', () => handle.classList.remove('dragging'));
 }
 
 function copyConfig() {

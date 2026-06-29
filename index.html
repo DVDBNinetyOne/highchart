@@ -382,20 +382,6 @@ body {
   flex-shrink: 0;
   border: 1px solid rgba(0,0,0,0.1);
 }
-.theme-all-btn {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: #009d80;
-  background: none;
-  border: 1px dashed #009d80;
-  border-radius: 20px;
-  padding: 3px 10px;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.theme-all-btn:hover { background: #e8f7f4; }
-
 /* ─── Colour override warning ─── */
 .colour-override-warning {
   display: none;
@@ -419,68 +405,41 @@ body {
   padding: 0;
 }
 
-/* ─── All themes modal ─── */
-#all-themes-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  z-index: 1000;
-  align-items: center;
-  justify-content: center;
-}
-#all-themes-modal.open { display: flex; }
-.all-themes-inner {
-  background: #fff;
-  border-radius: 12px;
-  width: 92vw;
-  max-width: 940px;
-  max-height: 88vh;
+/* ─── Inline theme cards ─── */
+.theme-cards-row {
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: thin;
+  margin-top: 8px;
 }
-.all-themes-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid #eee;
-  flex-shrink: 0;
-}
-.all-themes-header h3 { margin: 0; font-size: 15px; font-weight: 600; }
-.all-themes-header p { margin: 2px 0 0; font-size: 12px; color: #888; }
-.all-themes-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #666; line-height: 1; padding: 0; }
-.all-themes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
-  padding: 18px;
-  overflow-y: auto;
-}
+.theme-cards-row::-webkit-scrollbar { height: 3px; }
+.theme-cards-row::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
 .atm-card {
-  border-radius: 8px;
+  flex-shrink: 0;
+  width: 110px;
+  border-radius: 7px;
   overflow: hidden;
   cursor: pointer;
   border: 2px solid transparent;
   transition: border-color 0.12s, transform 0.12s;
 }
 .atm-card:hover { border-color: #009d80; transform: translateY(-1px); }
-.atm-card.active { border-color: #009d80; }
-.atm-card-bg {
-  padding: 12px 10px 8px;
-}
+.atm-card.active { border-color: #009d80; box-shadow: 0 0 0 1px #009d80; }
+.atm-card-bg { padding: 8px 8px 6px; }
 .atm-card-label {
-  font-size: 10px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  letter-spacing: 0.03em;
+  font-size: 9px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
 }
 .atm-series-bars {
   display: flex;
-  gap: 3px;
-  height: 36px;
+  gap: 2px;
+  height: 28px;
   align-items: flex-end;
 }
 .atm-series-bars span {
@@ -488,11 +447,13 @@ body {
   border-radius: 2px 2px 0 0;
 }
 .atm-card-footer {
-  padding: 6px 10px;
-  background: rgba(0,0,0,0.06);
-  font-size: 10px;
+  padding: 4px 8px;
+  font-size: 9px;
   font-weight: 600;
-  border-top: 1px solid rgba(0,0,0,0.08);
+  border-top: 1px solid rgba(0,0,0,0.1);
+  display: flex;
+  gap: 3px;
+  align-items: center;
 }
 
 #chart-container {
@@ -1689,10 +1650,10 @@ pre#config-output {
       <div class="card" id="preview-card">
         <div class="theme-selector-wrap">
           <div class="theme-selector-label">
-            Preview theme — see how your chart looks on each Sitecore page theme. Colours are set automatically by the website.
+            Preview theme — colours are applied automatically by Sitecore. This is for preview only.
             <span class="ts-info" data-tip="You don't need to set chart colours in your config. The website theme handles this automatically. Only add colour overrides if your design specifically requires a non-theme colour.">?</span>
           </div>
-          <div class="theme-pills-row" id="theme-pills-row"></div>
+          <div class="theme-cards-row" id="theme-cards-row"></div>
         </div>
         <div id="colour-override-warning" class="colour-override-warning">
           <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
@@ -2029,20 +1990,6 @@ pre#config-output {
 </div><!-- /app -->
 
 <!-- ─── Chart Type Picker Overlay ─── -->
-
-<!-- ─── All Themes Modal ─── -->
-<div id="all-themes-modal">
-  <div class="all-themes-inner">
-    <div class="all-themes-header">
-      <div>
-        <h3>All page themes</h3>
-        <p>Click a theme to preview your chart in that context</p>
-      </div>
-      <button class="all-themes-close" onclick="closeAllThemesModal()">×</button>
-    </div>
-    <div class="all-themes-grid" id="all-themes-grid"></div>
-  </div>
-</div>
 
 <!-- ─── Import Wizard Overlay ─── -->
 <div id="import-wizard-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:700;align-items:center;justify-content:center;">
@@ -2454,15 +2401,25 @@ function hexToRgb(hex) {
 }
 
 function renderThemePills() {
-  const row = document.getElementById('theme-pills-row');
+  const row = document.getElementById('theme-cards-row');
   if (!row) return;
-  const pills = Object.entries(N1_THEMES).map(([key, t]) =>
-    `<button class="n1-theme-pill${selectedTheme===key?' active':''}" onclick="applyTheme('${key}')" title="${t.label}">
-       <span class="n1-theme-swatch" style="background:${t.primaryColor}"></span>
-       ${t.label}
-     </button>`
-  ).join('');
-  row.innerHTML = pills + `<button class="theme-all-btn" onclick="openAllThemesModal()">View all</button>`;
+  const heights = [80, 55, 95, 60, 75];
+  row.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
+    const bars = t.chartSeriesColors.slice(0, 5).map((c, i) =>
+      `<span style="background:${c};height:${heights[i]}%"></span>`
+    ).join('');
+    const dots = t.chartSeriesColors.slice(0, 4).map(c =>
+      `<span style="width:7px;height:7px;border-radius:50%;background:${c};display:inline-block"></span>`
+    ).join('');
+    const isActive = selectedTheme === key;
+    return `<div class="atm-card${isActive ? ' active' : ''}" onclick="applyTheme('${key}')" title="${t.label}">
+      <div class="atm-card-bg" style="background:${t.previewBg}">
+        <div class="atm-card-label" style="color:${t.headingColor}">${t.label}</div>
+        <div class="atm-series-bars">${bars}</div>
+      </div>
+      <div class="atm-card-footer" style="color:${t.bodyColor};background:${t.contentBackground}">${dots}</div>
+    </div>`;
+  }).join('');
 }
 
 function applyTheme(key) {
@@ -2472,29 +2429,6 @@ function applyTheme(key) {
   renderThemePills();
   renderColourRows();
   schedUpdate();
-}
-
-function openAllThemesModal() {
-  const grid = document.getElementById('all-themes-grid');
-  if (!grid) return;
-  grid.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
-    const bars = t.chartSeriesColors.slice(0,5).map((c, i) => {
-      const heights = [80,60,90,50,70];
-      return `<span style="background:${c};height:${heights[i]}%"></span>`;
-    }).join('');
-    return `<div class="atm-card${selectedTheme===key?' active':''}" onclick="applyTheme('${key}');closeAllThemesModal()">
-      <div class="atm-card-bg" style="background:${t.previewBg}">
-        <div class="atm-card-label" style="color:${t.headingColor}">${t.label}</div>
-        <div class="atm-series-bars">${bars}</div>
-      </div>
-      <div class="atm-card-footer" style="color:${t.bodyColor};background:${t.contentBackground}">${t.chartSeriesColors.slice(0,4).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};margin-right:2px"></span>`).join('')}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('all-themes-modal').classList.add('open');
-}
-
-function closeAllThemesModal() {
-  document.getElementById('all-themes-modal').classList.remove('open');
 }
 
 function checkColourOverrides() {

@@ -298,35 +298,201 @@ body {
   padding: 0;
 }
 
-.theme-toggle-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
+/* ─── Theme selector ─── */
+.theme-selector-wrap {
+  margin-bottom: 14px;
 }
-
-.theme-pill {
-  display: inline-flex;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  overflow: hidden;
-  background: #f0f0f0;
-}
-
-.theme-pill button {
-  background: none;
-  border: none;
-  padding: 4px 14px;
-  font-size: 12px;
-  cursor: pointer;
+.theme-selector-label {
+  font-size: 10px;
   color: #888;
-  font-family: inherit;
-  border-radius: 20px;
-  transition: background 0.15s, color 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  line-height: 1.4;
 }
-
-.theme-pill button.active {
+.ts-info {
+  flex-shrink: 0;
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #666;
+  font-size: 9px;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  position: relative;
+  margin-top: 1px;
+}
+.ts-info:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: 18px;
+  left: 0;
   background: #333;
   color: #fff;
+  font-size: 11px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  width: 230px;
+  white-space: normal;
+  z-index: 200;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: normal;
+  pointer-events: none;
+}
+.theme-pills-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  align-items: center;
+}
+.theme-pills-row::-webkit-scrollbar { height: 3px; }
+.theme-pills-row::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+.n1-theme-pill {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 5px;
+  border: 1.5px solid #ddd;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  color: #444;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color 0.12s;
+}
+.n1-theme-pill:hover { border-color: #009d80; }
+.n1-theme-pill.active { border-color: #009d80; border-width: 2px; font-weight: 600; }
+.n1-theme-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+.theme-all-btn {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #009d80;
+  background: none;
+  border: 1px dashed #009d80;
+  border-radius: 20px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.theme-all-btn:hover { background: #e8f7f4; }
+
+/* ─── Colour override warning ─── */
+.colour-override-warning {
+  display: none;
+  background: #fff8e6;
+  border: 1px solid #f0a500;
+  border-radius: 6px;
+  padding: 8px 28px 8px 10px;
+  font-size: 12px;
+  color: #5a3a00;
+  margin-bottom: 10px;
+  position: relative;
+  line-height: 1.45;
+}
+.colour-override-warning.show { display: block; }
+.colour-override-warning .warn-close {
+  position: absolute;
+  top: 5px; right: 8px;
+  background: none; border: none;
+  cursor: pointer; font-size: 15px;
+  color: #aaa; line-height: 1;
+  padding: 0;
+}
+
+/* ─── All themes modal ─── */
+#all-themes-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+#all-themes-modal.open { display: flex; }
+.all-themes-inner {
+  background: #fff;
+  border-radius: 12px;
+  width: 92vw;
+  max-width: 940px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+.all-themes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+}
+.all-themes-header h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.all-themes-header p { margin: 2px 0 0; font-size: 12px; color: #888; }
+.all-themes-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #666; line-height: 1; padding: 0; }
+.all-themes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 18px;
+  overflow-y: auto;
+}
+.atm-card {
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.atm-card:hover { border-color: #009d80; transform: translateY(-1px); }
+.atm-card.active { border-color: #009d80; }
+.atm-card-bg {
+  padding: 12px 10px 8px;
+}
+.atm-card-label {
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+.atm-series-bars {
+  display: flex;
+  gap: 3px;
+  height: 36px;
+  align-items: flex-end;
+}
+.atm-series-bars span {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+}
+.atm-card-footer {
+  padding: 6px 10px;
+  background: rgba(0,0,0,0.06);
+  font-size: 10px;
+  font-weight: 600;
+  border-top: 1px solid rgba(0,0,0,0.08);
 }
 
 #chart-container {
@@ -1520,12 +1686,17 @@ pre#config-output {
 
     <!-- Preview Tab -->
     <div id="preview-tab-content">
-      <div class="card">
-        <div class="theme-toggle-wrap">
-          <div class="theme-pill">
-            <button id="theme-light" class="active" onclick="setTheme('light')">Light</button>
-            <button id="theme-dark" onclick="setTheme('dark')">Dark</button>
+      <div class="card" id="preview-card">
+        <div class="theme-selector-wrap">
+          <div class="theme-selector-label">
+            Preview theme — see how your chart looks on each Sitecore page theme. Colours are set automatically by the website.
+            <span class="ts-info" data-tip="You don't need to set chart colours in your config. The website theme handles this automatically. Only add colour overrides if your design specifically requires a non-theme colour.">?</span>
           </div>
+          <div class="theme-pills-row" id="theme-pills-row"></div>
+        </div>
+        <div id="colour-override-warning" class="colour-override-warning">
+          <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
+          ⚠ <strong>Custom colour override:</strong> one or more series has a manually set colour. This will override the Sitecore theme colour. Only do this if your design requires a specific colour.
         </div>
         <div id="chart-container"></div>
       </div>
@@ -1859,6 +2030,20 @@ pre#config-output {
 
 <!-- ─── Chart Type Picker Overlay ─── -->
 
+<!-- ─── All Themes Modal ─── -->
+<div id="all-themes-modal">
+  <div class="all-themes-inner">
+    <div class="all-themes-header">
+      <div>
+        <h3>All page themes</h3>
+        <p>Click a theme to preview your chart in that context</p>
+      </div>
+      <button class="all-themes-close" onclick="closeAllThemesModal()">×</button>
+    </div>
+    <div class="all-themes-grid" id="all-themes-grid"></div>
+  </div>
+</div>
+
 <!-- ─── Import Wizard Overlay ─── -->
 <div id="import-wizard-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:700;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:8px;width:640px;max-width:94vw;max-height:86vh;overflow-y:auto;position:relative">
@@ -1899,6 +2084,152 @@ pre#config-output {
 ═══════════════════════════════════════════ */
 const N1_PALETTE = ['#164848','#009d80','#7ab5b5','#c8e0e0','#FBAA96','#d83949','#74908D','#f0a500','#116e62','#199e81','#f8aa96','#c1756e','#dc4354','#114141','#b2a896','#221b3b'];
 
+const N1_THEMES = {
+  'springbok-cream': {
+    label: 'Springbok Cream',
+    primaryColor: '#e8e5ce',
+    pageBackground: '#e8e5ce',
+    contentBackground: '#f0ede0',
+    headingColor: '#009d80',
+    bodyColor: '#164848',
+    accentColor: '#009d80',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#164848','#009d80','#7ab5b5','#FBAA96','#f0a500','#8a8a8a'],
+    previewBg: '#e8e5ce',
+    previewText: '#164848'
+  },
+  'agulhas-indigo': {
+    label: 'Agulhas Indigo',
+    primaryColor: '#122b39',
+    pageBackground: '#122b39',
+    contentBackground: '#1a3545',
+    headingColor: '#FBAA96',
+    bodyColor: '#e8e5ce',
+    accentColor: '#FBAA96',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#FBAA96','#009d80','#7ab5b5','#c8e0e0','#f0a500','#74908D'],
+    previewBg: '#122b39',
+    previewText: '#e8e5ce'
+  },
+  'leatherback-green': {
+    label: 'Leatherback Green',
+    primaryColor: '#164848',
+    pageBackground: '#164848',
+    contentBackground: '#1a5252',
+    headingColor: '#FBAA96',
+    bodyColor: '#e8e5ce',
+    accentColor: '#FBAA96',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#FBAA96','#f0a500','#7ab5b5','#c8e0e0','#009d80','#74908D'],
+    previewBg: '#164848',
+    previewText: '#e8e5ce'
+  },
+  'marula-green': {
+    label: 'Marula Green',
+    primaryColor: '#3a4333',
+    pageBackground: '#3a4333',
+    contentBackground: '#424b3a',
+    headingColor: '#FBAA96',
+    bodyColor: '#e8e5ce',
+    accentColor: '#FBAA96',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#FBAA96','#009d80','#f0a500','#7ab5b5','#c8e0e0','#74908D'],
+    previewBg: '#3a4333',
+    previewText: '#e8e5ce'
+  },
+  'ocean-teal': {
+    label: 'Ocean Teal',
+    primaryColor: '#009d80',
+    pageBackground: '#009d80',
+    contentBackground: '#00b090',
+    headingColor: '#164848',
+    bodyColor: '#164848',
+    accentColor: '#164848',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#164848','#FBAA96','#f0a500','#221b3b','#c8e0e0','#74908D'],
+    previewBg: '#009d80',
+    previewText: '#164848'
+  },
+  'cape-coral': {
+    label: 'Cape Coral',
+    primaryColor: '#FBAA96',
+    pageBackground: '#FBAA96',
+    contentBackground: '#fbb8a6',
+    headingColor: '#164848',
+    bodyColor: '#164848',
+    accentColor: '#164848',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#164848','#009d80','#221b3b','#7ab5b5','#f0a500','#74908D'],
+    previewBg: '#FBAA96',
+    previewText: '#164848'
+  },
+  'gazania-gold': {
+    label: 'Gazania Gold',
+    primaryColor: '#cf6f13',
+    pageBackground: '#cf6f13',
+    contentBackground: '#d97a1a',
+    headingColor: '#164848',
+    bodyColor: '#164848',
+    accentColor: '#164848',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#164848','#221b3b','#009d80','#FBAA96','#7ab5b5','#74908D'],
+    previewBg: '#cf6f13',
+    previewText: '#164848'
+  },
+  'pinotage-burgundy': {
+    label: 'Pinotage Burgundy',
+    primaryColor: '#571b39',
+    pageBackground: '#571b39',
+    contentBackground: '#62203f',
+    headingColor: '#FBAA96',
+    bodyColor: '#e8e5ce',
+    accentColor: '#FBAA96',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#FBAA96','#009d80','#f0a500','#7ab5b5','#c8e0e0','#74908D'],
+    previewBg: '#571b39',
+    previewText: '#e8e5ce'
+  },
+  'protea-red': {
+    label: 'Protea Red',
+    primaryColor: '#d83949',
+    pageBackground: '#d83949',
+    contentBackground: '#e04050',
+    headingColor: '#e8e5ce',
+    bodyColor: '#e8e5ce',
+    accentColor: '#e8e5ce',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#e8e5ce','#FBAA96','#f0a500','#164848','#7ab5b5','#74908D'],
+    previewBg: '#d83949',
+    previewText: '#e8e5ce'
+  },
+  'vervet-grey': {
+    label: 'Vervet Grey',
+    primaryColor: '#4f6266',
+    pageBackground: '#4f6266',
+    contentBackground: '#586c70',
+    headingColor: '#FBAA96',
+    bodyColor: '#e8e5ce',
+    accentColor: '#FBAA96',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#FBAA96','#009d80','#f0a500','#c8e0e0','#164848','#221b3b'],
+    previewBg: '#4f6266',
+    previewText: '#e8e5ce'
+  },
+  'warm-yellowwood': {
+    label: 'Warm Yellowwood',
+    primaryColor: '#f0a500',
+    pageBackground: '#f0a500',
+    contentBackground: '#f5b020',
+    headingColor: '#164848',
+    bodyColor: '#164848',
+    accentColor: '#164848',
+    chartBackground: 'transparent',
+    chartSeriesColors: ['#164848','#009d80','#221b3b','#FBAA96','#7ab5b5','#74908D'],
+    previewBg: '#f0a500',
+    previewText: '#164848'
+  },
+};
+
 const CHART_TYPES = [
   { group:'Trends over time', charts:[
     { type:'line',      label:'Line',       desc:'Show changes over time',        icon:'line',    cms:true },
@@ -1925,15 +2256,18 @@ const CHART_TYPES = [
   ]},
 ];
 
+let selectedTheme = 'springbok-cream';
+let overrideWarningDismissed = false;
+
 let state = {
   chartType: 'line',
   title: '',
   subtitle: '',
   categories: ['2019','2020','2021','2022','2023'],
   series: [
-    { name:'Fund A',    data:[12.4, 8.1, 15.2, -3.5, 9.8],  color:'#164848' },
-    { name:'Fund B',    data:[9.2,  11.5, 7.8,  2.1, 12.3], color:'#009d80' },
-    { name:'Benchmark', data:[7.5,  6.9,  10.1, 1.2, 8.4],  color:'#7ab5b5' },
+    { name:'Fund A',    data:[12.4, 8.1, 15.2, -3.5, 9.8],  color:'#164848', colorOverride: false },
+    { name:'Fund B',    data:[9.2,  11.5, 7.8,  2.1, 12.3], color:'#009d80', colorOverride: false },
+    { name:'Benchmark', data:[7.5,  6.9,  10.1, 1.2, 8.4],  color:'#7ab5b5', colorOverride: false },
   ],
   lineWidth: 2,
   markers: false,
@@ -1998,15 +2332,25 @@ window.addEventListener('DOMContentLoaded', () => {
     if (ca) cmsAvailability = JSON.parse(ca);
   } catch(e) {}
 
+  try {
+    const savedTheme = localStorage.getItem('n1_selected_theme');
+    if (savedTheme && N1_THEMES[savedTheme]) selectedTheme = savedTheme;
+  } catch(e) {}
+
+  // Ensure loaded series have colorOverride flag
+  state.series.forEach(sr => { if (sr.colorOverride === undefined) sr.colorOverride = false; });
+
   const key = localStorage.getItem('n1_api_key');
   if (key) document.getElementById('sb-api-key').value = key;
 
   renderChartTypeBar();
+  renderThemePills();
   renderColourRows();
   renderYPlotLines();
   renderGrid();
   update();
   updateChartTypeUI();
+  checkColourOverrides();
   tagFieldRows();
   setTimeout(initFieldHovers, 300); // after Highcharts SVG renders
 });
@@ -2101,10 +2445,77 @@ function setZoom(z) {
   schedUpdate(); persist();
 }
 
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return isNaN(r) ? '0,0,0' : `${r},${g},${b}`;
+}
+
+function renderThemePills() {
+  const row = document.getElementById('theme-pills-row');
+  if (!row) return;
+  const pills = Object.entries(N1_THEMES).map(([key, t]) =>
+    `<button class="n1-theme-pill${selectedTheme===key?' active':''}" onclick="applyTheme('${key}')" title="${t.label}">
+       <span class="n1-theme-swatch" style="background:${t.primaryColor}"></span>
+       ${t.label}
+     </button>`
+  ).join('');
+  row.innerHTML = pills + `<button class="theme-all-btn" onclick="openAllThemesModal()">View all</button>`;
+}
+
+function applyTheme(key) {
+  if (!N1_THEMES[key]) return;
+  selectedTheme = key;
+  try { localStorage.setItem('n1_selected_theme', key); } catch(e) {}
+  renderThemePills();
+  renderColourRows();
+  schedUpdate();
+}
+
+function openAllThemesModal() {
+  const grid = document.getElementById('all-themes-grid');
+  if (!grid) return;
+  grid.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
+    const bars = t.chartSeriesColors.slice(0,5).map((c, i) => {
+      const heights = [80,60,90,50,70];
+      return `<span style="background:${c};height:${heights[i]}%"></span>`;
+    }).join('');
+    return `<div class="atm-card${selectedTheme===key?' active':''}" onclick="applyTheme('${key}');closeAllThemesModal()">
+      <div class="atm-card-bg" style="background:${t.previewBg}">
+        <div class="atm-card-label" style="color:${t.headingColor}">${t.label}</div>
+        <div class="atm-series-bars">${bars}</div>
+      </div>
+      <div class="atm-card-footer" style="color:${t.bodyColor};background:${t.contentBackground}">${t.chartSeriesColors.slice(0,4).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};margin-right:2px"></span>`).join('')}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('all-themes-modal').classList.add('open');
+}
+
+function closeAllThemesModal() {
+  document.getElementById('all-themes-modal').classList.remove('open');
+}
+
+function checkColourOverrides() {
+  const hasOverride = state.series.some(sr => sr.colorOverride);
+  const warn = document.getElementById('colour-override-warning');
+  if (!warn) return;
+  if (hasOverride && !overrideWarningDismissed) {
+    warn.classList.add('show');
+  } else {
+    warn.classList.remove('show');
+  }
+}
+
+function dismissOverrideWarning() {
+  overrideWarningDismissed = true;
+  const warn = document.getElementById('colour-override-warning');
+  if (warn) warn.classList.remove('show');
+}
+
 function setTheme(t) {
-  state.theme = t;
-  document.getElementById('theme-light').classList.toggle('active', t === 'light');
-  document.getElementById('theme-dark').classList.toggle('active', t === 'dark');
+  // legacy stub — no-op, kept for safety
   schedUpdate(); persist();
 }
 
@@ -2155,17 +2566,28 @@ function updateDonutVisibility() {
 function renderColourRows() {
   const container = document.getElementById('series-colour-rows');
   if (!container) return;
-  container.innerHTML = state.series.map((s, i) => `
+  const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream'];
+  container.innerHTML = state.series.map((s, i) => {
+    const themeCol = theme.chartSeriesColors[i % theme.chartSeriesColors.length];
+    const isOverride = s.colorOverride;
+    const previewCol = isOverride ? s.color : themeCol;
+    return `
     <div class="series-colour-section">
-      <div class="series-name-label">${escHtml(s.name)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="series-name-label" style="margin-bottom:0">${escHtml(s.name)}</div>
+        ${isOverride
+          ? `<button onclick="clearSeriesColour(${i})" style="font-size:10px;color:#009d80;background:none;border:none;cursor:pointer;padding:0;font-family:inherit">✕ Clear override</button>`
+          : `<span style="font-size:10px;color:#888;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${themeCol};display:inline-block"></span>Theme colour</span>`
+        }
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="colour-swatches">
-          ${N1_PALETTE.map(c => `<div class="colour-swatch${s.color===c?' selected':''}" style="background:${c}" onclick="setSeriesColour(${i},'${c}')" title="${c}"></div>`).join('')}
+          ${N1_PALETTE.map(c => `<div class="colour-swatch${isOverride&&s.color===c?' selected':''}" style="background:${c}" onclick="setSeriesColour(${i},'${c}')" title="${c}"></div>`).join('')}
         </div>
-        <input class="hex-input" value="${s.color||''}" maxlength="7" placeholder="#hex" onchange="setSeriesColour(${i},this.value)">
+        <input class="hex-input" value="${isOverride?s.color:''}" maxlength="7" placeholder="${themeCol}" onchange="setSeriesColour(${i},this.value)">
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   // Attach series highlight hovers
   container.querySelectorAll('.series-colour-section').forEach((sec, i) => {
     sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
@@ -2174,8 +2596,19 @@ function renderColourRows() {
 }
 
 function setSeriesColour(i, colour) {
+  if (!colour || colour.length < 4) return;
   state.series[i].color = colour;
+  state.series[i].colorOverride = true;
+  overrideWarningDismissed = false;
   renderColourRows();
+  checkColourOverrides();
+  schedUpdate(); persist();
+}
+
+function clearSeriesColour(i) {
+  state.series[i].colorOverride = false;
+  renderColourRows();
+  checkColourOverrides();
   schedUpdate(); persist();
 }
 
@@ -2234,7 +2667,7 @@ function deleteRow(r) {
 function addSeries() {
   const colours = N1_PALETTE;
   const ci = state.series.length % colours.length;
-  state.series.push({ name:'New series', data: state.categories.map(()=>null), color: colours[ci] });
+  state.series.push({ name:'New series', data: state.categories.map(()=>null), color: colours[ci], colorOverride: false });
   renderGrid(); renderColourRows(); schedUpdate(); persist();
 }
 function dismissBanner() {
@@ -2553,13 +2986,23 @@ function schedUpdate() {
 
 function update() {
   const s = state;
-  const isDark = s.theme === 'dark';
-  const bg = isDark ? '#221b3b' : 'transparent';
-  const textCol = isDark ? '#f0f0f0' : '#333333';
-  const gridCol = isDark ? 'rgba(255,255,255,0.08)' : '#e6e6e6';
+  const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream'];
+  const bg = theme.chartBackground || 'transparent';
+  const textCol = theme.bodyColor;
+  const headCol = theme.headingColor;
+  const gridCol = `rgba(${hexToRgb(theme.bodyColor)},0.12)`;
+
+  // Apply preview panel background
+  const previewCard = document.getElementById('preview-card');
+  if (previewCard) {
+    previewCard.style.background = theme.previewBg;
+    previewCard.style.color = theme.previewText;
+  }
 
   const hcType = s.chartType === 'donut' ? 'pie' : s.chartType;
   const isPie = ['pie','donut'].includes(s.chartType);
+
+  const themeColors = theme.chartSeriesColors;
 
   let series;
   if (isPie) {
@@ -2571,16 +3014,16 @@ function update() {
       data: s.categories.map((cat, i) => ({
         name: cat,
         y: first.data[i] || 0,
-        color: N1_PALETTE[i % N1_PALETTE.length],
+        color: themeColors[i % themeColors.length],
       })),
       dataLabels: { enabled: s.dataLabels },
     }];
   } else {
-    series = s.series.map(sr => ({
+    series = s.series.map((sr, i) => ({
       type: hcType,
       name: sr.name,
       data: sr.data.map(v => v === null ? null : v),
-      color: sr.color,
+      color: sr.colorOverride ? sr.color : themeColors[i % themeColors.length],
       lineWidth: s.lineWidth,
       dashStyle: s.dashStyle,
       marker: { enabled: s.markers },
@@ -2594,6 +3037,7 @@ function update() {
   }
 
   const opts = {
+    colors: themeColors,
     chart: {
       type: hcType,
       backgroundColor: bg,
@@ -2602,7 +3046,7 @@ function update() {
       zoomType: s.zoom || undefined,
       animation: false,
     },
-    title: { text: s.title || null, style: { color: textCol } },
+    title: { text: s.title || null, style: { color: headCol } },
     subtitle: { text: s.subtitle || null, style: { color: textCol } },
     xAxis: isPie ? undefined : {
       categories: s.categories,
@@ -2610,6 +3054,7 @@ function update() {
       labels: { rotation: s.xRotation, style: { color: textCol } },
       lineWidth: s.xLine ? 1 : 0,
       tickWidth: s.xLine ? 1 : 0,
+      lineColor: `rgba(${hexToRgb(textCol)},0.3)`,
     },
     yAxis: isPie ? undefined : [
       {
@@ -2788,11 +3233,11 @@ function generateConfig() {
 
   // ── series ──
   if (!s.csvUrl) {
-    cfg.series = s.series.map(sr => ({
-      name: sr.name,
-      color: sr.color,
-      data: sr.data,
-    }));
+    cfg.series = s.series.map(sr => {
+      const out = { name: sr.name, data: sr.data };
+      if (sr.colorOverride) out.color = sr.color; // only include if manually set
+      return out;
+    });
   }
 
   return cfg;
@@ -3112,6 +3557,7 @@ function applyAIConfig(cfg) {
     name: s.name || 'Series ' + (i+1),
     data: s.data || [],
     color: s.color || N1_PALETTE[i % N1_PALETTE.length],
+    colorOverride: !!s.color, // only override if colour was explicitly in config
   }));
   if (cfg.xAxisTitle) state.xTitle = cfg.xAxisTitle;
   if (cfg.yAxisTitle) state.yTitle = cfg.yAxisTitle;

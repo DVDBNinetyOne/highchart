@@ -57,55 +57,221 @@ body {
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
-.n1-wordmark {
-  width: 110px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.logo-divider {
-  color: rgba(255,255,255,.2);
-  font-size: 16px;
-  font-weight: 200;
-  line-height: 1;
-}
-
-.logo-sub {
-  color: rgba(255,255,255,.45);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: .02em;
-  white-space: nowrap;
-}
-
-.topbar-left-meta {
+.logo-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #009d80;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
 }
 
-.doc-title-chip {
-  color: rgba(255,255,255,.5);
+/* Right side of topbar */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.doc-title-input {
+  background: transparent;
+  border: 0.5px solid transparent;
+  color: rgba(255,255,255,.7);
   font-size: 12px;
-  padding: 4px 10px;
+  font-family: inherit;
+  font-weight: 500;
+  padding: 4px 8px;
   border-radius: 6px;
-  border: 0.5px solid rgba(255,255,255,.1);
+  width: 130px;
+  transition: border-color .15s, background .15s;
+  outline: none;
+}
+.doc-title-input:hover { border-color: rgba(255,255,255,.15); }
+.doc-title-input:focus {
+  border-color: rgba(255,255,255,.25);
+  background: rgba(255,255,255,.06);
+  color: #fff;
 }
 
-.version-chip {
+.version-badge {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,.35);
   background: rgba(255,255,255,.06);
   border: 0.5px solid rgba(255,255,255,.1);
   border-radius: 4px;
-  padding: 2px 7px;
+  padding: 3px 7px;
   letter-spacing: .04em;
+  flex-shrink: 0;
 }
+
+/* Save / History */
+.version-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.topbar-sep {
+  width: 0.5px;
+  height: 18px;
+  background: rgba(255,255,255,.15);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Version history dropdown */
+.version-history-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 300px;
+  background: #fff;
+  border: 0.5px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+  z-index: 300;
+  overflow: hidden;
+}
+.version-history-dropdown.open { display: block; }
+
+.vh-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 0.5px solid #f0f0f0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+.vh-close {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+.vh-close:hover { color: #333; }
+
+.vh-list {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px 0;
+  scrollbar-width: thin;
+}
+
+.vh-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: default;
+  transition: background .1s;
+}
+.vh-item:hover { background: #f8f7f4; }
+
+.vh-item-info { flex: 1; min-width: 0; }
+.vh-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vh-item-ts {
+  font-size: 10px;
+  color: #aaa;
+  margin-top: 1px;
+}
+
+.vh-restore-btn {
+  font-size: 10px;
+  font-weight: 600;
+  color: #009d80;
+  background: none;
+  border: 0.5px solid #009d80;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: background .1s, color .1s;
+}
+.vh-restore-btn:hover { background: #009d80; color: #fff; }
+
+.vh-empty {
+  padding: 16px 12px;
+  font-size: 11px;
+  color: #bbb;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Viewport select */
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 6px 16px;
+  background: #f4f3ef;
+  border-bottom: 0.5px solid #e4e2db;
+  flex-shrink: 0;
+}
+
+.viewport-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.viewport-icon { color: #888; flex-shrink: 0; }
+
+.viewport-select {
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  color: #555;
+  background: #fff;
+  border: 0.5px solid #ddd;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  transition: border-color .12s;
+}
+.viewport-select:hover { border-color: #009d80; }
+.viewport-select:focus { border-color: #009d80; }
 
 .topbar-actions {
   display: flex;
@@ -307,56 +473,6 @@ body {
   line-height: 1.25;
 }
 .flyout-theme-chip.active .flyout-theme-name { color: #164848; }
-
-/* ─── Responsive Preview Toolbar ─── */
-.preview-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 8px 16px;
-  background: #f4f3ef;
-  border-bottom: 0.5px solid #e4e2db;
-  flex-shrink: 0;
-}
-
-.resp-btns {
-  display: flex;
-  background: #eae9e4;
-  border-radius: 9px;
-  padding: 3px;
-  gap: 2px;
-}
-
-.resp-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 13px;
-  border-radius: 7px;
-  border: none;
-  background: transparent;
-  font-size: 11px;
-  font-weight: 500;
-  color: #888;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background .12s, color .12s, box-shadow .12s;
-}
-.resp-btn.active {
-  background: #fff;
-  color: #164848;
-  box-shadow: 0 1px 4px rgba(0,0,0,.09);
-}
-.resp-btn:not(.active):hover { color: #444; }
-
-.viewport-label {
-  font-size: 10px;
-  color: #bbb;
-  font-variant-numeric: tabular-nums;
-  min-width: 60px;
-  text-align: left;
-}
 
 .preview-stage-wrap {
   display: flex;
@@ -1948,29 +2064,48 @@ pre#config-output.expanded {
 
 <!-- ─── Top Bar ─── -->
 <div id="topbar">
+
+  <!-- Left: N1 logo -->
   <div class="logo">
-    <!-- Ninety One wordmark -->
-    <svg class="n1-wordmark" viewBox="0 0 110 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Diamond mark -->
-      <polygon points="10,2 18,14 10,26 2,14" fill="#009d80"/>
-      <!-- "Ninety One" text -->
-      <text x="24" y="19" fill="white" font-size="13" font-weight="600" font-family="Inter,system-ui,sans-serif" letter-spacing="-0.2">Ninety One</text>
-    </svg>
-    <span class="logo-divider">|</span>
-    <span class="logo-sub">Chart Builder</span>
-  </div>
-  <div class="topbar-left-meta">
-    <div class="doc-title-chip">Untitled chart</div>
-    <div class="version-chip">v1.0</div>
+    <div class="logo-mark">N1</div>
+    <span>Highchart Builder</span>
   </div>
 
-  <!-- Preview / Data tabs -->
+  <!-- Centre: Preview / Data tabs -->
   <div class="topbar-tabs">
     <button class="topbar-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
     <button class="topbar-tab" id="tab-data" onclick="switchTab('data')">Data</button>
   </div>
 
-  <div class="topbar-actions">
+  <!-- Right: chart name · version · save history · actions -->
+  <div class="topbar-right">
+    <input class="doc-title-input" id="doc-title" value="Untitled chart" placeholder="Chart name"
+           onchange="onTitleChange()" title="Click to rename"/>
+    <span class="version-badge" id="version-badge">v1</span>
+
+    <!-- Save / History -->
+    <div class="version-wrap" id="version-wrap">
+      <button class="btn-topbar btn-topbar-ghost btn-icon" onclick="saveVersion()" title="Save a snapshot">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save
+      </button>
+      <button class="btn-topbar btn-topbar-ghost btn-icon" id="history-btn" onclick="toggleVersionHistory()" title="Version history">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/></svg>
+        History
+      </button>
+      <!-- History dropdown -->
+      <div id="version-history-dropdown" class="version-history-dropdown">
+        <div class="vh-head">
+          <span>Version history</span>
+          <button class="vh-close" onclick="toggleVersionHistory()">×</button>
+        </div>
+        <div id="version-history-list" class="vh-list"></div>
+        <div class="vh-empty" id="vh-empty">No saved versions yet — hit Save to create one.</div>
+      </div>
+    </div>
+
+    <div class="topbar-sep"></div>
+
     <button class="btn-topbar btn-topbar-ghost" onclick="openImportWizard()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Import
@@ -1981,6 +2116,7 @@ pre#config-output.expanded {
     </button>
     <button class="btn-topbar btn-topbar-primary" onclick="copyConfig()">Copy config</button>
   </div>
+
 </div>
 
 <!-- hidden theme-select kept so applyTheme() still works -->
@@ -2040,21 +2176,14 @@ pre#config-output.expanded {
 
         <!-- Responsive view toolbar -->
         <div class="preview-toolbar">
-          <div class="resp-btns">
-            <button class="resp-btn active" data-vp="desktop" onclick="setViewport('desktop')" title="Desktop">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-              Desktop
-            </button>
-            <button class="resp-btn" data-vp="tablet" onclick="setViewport('tablet')" title="Tablet">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5" stroke-linecap="round"/></svg>
-              Tablet
-            </button>
-            <button class="resp-btn" data-vp="mobile" onclick="setViewport('mobile')" title="Mobile">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke-width="2.5" stroke-linecap="round"/></svg>
-              Mobile
-            </button>
+          <div class="viewport-select-wrap">
+            <svg class="viewport-icon" id="viewport-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+            <select id="viewport-select" class="viewport-select" onchange="setViewport(this.value)">
+              <option value="desktop">Desktop — full width</option>
+              <option value="tablet">Tablet — 768px</option>
+              <option value="mobile">Mobile — 375px</option>
+            </select>
           </div>
-          <span class="viewport-label" id="viewport-label">Full width</span>
         </div>
 
         <div class="preview-stage-wrap">
@@ -4525,29 +4654,135 @@ function renderFlyoutThemeChips() {
 /* ═══════════════════════════════════════════
    RESPONSIVE VIEWPORT PREVIEW
 ═══════════════════════════════════════════ */
+const VIEWPORT_ICONS = {
+  desktop: `<rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/>`,
+  tablet:  `<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5" stroke-linecap="round"/>`,
+  mobile:  `<rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke-width="2.5" stroke-linecap="round"/>`
+};
+
 function setViewport(size) {
   const wrap = document.getElementById('preview-card');
-  const label = document.getElementById('viewport-label');
-  document.querySelectorAll('.resp-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`.resp-btn[data-vp="${size}"]`)?.classList.add('active');
+  const icon = document.getElementById('viewport-icon');
+  const sel  = document.getElementById('viewport-select');
+
+  if (icon) icon.innerHTML = VIEWPORT_ICONS[size] || VIEWPORT_ICONS.desktop;
+  if (sel && sel.value !== size) sel.value = size;
 
   if (size === 'desktop') {
     wrap.style.maxWidth = '';
     wrap.style.marginLeft = '';
     wrap.style.marginRight = '';
-    if (label) label.textContent = 'Full width';
   } else if (size === 'tablet') {
     wrap.style.maxWidth = '768px';
     wrap.style.marginLeft = 'auto';
     wrap.style.marginRight = 'auto';
-    if (label) label.textContent = '768px';
   } else if (size === 'mobile') {
     wrap.style.maxWidth = '375px';
     wrap.style.marginLeft = 'auto';
     wrap.style.marginRight = 'auto';
-    if (label) label.textContent = '375px';
   }
   schedUpdate();
+}
+
+/* ═══════════════════════════════════════════
+   VERSION HISTORY (localStorage)
+═══════════════════════════════════════════ */
+const VH_KEY = 'n1_version_history';
+
+function getVersionHistory() {
+  try { return JSON.parse(localStorage.getItem(VH_KEY) || '[]'); } catch(e) { return []; }
+}
+function setVersionHistory(list) {
+  try { localStorage.setItem(VH_KEY, JSON.stringify(list)); } catch(e) {}
+}
+
+function saveVersion() {
+  const title = document.getElementById('doc-title')?.value.trim() || 'Untitled chart';
+  const history = getVersionHistory();
+  const vNum = history.length + 1;
+  history.unshift({
+    id: Date.now(),
+    vNum,
+    name: title,
+    ts: new Date().toISOString(),
+    state: JSON.parse(JSON.stringify(state)),
+    theme: selectedTheme
+  });
+  if (history.length > 30) history.splice(30);
+  setVersionHistory(history);
+  // Update badge
+  const badge = document.getElementById('version-badge');
+  if (badge) badge.textContent = `v${vNum}`;
+  renderVersionHistoryList();
+  // Flash badge
+  if (badge) { badge.style.background = 'rgba(0,157,128,.25)'; setTimeout(() => badge.style.background = '', 800); }
+}
+
+function restoreVersion(id) {
+  const history = getVersionHistory();
+  const v = history.find(h => h.id === id);
+  if (!v) return;
+  if (!confirm(`Restore "${v.name}" (v${v.vNum})? Unsaved current work will be lost.`)) return;
+  Object.assign(state, JSON.parse(JSON.stringify(v.state)));
+  applyTheme(v.theme);
+  const badge = document.getElementById('version-badge');
+  if (badge) badge.textContent = `v${v.vNum}`;
+  const titleEl = document.getElementById('doc-title');
+  if (titleEl) titleEl.value = v.name;
+  renderColourRows();
+  renderThemePills();
+  schedUpdate();
+  renderGrid();
+  toggleVersionHistory(false);
+}
+
+function renderVersionHistoryList() {
+  const history = getVersionHistory();
+  const list = document.getElementById('version-history-list');
+  const empty = document.getElementById('vh-empty');
+  if (!list) return;
+  if (history.length === 0) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = history.map(v => {
+    const d = new Date(v.ts);
+    const ts = d.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) + ' · ' + d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+    return `<div class="vh-item">
+      <div class="vh-item-info">
+        <div class="vh-item-name">v${v.vNum} — ${v.name}</div>
+        <div class="vh-item-ts">${ts}</div>
+      </div>
+      <button class="vh-restore-btn" onclick="restoreVersion(${v.id})">Restore</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleVersionHistory(forceClose) {
+  const dd = document.getElementById('version-history-dropdown');
+  const btn = document.getElementById('history-btn');
+  if (!dd) return;
+  const open = forceClose === false ? false : !dd.classList.contains('open');
+  dd.classList.toggle('open', open);
+  if (btn) btn.classList.toggle('active', open);
+  if (open) {
+    renderVersionHistoryList();
+    setTimeout(() => document.addEventListener('click', closeVHOutside, {once: true}), 0);
+  }
+}
+
+function closeVHOutside(e) {
+  const wrap = document.getElementById('version-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('version-history-dropdown')?.classList.remove('open');
+    document.getElementById('history-btn')?.classList.remove('active');
+  }
+}
+
+function onTitleChange() {
+  // title stored in doc-title input — nothing extra needed unless you want to persist
 }
 
 /* ═══════════════════════════════════════════

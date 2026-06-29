@@ -44,7 +44,7 @@ body {
 /* ─── Top Bar ─── */
 #topbar {
   height: 46px;
-  background: #1c2770;
+  background: #164848;
   display: flex;
   align-items: center;
   padding: 0 16px;
@@ -2229,27 +2229,24 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Canvas Stage -->
     <div id="canvas-stage">
 
+      <!-- Canvas toolbar: always visible, above both tab panels -->
+      <div class="canvas-toolbar">
+        <div class="canvas-tabs">
+          <button class="canvas-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
+          <button class="canvas-tab" id="tab-data" onclick="switchTab('data')">Data</button>
+        </div>
+        <div class="viewport-select-wrap">
+          <svg class="viewport-icon" id="viewport-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+          <select id="viewport-select" class="viewport-select" onchange="setViewport(this.value)">
+            <option value="desktop">Desktop — full width</option>
+            <option value="tablet">Tablet — 768px</option>
+            <option value="mobile">Mobile — 375px</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Preview content -->
       <div id="preview-tab-content">
-
-        <!-- Canvas toolbar: tabs + viewport -->
-        <div class="canvas-toolbar">
-          <!-- Preview / Data tabs — centred -->
-          <div class="canvas-tabs">
-            <button class="canvas-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
-            <button class="canvas-tab" id="tab-data" onclick="switchTab('data')">Data</button>
-          </div>
-          <!-- Viewport dropdown — right -->
-          <div class="viewport-select-wrap">
-            <svg class="viewport-icon" id="viewport-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-            <select id="viewport-select" class="viewport-select" onchange="setViewport(this.value)">
-              <option value="desktop">Desktop — full width</option>
-              <option value="tablet">Tablet — 768px</option>
-              <option value="mobile">Mobile — 375px</option>
-            </select>
-          </div>
-        </div>
-
         <div class="preview-stage-wrap">
         <div class="card" id="preview-card">
           <div id="colour-override-warning" class="colour-override-warning">

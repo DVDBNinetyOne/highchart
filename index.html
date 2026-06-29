@@ -1650,10 +1650,14 @@ pre#config-output {
       <div class="card" id="preview-card">
         <div class="theme-selector-wrap">
           <div class="theme-selector-label">
-            Preview theme — colours are applied automatically by Sitecore. This is for preview only.
+            Preview theme — colours applied automatically by Sitecore
             <span class="ts-info" data-tip="You don't need to set chart colours in your config. The website theme handles this automatically. Only add colour overrides if your design specifically requires a non-theme colour.">?</span>
           </div>
-          <div class="theme-cards-row" id="theme-cards-row"></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <select id="theme-select" class="field-input" style="flex:1;height:34px" onchange="applyTheme(this.value)"></select>
+            <div id="theme-swatch-preview" style="width:20px;height:20px;border-radius:50%;border:2px solid rgba(0,0,0,0.15);flex-shrink:0"></div>
+          </div>
+          <div class="theme-cards-row" id="theme-cards-row" style="display:none"></div>
         </div>
         <div id="colour-override-warning" class="colour-override-warning">
           <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
@@ -2421,28 +2425,16 @@ function hexToRgb(hex) {
 }
 
 function renderThemePills() {
-  const row = document.getElementById('theme-cards-row');
-  if (!row) return;
-  const heights = [80, 55, 95, 60, 75];
-  row.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
-    const bars = t.chartSeriesColors.slice(0, 5).map((c, i) =>
-      `<span style="background:${c};height:${heights[i]}%"></span>`
-    ).join('');
-    const dots = t.chartSeriesColors.slice(0, 4).map(c =>
-      `<span style="width:7px;height:7px;border-radius:50%;background:${c};display:inline-block"></span>`
-    ).join('');
-    const isActive = selectedTheme === key;
-    const fullLabel = t.sublabel ? `${t.label} — ${t.sublabel}` : t.label;
-    return `<div class="atm-card${isActive ? ' active' : ''}" onclick="applyTheme('${key}')" title="${fullLabel}">
-      <div class="atm-card-bg" style="background:${t.previewBg}">
-        <div class="atm-card-label" style="color:${t.headingColor};line-height:1.3">
-          ${t.label}<br><span style="opacity:0.75;font-weight:500">${t.sublabel || ''}</span>
-        </div>
-        <div class="atm-series-bars">${bars}</div>
-      </div>
-      <div class="atm-card-footer" style="color:${t.bodyColor};background:${t.contentBackground}">${dots}</div>
-    </div>`;
+  const sel = document.getElementById('theme-select');
+  if (!sel) return;
+  sel.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
+    const label = t.sublabel ? `${t.label} — ${t.sublabel}` : t.label;
+    return `<option value="${key}"${selectedTheme === key ? ' selected' : ''}>${label}</option>`;
   }).join('');
+  // Update colour swatch preview
+  const t = N1_THEMES[selectedTheme];
+  const swatch = document.getElementById('theme-swatch-preview');
+  if (swatch && t) swatch.style.background = t.primaryColor;
 }
 
 function applyThemeCss(key) {
@@ -2502,6 +2494,29 @@ function applyThemeCss(key) {
     .colour-swatch.selected { border-color: ${t.bodyColor} !important; }
     .colour-override-warning { background: rgba(${hexToRgb(t.headingColor)},0.12) !important; border-color: rgba(${hexToRgb(t.headingColor)},0.4) !important; color: ${t.bodyColor} !important; }
     .colour-override-warning .warn-close { color: ${muted} !important; }
+    #type-picker-modal { background: ${t.contentBackground} !important; color: ${t.bodyColor} !important; }
+    .picker-topbar { border-bottom-color: ${border} !important; }
+    .picker-topbar h2 { color: ${t.bodyColor} !important; }
+    .picker-close { color: ${muted} !important; }
+    .picker-body { background: ${t.pageBackground} !important; }
+    .picker-left { background: ${t.contentBackground} !important; border-right-color: ${border} !important; }
+    .picker-group-label { color: ${muted} !important; border-bottom-color: ${border} !important; }
+    .picker-type-btn { background: ${inputBg} !important; border-color: ${border} !important; color: ${t.bodyColor} !important; }
+    .picker-type-btn:hover { border-color: ${ac} !important; color: ${ac} !important; }
+    .picker-type-btn.active { border-color: ${ac} !important; background: rgba(${accentRgb},0.14) !important; color: ${ac} !important; }
+    .picker-right { background: ${t.pageBackground} !important; }
+    .picker-preview-wrap { background: ${t.contentBackground} !important; border-color: ${border} !important; }
+    .picker-preview-label { color: ${muted} !important; }
+    .picker-desc { color: ${muted} !important; }
+    .picker-cms-note { color: ${muted} !important; border-color: ${border} !important; }
+    #import-wizard-overlay > div { background: ${t.contentBackground} !important; color: ${t.bodyColor} !important; }
+    #import-wizard-overlay [style*="border-bottom"] { border-bottom-color: ${border} !important; }
+    #import-wizard-overlay label { color: ${muted} !important; }
+    #import-wizard-overlay input, #import-wizard-overlay textarea, #import-wizard-overlay select { background: ${inputBg} !important; color: ${t.bodyColor} !important; border-color: ${border} !important; }
+    #import-wizard-overlay h3 { color: ${t.headingColor} !important; }
+    #import-wizard-overlay .btn-outline { border-color: ${border} !important; color: ${t.bodyColor} !important; }
+    #import-wizard-overlay .btn-filled { background: ${ac} !important; color: ${t.pageBackground} !important; }
+    #import-wizard-overlay [id^="step-ind"] { color: ${muted} !important; }
   `;
 
   let el = document.getElementById('n1-theme-css');

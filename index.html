@@ -47,12 +47,13 @@ body {
   background: #111;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 16px;
   gap: 12px;
   flex-shrink: 0;
   z-index: 100;
 }
+
+.topbar-right { margin-left: auto; }
 
 .logo {
   display: flex;
@@ -250,16 +251,6 @@ body {
 }
 
 /* Viewport select */
-.preview-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 6px 16px;
-  background: #f4f3ef;
-  border-bottom: 0.5px solid #e4e2db;
-  flex-shrink: 0;
-}
 
 .viewport-select-wrap {
   display: flex;
@@ -567,32 +558,55 @@ body {
   overflow: hidden;
 }
 
-/* ─── Topbar Tabs (Preview / Data) ─── */
-.topbar-tabs {
+/* ─── Canvas Toolbar (tabs + viewport) ─── */
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 16px;
+  height: 42px;
+  background: #f0efe9;
+  border-bottom: 1px solid #e2e0d8;
+  flex-shrink: 0;
+}
+
+.canvas-tabs {
   display: flex;
   align-items: center;
   gap: 2px;
-  background: #f0f0ec;
+  background: #e4e2db;
   border-radius: 8px;
   padding: 3px;
-  margin: 0 8px;
 }
-.topbar-tab {
-  padding: 4px 14px;
+
+.canvas-tab {
+  padding: 5px 18px;
   border-radius: 6px;
   border: none;
   background: transparent;
   font-size: 12px;
   font-weight: 500;
-  color: #777;
+  color: #888;
   cursor: pointer;
   font-family: inherit;
-  transition: background .12s, color .12s;
+  transition: background .12s, color .12s, box-shadow .12s;
+  letter-spacing: .01em;
 }
-.topbar-tab.active {
-  background: #fff;
-  color: #164848;
-  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+.canvas-tab:hover:not(.active) { color: #444; }
+.canvas-tab.active {
+  background: #009d80;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,157,128,.35);
+}
+
+/* Viewport sits on the right edge, absolute so tabs stay centred */
+.canvas-toolbar .viewport-select-wrap {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* ─── Theme Palette Picker ─── */
@@ -706,7 +720,9 @@ body {
 }
 
 #preview-card {
-  border-radius: 12px;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
   padding: 20px;
   animation: n1-fade-up .3s .1s ease both;
 }
@@ -2156,12 +2172,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </div>
   </div>
 
-  <!-- Centre: Preview / Data tabs -->
-  <div class="topbar-tabs">
-    <button class="topbar-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
-    <button class="topbar-tab" id="tab-data" onclick="switchTab('data')">Data</button>
-  </div>
-
   <!-- Right: chart name · version · save history · actions -->
   <div class="topbar-right">
     <input class="doc-title-input" id="doc-title" value="Untitled chart" placeholder="Chart name"
@@ -2259,8 +2269,14 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <!-- Preview content -->
       <div id="preview-tab-content">
 
-        <!-- Responsive view toolbar -->
-        <div class="preview-toolbar">
+        <!-- Canvas toolbar: tabs + viewport -->
+        <div class="canvas-toolbar">
+          <!-- Preview / Data tabs — centred -->
+          <div class="canvas-tabs">
+            <button class="canvas-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
+            <button class="canvas-tab" id="tab-data" onclick="switchTab('data')">Data</button>
+          </div>
+          <!-- Viewport dropdown — right -->
           <div class="viewport-select-wrap">
             <svg class="viewport-icon" id="viewport-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
             <select id="viewport-select" class="viewport-select" onchange="setViewport(this.value)">

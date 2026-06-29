@@ -2665,95 +2665,192 @@ function update() {
 }
 
 /* ═══════════════════════════════════════════
-   CONFIG OUTPUT
+   CONFIG OUTPUT — Highcharts format
 ═══════════════════════════════════════════ */
 function renderConfig() {
   const cfg = generateConfig();
-  const formatted = formatConfig(cfg);
-  document.getElementById('config-output').innerHTML = highlighted(formatted);
+  const inner = formatConfig(cfg, 1);
+  const full = `var chartConfig = {\n${inner}\n};`;
+  document.getElementById('config-output').innerHTML = highlighted(full);
 }
 
 function generateConfig() {
   const s = state;
-  const isPie = ['pie','donut'].includes(s.chartType);
+  const isPie   = ['pie','donut'].includes(s.chartType);
+  const isLine  = ['line','spline','area','areaspline'].includes(s.chartType);
+  const isArea  = ['area','areaspline'].includes(s.chartType);
+  const isCol   = ['column','bar'].includes(s.chartType);
   const cfg = {};
 
-  cfg.type = s.chartType;
-  if (s.title)    cfg.title = s.title;
-  if (s.subtitle) cfg.subtitle = s.subtitle;
-  if (s.xTitle)   cfg.xAxisTitle = s.xTitle;
-  if (s.yTitle)   cfg.yAxisTitle = s.yTitle;
-  if (s.yMin != null) cfg.yAxisMin = s.yMin;
-  if (s.yMax != null) cfg.yAxisMax = s.yMax;
-  if (s.yFormat)  cfg.yAxisFormat = s.yFormat;
-  if (s.stacking) cfg.stacking = s.stacking;
-  if (s.valSuffix) cfg.valueSuffix = s.valSuffix;
-  if (s.ttPrefix)  cfg.tooltipPrefix = s.ttPrefix;
-  if (s.ttSuffix)  cfg.tooltipSuffix = s.ttSuffix;
-  if (!s.legend)   cfg.showLegend = false;
-  if (s.legendPos !== 'bottom') cfg.legendPosition = s.legendPos;
-  if (!s.tooltip)  cfg.showTooltip = false;
-  if (s.dataLabels) cfg.showDataLabels = true;
-  if (s.chartType === 'donut') cfg.innerSize = s.innerSize + '%';
-  if (s.zoom)      cfg.zoomType = s.zoom;
-  if (s.lineWidth !== 2) cfg.lineWidth = s.lineWidth;
-  if (s.dashStyle !== 'Solid') cfg.dashStyle = s.dashStyle;
-  if (s.markers)   cfg.showMarkers = true;
-  if (s.xRotation !== 0) cfg.xLabelRotation = s.xRotation;
-  if (s.csvUrl)    cfg.csvUrl = s.csvUrl;
-  if (s.chartHeight !== 450) cfg.chartHeight = s.chartHeight;
-  if (s.yScale === 'logarithmic') cfg.yAxisType = 'logarithmic';
-  if (s.yAxis2)    cfg.secondAxis = true;
-  if (s.connectNulls) cfg.connectNulls = true;
-  if (s.stepLine)  cfg.stepLine = s.stepLine;
-  if (s.decimals !== null) cfg.decimalPlaces = s.decimals;
-  if (s.tooltipMode === 'shared') cfg.sharedTooltip = true;
-  if (s.yPlotLines.length) cfg.yPlotLines = s.yPlotLines;
+  // ── chart ──
+  cfg.chart = { type: isPie ? 'pie' : s.chartType, height: s.chartHeight };
+  if (s.zoom) cfg.chart.zooming = { type: s.zoom };
 
+  // ── title / subtitle ──
+  cfg.title    = { text: s.title || '' };
+  cfg.subtitle = { text: s.subtitle || '' };
+
+  // ── xAxis ──
+  if (!isPie) {
+    const xa = {};
+    if (!s.csvUrl && s.categories.length) xa.categories = s.categories;
+    if (s.xTitle) xa.title = { text: s.xTitle };
+    const lblOpts = {};
+    if (s.xRotation !== 0) lblOpts.rotation = s.xRotation;
+    if (s.decimals !== null) lblOpts.format = `{value:.${s.decimals}f}`;
+    if (Object.keys(lblOpts).length) xa.labels = lblOpts;
+    xa.lineWidth = s.xLine ? 1 : 0;
+    xa.lineColor = '#b2a896';
+    cfg.xAxis = xa;
+  }
+
+  // ── yAxis ──
+  if (!isPie) {
+    const ya = {};
+    ya.title = { text: s.yTitle || '' };
+    const yLbl = {};
+    if (s.yFormat) yLbl.format = s.yFormat;
+    else if (s.valSuffix) yLbl.format = `{value}${s.valSuffix}`;
+    if (Object.keys(yLbl).length) ya.labels = yLbl;
+    if (s.yMin !== null) ya.min = s.yMin;
+    if (s.yMax !== null) ya.max = s.yMax;
+    ya.gridLineWidth = s.gridLines ? 1 : 0;
+    if (s.yScale === 'logarithmic') ya.type = 'logarithmic';
+    if (s.yPlotLines.length) {
+      ya.plotLines = s.yPlotLines.map(pl => {
+        const out = { value: pl.val, color: pl.color || '#b2a896', width: pl.width || 1 };
+        if (pl.label) out.label = { text: pl.label };
+        return out;
+      });
+    }
+    cfg.yAxis = s.yAxis2 ? [ya, { opposite: true, title: { text: '' } }] : ya;
+  }
+
+  // ── plotOptions ──
+  const po = {};
+  const spo = {};
+  if (isLine) {
+    spo.lineWidth = s.lineWidth;
+    spo.marker = { enabled: s.markers };
+    if (s.dashStyle !== 'Solid') spo.dashStyle = s.dashStyle;
+    if (s.connectNulls) spo.connectNulls = true;
+    if (s.stepLine) spo.step = s.stepLine;
+  }
+  if (s.dataLabels) spo.dataLabels = { enabled: true };
+  if (s.stacking) spo.stacking = s.stacking;
+  if (Object.keys(spo).length) po.series = spo;
+
+  if (isPie) {
+    const pp = {};
+    if (s.chartType === 'donut') pp.innerSize = `${s.innerSize}%`;
+    pp.dataLabels = { enabled: s.dataLabels };
+    po.pie = pp;
+  }
+  if (isArea) {
+    po[s.chartType] = { fillOpacity: s.fillOpacity };
+  }
+  if (isCol) {
+    const cp = {};
+    if (s.stacking) cp.stacking = s.stacking;
+    if (s.dataLabels) cp.dataLabels = { enabled: true };
+    if (Object.keys(cp).length) po[s.chartType] = cp;
+  }
+  if (Object.keys(po).length) cfg.plotOptions = po;
+
+  // ── legend ──
+  if (!s.legend) {
+    cfg.legend = { enabled: false };
+  } else {
+    const posMap = {
+      bottom: { align: 'center', verticalAlign: 'bottom' },
+      top:    { align: 'center', verticalAlign: 'top' },
+      right:  { align: 'right',  verticalAlign: 'middle' },
+      left:   { align: 'left',   verticalAlign: 'middle' },
+    };
+    cfg.legend = posMap[s.legendPos] || { align: 'center', verticalAlign: 'bottom' };
+  }
+
+  // ── tooltip ──
+  if (!s.tooltip) {
+    cfg.tooltip = { enabled: false };
+  } else {
+    const tt = {};
+    if (s.tooltipMode === 'shared') tt.shared = true;
+    if (s.ttPrefix) tt.valuePrefix = s.ttPrefix;
+    if (s.ttSuffix) tt.valueSuffix = s.ttSuffix;
+    if (Object.keys(tt).length) cfg.tooltip = tt;
+  }
+
+  // ── data (CSV) ──
+  if (s.csvUrl) {
+    cfg.data = { csvURL: s.csvUrl, enablePolling: false };
+  }
+
+  // ── series ──
   if (!s.csvUrl) {
-    cfg.categories = s.categories;
     cfg.series = s.series.map(sr => ({
       name: sr.name,
-      data: sr.data,
       color: sr.color,
+      data: sr.data,
     }));
   }
 
   return cfg;
 }
 
-function formatConfig(obj, indent = 0) {
-  const pad = '  '.repeat(indent);
+function formatConfig(obj, indent) {
+  indent = indent || 0;
+  const pad  = '  '.repeat(indent);
+  const pad1 = '  '.repeat(indent + 1);
   const lines = [];
+
   for (const [k, v] of Object.entries(obj)) {
-    if (v === null || v === undefined || v === '') continue;
+    if (v === null || v === undefined) continue;
+
     if (Array.isArray(v)) {
       if (v.length === 0) continue;
-      if (typeof v[0] === 'object' && v[0] !== null) {
-        lines.push(`${pad}${k}: [`);
-        v.forEach(item => {
-          lines.push(`${pad}  {`);
-          for (const [sk, sv] of Object.entries(item)) {
-            if (sv === null || sv === undefined || sv === '') continue;
-            if (Array.isArray(sv)) {
-              lines.push(`${pad}    ${sk}: [${sv.join(', ')}]`);
-            } else if (typeof sv === 'string') {
-              lines.push(`${pad}    ${sk}: '${sv}'`);
-            } else {
-              lines.push(`${pad}    ${sk}: ${sv}`);
-            }
+      const allPrim = v.every(x => x === null || typeof x !== 'object');
+      if (allPrim) {
+        const vals = v.map(x => x === null ? 'null' : typeof x === 'string' ? `'${x}'` : x);
+        const inline = `[${vals.join(', ')}]`;
+        if (inline.length <= 72) {
+          lines.push(`${pad}${k}: ${inline}`);
+        } else {
+          lines.push(`${pad}${k}: [`);
+          const CHUNK = 8;
+          for (let i = 0; i < vals.length; i += CHUNK) {
+            const chunk = vals.slice(i, i + CHUNK);
+            lines.push(`${pad1}${chunk.join(', ')}${i + CHUNK < vals.length ? ',' : ''}`);
           }
-          lines.push(`${pad}  }`);
+          lines.push(`${pad}]`);
+        }
+      } else {
+        lines.push(`${pad}${k}: [`);
+        v.forEach((item, idx) => {
+          const comma = idx < v.length - 1 ? ',' : '';
+          if (item === null) {
+            lines.push(`${pad1}null${comma}`);
+          } else if (typeof item === 'object') {
+            const inner = formatConfig(item, indent + 2);
+            lines.push(`${pad1}{`);
+            if (inner) lines.push(inner);
+            lines.push(`${pad1}}${comma}`);
+          } else {
+            const val = typeof item === 'string' ? `'${item}'` : item;
+            lines.push(`${pad1}${val}${comma}`);
+          }
         });
         lines.push(`${pad}]`);
-      } else {
-        const vals = v.map(x => typeof x === 'string' ? `'${x}'` : x === null ? 'null' : x);
-        lines.push(`${pad}${k}: [${vals.join(', ')}]`);
       }
     } else if (typeof v === 'object') {
-      lines.push(`${pad}${k}: {`);
-      lines.push(formatConfig(v, indent + 1));
-      lines.push(`${pad}}`);
+      const inner = formatConfig(v, indent + 1);
+      if (inner) {
+        lines.push(`${pad}${k}: {`);
+        lines.push(inner);
+        lines.push(`${pad}}`);
+      } else {
+        lines.push(`${pad}${k}: {}`);
+      }
     } else if (typeof v === 'string') {
       lines.push(`${pad}${k}: '${v}'`);
     } else {

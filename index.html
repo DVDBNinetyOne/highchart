@@ -287,74 +287,104 @@ body {
   overflow: hidden;
 }
 
-/* ─── Theme Bar ─── */
-#theme-bar {
-  height: 46px;
-  background: #fff;
-  border-bottom: 0.5px solid #e0e0e0;
+/* ─── Topbar Tabs (Preview / Data) ─── */
+.topbar-tabs {
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 2px;
+  background: #f0f0ec;
+  border-radius: 8px;
+  padding: 3px;
+  margin: 0 8px;
+}
+.topbar-tab {
+  padding: 4px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #777;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s, color .12s;
+}
+.topbar-tab.active {
+  background: #fff;
+  color: #164848;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* ─── Theme Palette Picker ─── */
+.theme-picker-wrap {
+  position: relative;
+}
+.btn-icon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-topbar.active {
+  background: #e8f5f2;
+  color: #164848;
+  border-color: #009d80;
+}
+.theme-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 380px;
+  background: #fff;
+  border: 0.5px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  z-index: 200;
   overflow: hidden;
 }
-
-.theme-bar-label {
-  font-size: 10px;
+.theme-dropdown.open { display: block; }
+.theme-dropdown-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 0.5px solid #f0f0f0;
+  font-size: 12px;
   font-weight: 600;
+  color: #333;
+}
+.theme-dropdown-hint {
+  font-size: 10px;
+  font-weight: 400;
   color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  white-space: nowrap;
 }
-
-.theme-scroll-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 0.5px solid #e0e0e0;
-  background: #f5f5f5;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #aaa;
-  font-size: 13px;
-  flex-shrink: 0;
-  transition: background .1s;
-  font-family: inherit;
+.theme-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
-.theme-scroll-btn:hover { background: #e0e0e0; color: #333; }
-
-#theme-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  flex: 1;
-  align-items: center;
-  scrollbar-width: none;
-}
-#theme-chips::-webkit-scrollbar { display: none; }
-
 .theme-chip {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 9px 4px 5px;
-  border-radius: 999px;
+  padding: 6px 8px;
+  border-radius: 8px;
   border: 1.5px solid transparent;
   cursor: pointer;
   background: #f5f4f0;
   white-space: nowrap;
-  flex-shrink: 0;
   transition: border-color .12s, background .12s;
 }
 .theme-chip.active { border-color: #164848; background: #fff; }
+.theme-chip:hover:not(.active) { background: #eeecea; }
 
 .theme-chip-dot {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   flex-shrink: 0;
   overflow: hidden;
@@ -364,17 +394,8 @@ body {
 .theme-chip-dot-l { position: absolute; left: 0; top: 0; width: 50%; height: 100%; }
 .theme-chip-dot-r { position: absolute; right: 0; top: 0; width: 50%; height: 100%; }
 
-.theme-chip-name { font-size: 10px; color: #666; }
-.theme-chip.active .theme-chip-name { color: #164848; font-weight: 500; }
-
-.theme-bar-hint {
-  font-size: 10px;
-  color: #aaa;
-  white-space: nowrap;
-  padding-left: 10px;
-  border-left: 0.5px solid #e0e0e0;
-  flex-shrink: 0;
-}
+.theme-chip-name { font-size: 10px; color: #555; line-height: 1.2; }
+.theme-chip.active .theme-chip-name { color: #164848; font-weight: 600; }
 
 /* ─── Canvas Stage ─── */
 #canvas-stage {
@@ -626,7 +647,7 @@ body {
   border: 2px solid transparent;
   transition: border-color 0.12s, transform 0.12s;
 }
-.atm-card:hover { border-color: #009d80; transform: translateY(-1px); }
+.atm-card:hover { border-color: #009d80; }
 .atm-card.active { border-color: #009d80; box-shadow: 0 0 0 1px #009d80; }
 .atm-card-bg { padding: 8px 8px 6px; }
 .atm-card-label {
@@ -815,7 +836,7 @@ pre#config-output.expanded {
 #data-grid td input:focus { background: #f0faf8; }
 
 .row-del-btn {
-  display: none;
+  visibility: hidden;
   width: 18px;
   height: 18px;
   background: #fee;
@@ -824,11 +845,12 @@ pre#config-output.expanded {
   color: #d83949;
   font-size: 10px;
   cursor: pointer;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-#data-grid tr:hover .row-del-btn { display: flex; }
+#data-grid tr:hover .row-del-btn { visibility: visible; }
 
 .add-row-cell {
   text-align: center;
@@ -1784,7 +1806,29 @@ pre#config-output.expanded {
     <span>Highchart Builder</span>
   </div>
   <div class="doc-title-chip">Untitled chart</div>
+
+  <!-- Preview / Data tabs -->
+  <div class="topbar-tabs">
+    <button class="topbar-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
+    <button class="topbar-tab" id="tab-data" onclick="switchTab('data')">Data</button>
+  </div>
+
   <div class="topbar-actions">
+    <!-- Palette / theme picker -->
+    <div class="theme-picker-wrap" id="theme-picker-wrap">
+      <button class="btn-topbar btn-topbar-ghost btn-icon" id="theme-palette-btn" onclick="toggleThemePicker()" title="Change theme">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="8" cy="14" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r="1.5" fill="currentColor" stroke="none"/></svg>
+        Theme
+      </button>
+      <div id="theme-dropdown" class="theme-dropdown">
+        <div class="theme-dropdown-head">
+          <span>Choose theme</span>
+          <span class="theme-dropdown-hint">Colours applied by Sitecore</span>
+        </div>
+        <div id="theme-chips" class="theme-chips-grid"></div>
+      </div>
+    </div>
+
     <button class="btn-topbar btn-topbar-ghost" onclick="openImportWizard()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Import
@@ -1803,18 +1847,9 @@ pre#config-output.expanded {
 <!-- ─── App Body ─── -->
 <div id="app-body">
 
-  <!-- ─── Rail ─── -->
+  <!-- ─── Rail: right-panel scroll shortcuts ─── -->
   <div id="rail">
-    <button class="rail-btn active" id="rail-type" onclick="railSelect('type')" title="Chart type">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
-      Type
-    </button>
-    <button class="rail-btn" id="rail-data" onclick="railSelect('data')" title="Data">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
-      Data
-    </button>
-    <div class="rail-sep"></div>
-    <button class="rail-btn" id="rail-text" onclick="railSelect('text')" title="Labels">
+    <button class="rail-btn active" id="rail-text" onclick="railSelect('text')" title="Labels">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
       Text
     </button>
@@ -1837,15 +1872,6 @@ pre#config-output.expanded {
 
   <!-- ─── Canvas ─── -->
   <div id="canvas">
-
-    <!-- Theme Bar -->
-    <div id="theme-bar">
-      <span class="theme-bar-label">Theme</span>
-      <button class="theme-scroll-btn" onclick="scrollThemes(-1)">&#9664;</button>
-      <div id="theme-chips"></div>
-      <button class="theme-scroll-btn" onclick="scrollThemes(1)">&#9654;</button>
-      <span class="theme-bar-hint">Colours applied by Sitecore</span>
-    </div>
 
     <!-- Canvas Stage -->
     <div id="canvas-stage">
@@ -2664,6 +2690,9 @@ function applyTheme(key) {
   renderColourRows();
   schedUpdate();
   renderThemeChips();
+  // Close picker after selection
+  document.getElementById('theme-dropdown')?.classList.remove('open');
+  document.getElementById('theme-palette-btn')?.classList.remove('active');
 }
 
 function checkColourOverrides() {
@@ -4249,22 +4278,27 @@ function highlightSeriesEl(idx) {
 }
 
 /* ═══════════════════════════════════════════
-   RAIL NAVIGATION
+   TAB SWITCHING (Preview / Data)
+═══════════════════════════════════════════ */
+function switchTab(tab) {
+  const isData = tab === 'data';
+  document.getElementById('preview-tab-content').style.display = isData ? 'none' : 'flex';
+  document.getElementById('data-tab-content').style.display = isData ? 'block' : 'none';
+  document.getElementById('tab-preview').classList.toggle('active', !isData);
+  document.getElementById('tab-data').classList.toggle('active', isData);
+  if (isData) renderGrid();
+}
+
+/* ═══════════════════════════════════════════
+   RAIL NAVIGATION (scroll-to shortcuts)
 ═══════════════════════════════════════════ */
 function railSelect(panel) {
   document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('rail-' + panel).classList.add('active');
-
-  const isData = panel === 'data';
-  document.getElementById('preview-tab-content').style.display = isData ? 'none' : 'flex';
-  document.getElementById('data-tab-content').style.display = isData ? 'block' : 'none';
-  document.getElementById('flyout').style.display = panel === 'type' ? 'flex' : 'none';
-
-  if (!isData) renderGrid();
+  const railBtn = document.getElementById('rail-' + panel);
+  if (railBtn) railBtn.classList.add('active');
 
   if (panel === 'text') {
     document.getElementById('acc-labels')?.scrollIntoView({behavior:'smooth'});
-    // open labels accordion
     const body = document.getElementById('acc-body-labels');
     if (body && !body.classList.contains('open')) toggleAccordion('labels');
   }
@@ -4272,6 +4306,26 @@ function railSelect(panel) {
     document.getElementById('acc-xaxis')?.scrollIntoView({behavior:'smooth'});
     const body = document.getElementById('acc-body-xaxis');
     if (body && !body.classList.contains('open')) toggleAccordion('xaxis');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   THEME PICKER DROPDOWN
+═══════════════════════════════════════════ */
+function toggleThemePicker() {
+  const dd = document.getElementById('theme-dropdown');
+  const btn = document.getElementById('theme-palette-btn');
+  const open = dd.classList.toggle('open');
+  btn.classList.toggle('active', open);
+  if (open) {
+    setTimeout(() => document.addEventListener('click', closeThemePickerOutside, {once: true}), 0);
+  }
+}
+function closeThemePickerOutside(e) {
+  const wrap = document.getElementById('theme-picker-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('theme-dropdown')?.classList.remove('open');
+    document.getElementById('theme-palette-btn')?.classList.remove('active');
   }
 }
 

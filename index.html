@@ -28,30 +28,28 @@
   --sidebar-w: 320px;
 }
 
-@keyframes n1-slide-in { from { opacity:0; translate:-8px 0 } to { opacity:1; translate:0 0 } }
-@keyframes n1-fade-up  { from { opacity:0; translate:0 6px  } to { opacity:1; translate:0 0 } }
-
 body {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 13px;
+  background: #f5f5f5;
   color: #1a1a1a;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  height: 100vh;
   overflow: hidden;
 }
 
 /* ─── Top Bar ─── */
 #topbar {
-  height: 46px;
-  background: #111;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: #1a1a1a;
   padding: 0 16px;
-  gap: 12px;
+  height: 48px;
   flex-shrink: 0;
   z-index: 100;
+  width: 100%;
 }
 
 .logo {
@@ -59,63 +57,46 @@ body {
   align-items: center;
   gap: 8px;
   color: #fff;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
-.logo-mark {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: #009d80;
+.logo svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-tabs {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+  gap: 0;
 }
 
-.doc-title-chip {
-  color: rgba(255,255,255,.5);
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 0.5px solid rgba(255,255,255,.1);
-}
-
-.topbar-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.btn-topbar {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
+.nav-tab {
+  background: none;
   border: none;
-  font-size: 11px;
-  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  color: #fff;
+  font-size: 13px;
+  height: 48px;
+  padding: 0 16px;
   cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.nav-tab.active {
+  border-bottom-color: #009d80;
+}
+
+.nav-tab:hover:not(.active) {
+  border-bottom-color: rgba(255,255,255,0.3);
+}
+
+.nav-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-family: inherit;
+  gap: 8px;
 }
-
-.btn-topbar-ghost {
-  background: rgba(255,255,255,.08);
-  color: #ccc;
-  border: 0.5px solid rgba(255,255,255,.15);
-}
-.btn-topbar-ghost:hover { background: rgba(255,255,255,.13); }
-
-.btn-topbar-primary { background: #009d80; color: #fff; }
-.btn-topbar-primary:hover { background: #00b894; }
-
-/* legacy button classes kept for any JS refs */
-.nav-actions { display: flex; align-items: center; gap: 8px; }
 
 .btn-outline {
   border: 1px solid rgba(255,255,255,0.5);
@@ -144,360 +125,178 @@ body {
 }
 .btn-filled:hover { background: #007d66; }
 
-/* ─── App Body ─── */
-#app-body {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* ─── Rail ─── */
-#rail {
-  width: 56px;
-  flex-shrink: 0;
+/* ─── Chart Type Bar ─── */
+#chart-type-bar-wrap {
   background: #fff;
-  border-right: 0.5px solid #e0e0e0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px 0;
-  gap: 2px;
-}
-
-.rail-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: #888;
-  font-size: 9px;
-  font-weight: 500;
-  transition: background .12s, color .12s;
-  font-family: inherit;
-}
-.rail-btn svg { width: 20px; height: 20px; }
-.rail-btn:hover { background: #f5f4f0; color: #333; }
-.rail-btn.active { background: #e8f5f1; color: #009d80; }
-
-.rail-sep {
-  width: 30px;
-  height: 0.5px;
-  background: #e0e0e0;
-  margin: 4px 0;
+  border-bottom: 2px solid #e8e8e8;
   flex-shrink: 0;
+  padding: 0 16px;
 }
 
-/* ─── Flyout Panel ─── */
-#flyout {
-  width: 196px;
-  flex-shrink: 0;
-  background: #fff;
-  border-right: 0.5px solid #e0e0e0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: n1-slide-in .2s ease both;
-}
-
-#flyout-head {
-  padding: 10px 12px 8px;
+#chart-type-bar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 0.5px solid #e0e0e0;
+  padding: 8px 0 6px;
+  gap: 12px;
 }
 
-#flyout-title {
+#chart-type-bar-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bbb;
+  flex-shrink: 0;
+}
+
+#hc-demo-link {
   font-size: 11px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* ─── Chart Type Bar (inside flyout) ─── */
-#chart-type-bar-wrap {
-  padding: 0;
-  background: transparent;
-  border: none;
-  flex: 1;
-  overflow: hidden;
+  color: #009d80;
+  text-decoration: none;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: opacity 0.15s;
 }
-
-#chart-type-bar-header { display: none; }
+#hc-demo-link:hover { opacity: 1; }
 
 #chart-type-bar {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  overflow-y: auto;
-  flex: 1;
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 8px;
+  gap: 8px;
 }
 #chart-type-bar::-webkit-scrollbar { display: none; }
 
-/* hide old group wrappers — renderChartTypeBar uses .ct-group/.ct-btn */
 .ct-group {
-  display: contents;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding-right: 12px;
+  border-right: 1px solid #ececec;
+  flex-shrink: 0;
 }
-.ct-group-stack { display: contents; }
-.ct-group-label { display: none; }
-.ct-cards-row { display: contents; }
+.ct-group:last-child { border-right: none; padding-right: 0; }
+
+.ct-group-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.ct-group-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #bbb;
+  font-weight: 700;
+  padding-left: 2px;
+  user-select: none;
+}
+
+.ct-cards-row {
+  display: flex;
+  gap: 4px;
+}
 
 .ct-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding: 8px 6px 7px;
-  cursor: pointer;
-  border: 0.5px solid transparent;
   gap: 5px;
-  background: transparent;
+  padding: 8px 10px 6px;
+  border: 1.5px solid #d0d0d0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
   font-family: inherit;
-  font-size: 10px;
-  color: #888;
-  animation: n1-fade-up .22s ease both;
-  min-width: unset;
-  border-radius: 0;
-  box-shadow: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: #444;
   white-space: nowrap;
+  transition: border-color 0.13s, background 0.13s, color 0.13s, box-shadow 0.13s;
+  min-width: 72px;
+  flex-shrink: 0;
   position: relative;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.ct-btn:hover { background: #f9f8f6; transform: none; box-shadow: none; border-color: transparent; color: #333; }
-.ct-btn.active { background: #edf7f4; border-color: #009d80; color: #009d80; font-weight: 600; box-shadow: none; }
-.ct-btn.active::before { display: none; }
+.ct-btn:hover {
+  border-color: #009d80;
+  background: #f0faf8;
+  color: #007a62;
+  box-shadow: 0 3px 10px rgba(0,157,128,0.14);
+  transform: translateY(-1px);
+}
+.ct-btn.active {
+  border-color: #009d80;
+  border-width: 2px;
+  background: #e4f5f1;
+  color: #006b55;
+  box-shadow: 0 3px 10px rgba(0,157,128,0.18);
+}
+.ct-btn.active::before {
+  content: '✓';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 9px;
+  color: #009d80;
+  font-weight: 700;
+}
 .ct-btn.dev-type { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .ct-btn svg { display: block; }
 
-/* ─── Canvas ─── */
-#canvas {
+/* ─── App Body ─── */
+#app {
+  display: flex;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: #ede9d8;
-  min-width: 0;
   overflow: hidden;
 }
 
-/* ─── Theme Bar ─── */
-#theme-bar {
-  height: 46px;
-  background: #fff;
-  border-bottom: 0.5px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  gap: 8px;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.theme-bar-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  white-space: nowrap;
-}
-
-.theme-scroll-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 0.5px solid #e0e0e0;
+/* ─── Main Area (left + centre) ─── */
+#main-area {
+  flex: 1;
   background: #f5f5f5;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #aaa;
-  font-size: 13px;
-  flex-shrink: 0;
-  transition: background .1s;
-  font-family: inherit;
-}
-.theme-scroll-btn:hover { background: #e0e0e0; color: #333; }
-
-#theme-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  flex: 1;
-  align-items: center;
-  scrollbar-width: none;
-}
-#theme-chips::-webkit-scrollbar { display: none; }
-
-.theme-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 9px 4px 5px;
-  border-radius: 999px;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-  background: #f5f4f0;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: border-color .12s, background .12s;
-}
-.theme-chip.active { border-color: #164848; background: #fff; }
-
-.theme-chip-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
-  border: 0.5px solid rgba(0,0,0,.1);
-}
-.theme-chip-dot-l { position: absolute; left: 0; top: 0; width: 50%; height: 100%; }
-.theme-chip-dot-r { position: absolute; right: 0; top: 0; width: 50%; height: 100%; }
-
-.theme-chip-name { font-size: 10px; color: #666; }
-.theme-chip.active .theme-chip-name { color: #164848; font-weight: 500; }
-
-.theme-bar-hint {
-  font-size: 10px;
-  color: #aaa;
-  white-space: nowrap;
-  padding-left: 10px;
-  border-left: 0.5px solid #e0e0e0;
-  flex-shrink: 0;
-}
-
-/* ─── Canvas Stage ─── */
-#canvas-stage {
-  flex: 1;
   overflow-y: auto;
-  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
-#canvas-stage::-webkit-scrollbar { width: 4px; }
-#canvas-stage::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
 
-#preview-tab-content {
+/* ─── Right Sidebar ─── */
+#settings-sidebar {
+  width: var(--sidebar-w);
+  background: #fff;
+  border-left: 1px solid #e8e8e8;
+  overflow-y: auto;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
 /* ─── Cards ─── */
 .card {
   background: #fff;
-  border-radius: 12px;
-  padding: 16px 24px;
-  box-shadow: none;
-  border: 0.5px solid #e0e0e0;
+  margin: 20px;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  padding: 24px;
 }
 
-#preview-card {
-  border-radius: 12px;
-  padding: 20px;
-  animation: n1-fade-up .3s .1s ease both;
-}
-
-/* ─── Config card ─── */
-#config-card {
-  background: #fff;
-  border-radius: 12px;
-  border: 0.5px solid #e0e0e0;
-  overflow: hidden;
-  animation: n1-fade-up .3s .2s ease both;
-}
-
-.config-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 0.5px solid #e0e0e0;
-  background: #fafafa;
-}
-
-.config-card-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: #aaa;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.config-card-actions { display: flex; gap: 6px; }
-.config-card-body { padding: 0; }
-
-/* ─── Right Panel ─── */
-#right-panel {
-  width: 236px;
-  flex-shrink: 0;
-  background: #fff;
-  border-left: 0.5px solid #e0e0e0;
+/* ─── Preview Tab ─── */
+#preview-tab-content {
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  padding: 0;
 }
-#right-panel::-webkit-scrollbar { width: 4px; }
-#right-panel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
-
-#right-panel-head {
-  padding: 12px 14px;
-  border-bottom: 0.5px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  position: sticky;
-  top: 0;
-  background: #fff;
-  z-index: 1;
-  flex-shrink: 0;
-}
-
-.rp-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  background: #edf7f4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #009d80;
-  flex-shrink: 0;
-}
-
-.rp-title { font-size: 12px; font-weight: 600; color: #333; }
-.rp-sub { font-size: 10px; color: #aaa; }
-
-#import-data-slot {
-  margin: 10px 14px;
-  padding: 8px 10px;
-  border: 1px dashed #ccc;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 11px;
-  color: #888;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  transition: background .12s;
-}
-#import-data-slot:hover { background: #f9f8f6; }
 
 /* ─── Theme selector ─── */
 .theme-selector-wrap {
@@ -719,17 +518,18 @@ pre#config-output.expanded {
 #data-tab-content {
   display: none;
   flex-direction: column;
-  gap: 14px;
+  padding: 0;
 }
 
 .data-toolbar {
   background: #fff;
+  margin: 20px 20px 0;
   padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-radius: 12px;
-  border: 0.5px solid #e0e0e0;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 
 .data-toolbar-hint {
@@ -738,9 +538,10 @@ pre#config-output.expanded {
 }
 
 .spreadsheet-card {
+  margin: 0 20px 20px;
   background: #fff;
-  border-radius: 12px;
-  border: 0.5px solid #e0e0e0;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   overflow-x: auto;
 }
 
@@ -1728,27 +1529,61 @@ pre#config-output.expanded {
 
 /* ─── Mobile ─── */
 @media (max-width: 768px) {
-  #flyout { display: none; }
-  #rail { width: 44px; }
-  #right-panel { display: none; }
-  #canvas-stage { padding: 12px; }
+  #chart-type-bar-header { padding: 6px 0 4px; }
+  #chart-type-bar-wrap { padding: 0 10px; }
+  .ct-group-label { font-size: 8px; }
+  .ct-btn { min-width: 54px; padding: 5px 6px 4px; font-size: 9px; }
+  .ct-btn svg { width: 28px; height: 20px; }
 
   body { overflow: auto; height: auto; min-height: 100vh; }
 
-  #topbar { padding: 0 12px; }
+  #topbar {
+    padding: 0 12px;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 48px;
+    gap: 4px;
+  }
 
-  .card { padding: 16px; }
+  .logo { font-size: 13px; }
+
+  .nav-tabs { order: 3; width: 100%; border-top: 1px solid rgba(255,255,255,0.1); }
+  .nav-tab  { flex: 1; font-size: 12px; height: 36px; padding: 0 8px; }
+
+  .nav-actions { gap: 6px; }
+  .btn-outline, .btn-filled { padding: 4px 8px; font-size: 12px; }
+
+  #app {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  #main-area { overflow: visible; }
+
+  #settings-sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 2px solid #e8e8e8;
+    overflow: visible;
+  }
+
+  .card { margin: 12px; padding: 16px; }
 
   .data-toolbar {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+    margin: 12px 12px 0;
     padding: 10px 12px;
   }
+
+  .spreadsheet-card { margin: 0 12px 12px; }
 
   #chart-container { min-height: 280px; }
 
   pre#config-output { font-size: 10px; max-height: 140px; }
+
+  .sidebar-type-btn { padding: 10px 12px; }
 
   .accordion-body { padding: 10px 12px 14px; }
 
@@ -1760,6 +1595,9 @@ pre#config-output.expanded {
   .seg-btn   { padding: 6px 4px; font-size: 11px; }
 
   .picker-grid { grid-template-columns: repeat(2, 1fr); }
+  .picker-card { height: 90px; }
+
+  #type-picker-modal { padding: 16px; max-height: 90vh; }
 
   #import-wizard-overlay > div { width: 95vw; max-height: 90vh; }
 
@@ -1771,6 +1609,7 @@ pre#config-output.expanded {
 
 @media (max-width: 420px) {
   .logo span { display: none; }
+  .logo::after { content: 'N1 Charts'; color: #fff; font-size: 13px; font-weight: 600; }
   .picker-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>
@@ -1780,136 +1619,106 @@ pre#config-output.expanded {
 <!-- ─── Top Bar ─── -->
 <div id="topbar">
   <div class="logo">
-    <div class="logo-mark">N1</div>
-    <span>Highchart Builder</span>
+    <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="10" width="3" height="8" fill="#009d80"/><rect x="7" y="6" width="3" height="12" fill="#009d80"/><rect x="12" y="2" width="3" height="16" fill="#009d80"/></svg>
+    <span>Ninety One Highchart Builder</span>
   </div>
-  <div class="doc-title-chip">Untitled chart</div>
-  <div class="topbar-actions">
-    <button class="btn-topbar btn-topbar-ghost" onclick="openImportWizard()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Import
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tab-preview" onclick="switchTab('preview')">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px;margin-right:5px"><rect x="1" y="5" width="2" height="7" fill="currentColor"/><rect x="5" y="3" width="2" height="9" fill="currentColor"/><rect x="9" y="1" width="2" height="11" fill="currentColor"/><rect x="13" y="6" width="1" height="1" fill="currentColor"/></svg>
+      Preview
     </button>
-    <button class="btn-topbar btn-topbar-ghost" onclick="downloadConfig()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download
+    <button class="nav-tab" id="tab-data" onclick="switchTab('data')">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align:-2px;margin-right:5px"><rect x="1" y="1" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="5" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="9" width="12" height="2" rx="1" fill="currentColor"/></svg>
+      Data
     </button>
-    <button class="btn-topbar btn-topbar-primary" onclick="copyConfig()">Copy config</button>
+  </div>
+  <div class="nav-actions">
+    <button class="btn-outline" onclick="openImportWizard()">⬆ Import</button>
+    <button class="btn-filled" onclick="copyConfig()">Copy config</button>
   </div>
 </div>
 
-<!-- hidden theme-select kept so applyTheme() still works -->
-<select id="theme-select" style="display:none" onchange="applyTheme(this.value)"></select>
+<!-- ─── Chart Type Bar ─── -->
+<div id="chart-type-bar-wrap">
+  <div id="chart-type-bar-header">
+    <span id="chart-type-bar-title">Chart type</span>
+    <a id="hc-demo-link" href="https://www.highcharts.com/demo/" target="_blank" rel="noopener">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7 1h4v4M11 1L5 7M2 3H1v8h8V9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Highcharts demo library
+    </a>
+  </div>
+  <div id="chart-type-bar"></div>
+</div>
 
 <!-- ─── App Body ─── -->
-<div id="app-body">
+<div id="app">
 
-  <!-- ─── Rail ─── -->
-  <div id="rail">
-    <button class="rail-btn active" id="rail-type" onclick="railSelect('type')" title="Chart type">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
-      Type
-    </button>
-    <button class="rail-btn" id="rail-data" onclick="railSelect('data')" title="Data">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
-      Data
-    </button>
-    <div class="rail-sep"></div>
-    <button class="rail-btn" id="rail-text" onclick="railSelect('text')" title="Labels">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
-      Text
-    </button>
-    <button class="rail-btn" id="rail-axes" onclick="railSelect('axes')" title="Axes">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="21" x2="21" y2="21"/><line x1="3" y1="3" x2="3" y2="21"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="13" cy="10" r="1.5" fill="currentColor"/><circle cx="18" cy="6" r="1.5" fill="currentColor"/></svg>
-      Axes
-    </button>
-  </div>
+  <!-- ─── Main Area ─── -->
+  <div id="main-area">
 
-  <!-- ─── Flyout: Chart Types ─── -->
-  <div id="flyout">
-    <div id="flyout-head">
-      <span id="flyout-title">Chart type</span>
-    </div>
-    <div id="chart-type-bar-wrap">
-      <div id="chart-type-bar-header"><span id="chart-type-bar-title"></span></div>
-      <div id="chart-type-bar"></div>
-    </div>
-  </div>
-
-  <!-- ─── Canvas ─── -->
-  <div id="canvas">
-
-    <!-- Theme Bar -->
-    <div id="theme-bar">
-      <span class="theme-bar-label">Theme</span>
-      <button class="theme-scroll-btn" onclick="scrollThemes(-1)">&#9664;</button>
-      <div id="theme-chips"></div>
-      <button class="theme-scroll-btn" onclick="scrollThemes(1)">&#9654;</button>
-      <span class="theme-bar-hint">Colours applied by Sitecore</span>
-    </div>
-
-    <!-- Canvas Stage -->
-    <div id="canvas-stage">
-
-      <!-- Preview content -->
-      <div id="preview-tab-content">
-        <div class="card" id="preview-card">
-          <div id="colour-override-warning" class="colour-override-warning">
-            <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
-            ⚠ <strong>Custom colour override:</strong> one or more series has a manually set colour. This will override the Sitecore theme colour. Only do this if your design requires a specific colour.
+    <!-- Preview Tab -->
+    <div id="preview-tab-content">
+      <div class="card" id="preview-card">
+        <div class="theme-selector-wrap">
+          <div class="theme-selector-label">
+            Preview theme — colours applied automatically by Sitecore
+            <span class="ts-info" data-tip="You don't need to set chart colours in your config. The website theme handles this automatically. Only add colour overrides if your design specifically requires a non-theme colour.">?</span>
           </div>
-          <div id="chart-container"></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <select id="theme-select" class="field-input" style="flex:1;height:34px" onchange="applyTheme(this.value)"></select>
+            <div id="theme-swatch-preview" style="width:20px;height:20px;border-radius:50%;border:2px solid rgba(0,0,0,0.15);flex-shrink:0"></div>
+          </div>
+          <div class="theme-cards-row" id="theme-cards-row" style="display:none"></div>
         </div>
-        <div id="config-card">
-          <div class="config-card-head">
-            <span class="config-card-label">CMS Config — paste into Sitecore</span>
-            <div class="config-card-actions">
-              <button class="copy-btn-small" onclick="copyConfig()" style="position:static">Copy</button>
-              <button id="config-expand-btn" class="copy-btn-small" onclick="toggleConfigExpand()" style="position:static;background:#555" title="Expand/collapse">⤢</button>
-            </div>
-          </div>
-          <div class="config-card-body">
-            <div class="pre-wrap" style="margin:0">
-              <pre id="config-output"></pre>
-            </div>
+        <div id="colour-override-warning" class="colour-override-warning">
+          <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
+          ⚠ <strong>Custom colour override:</strong> one or more series has a manually set colour. This will override the Sitecore theme colour. Only do this if your design requires a specific colour.
+        </div>
+        <div id="chart-container"></div>
+      </div>
+      <div class="card" style="padding:16px 24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="config-label">CMS CONFIG — paste into Sitecore</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="copy-btn-small" onclick="copyConfig()" style="position:static">Copy</button>
+            <button id="config-expand-btn" class="copy-btn-small" onclick="toggleConfigExpand()" style="position:static;background:#555" title="Expand/collapse">⤢</button>
           </div>
         </div>
-      </div>
-
-      <!-- Data content -->
-      <div id="data-tab-content">
-        <div id="example-banner" class="example-banner">
-          <span>Showing example data — replace with your own</span>
-          <button onclick="dismissBanner()" title="Dismiss">×</button>
+        <div class="pre-wrap">
+          <pre id="config-output"></pre>
         </div>
-        <div class="data-toolbar">
-          <span class="data-toolbar-hint" id="data-hint">Each column is a data series. The first column holds category labels.</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="openImportWizard()">⬆ Import</button>
-            <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="addSeries()">+ Series</button>
-          </div>
-        </div>
-        <div class="spreadsheet-card">
-          <table id="data-grid"></table>
-        </div>
-      </div>
-
-    </div><!-- /canvas-stage -->
-  </div><!-- /canvas -->
-
-  <!-- ─── Right Panel ─── -->
-  <div id="right-panel">
-    <div id="right-panel-head">
-      <div class="rp-icon">
-        <svg id="sidebar-chart-icon" width="18" height="18" viewBox="0 0 22 22" fill="none"><polyline points="2,16 7,8 12,12 17,4" stroke="#009d80" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/></svg>
-      </div>
-      <div>
-        <div class="rp-title" id="sidebar-chart-name">Line chart</div>
-        <div class="rp-sub" id="rp-series-count">3 series</div>
       </div>
     </div>
-    <div id="import-data-slot" onclick="openImportWizard()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Import data file
+
+    <!-- Data Tab -->
+    <div id="data-tab-content">
+      <div id="example-banner" class="example-banner">
+        <span>Showing example data — replace with your own</span>
+        <button onclick="dismissBanner()" title="Dismiss">×</button>
+      </div>
+      <div class="data-toolbar">
+        <span class="data-toolbar-hint" id="data-hint">Each column is a data series. The first column holds category labels (e.g. dates or names).</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn-outline" style="border-color:#009d80;color:#009d80;font-size:12px" onclick="openImportWizard()">⬆ Import file</button>
+          <button class="btn-outline" style="font-size:12px" onclick="addSeries()">+ Add series</button>
+        </div>
+      </div>
+      <div class="spreadsheet-card">
+        <table id="data-grid"></table>
+      </div>
+    </div>
+
+  </div><!-- /main-area -->
+
+  <!-- ─── Settings Sidebar ─── -->
+  <div id="settings-sidebar">
+    <!-- Current chart type display -->
+    <div class="sidebar-type-btn" style="cursor:default">
+      <div class="sidebar-type-info">
+        <svg id="sidebar-chart-icon" width="22" height="22" viewBox="0 0 22 22" fill="none"><polyline points="2,16 7,8 12,12 17,4" stroke="#009d80" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/></svg>
+        <span id="sidebar-chart-name">Line chart</span>
+      </div>
+      <span style="font-size:10px;color:#aaa;font-weight:400">Select above ↑</span>
     </div>
     <div class="sidebar-divider"></div>
 
@@ -2196,9 +2005,9 @@ pre#config-output.expanded {
     <div class="sidebar-search" style="margin-top:auto">
       <input type="text" placeholder="Search settings..." oninput="searchSidebar(this.value)">
     </div>
-  </div><!-- /right-panel -->
+  </div><!-- /settings-sidebar -->
 
-</div><!-- /app-body -->
+</div><!-- /app -->
 
 <!-- ─── Chart Type Picker Overlay ─── -->
 
@@ -2633,13 +2442,15 @@ function hexToRgb(hex) {
 
 function renderThemePills() {
   const sel = document.getElementById('theme-select');
-  if (sel) {
-    sel.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
-      const label = t.sublabel ? `${t.label} — ${t.sublabel}` : t.label;
-      return `<option value="${key}"${selectedTheme === key ? ' selected' : ''}>${label}</option>`;
-    }).join('');
-  }
-  renderThemeChips();
+  if (!sel) return;
+  sel.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
+    const label = t.sublabel ? `${t.label} — ${t.sublabel}` : t.label;
+    return `<option value="${key}"${selectedTheme === key ? ' selected' : ''}>${label}</option>`;
+  }).join('');
+  // Update colour swatch preview
+  const t = N1_THEMES[selectedTheme];
+  const swatch = document.getElementById('theme-swatch-preview');
+  if (swatch && t) swatch.style.background = t.primaryColor;
 }
 
 function applyThemeCss(key) {
@@ -2663,7 +2474,6 @@ function applyTheme(key) {
   renderThemePills();
   renderColourRows();
   schedUpdate();
-  renderThemeChips();
 }
 
 function checkColourOverrides() {
@@ -2757,10 +2567,6 @@ function renderColourRows() {
       </div>
     </div>`;
   }).join('');
-  // Update series count in right panel header
-  const rpCount = document.getElementById('rp-series-count');
-  if (rpCount) rpCount.textContent = `${state.series.length} series`;
-
   // Attach series highlight hovers
   container.querySelectorAll('.series-colour-section').forEach((sec, i) => {
     sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
@@ -4246,68 +4052,6 @@ function highlightSeriesEl(idx) {
       `;
     }
   } catch(e) {}
-}
-
-/* ═══════════════════════════════════════════
-   RAIL NAVIGATION
-═══════════════════════════════════════════ */
-function railSelect(panel) {
-  document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('rail-' + panel).classList.add('active');
-
-  const isData = panel === 'data';
-  document.getElementById('preview-tab-content').style.display = isData ? 'none' : 'flex';
-  document.getElementById('data-tab-content').style.display = isData ? 'block' : 'none';
-  document.getElementById('flyout').style.display = panel === 'type' ? 'flex' : 'none';
-
-  if (!isData) renderGrid();
-
-  if (panel === 'text') {
-    document.getElementById('acc-labels')?.scrollIntoView({behavior:'smooth'});
-    // open labels accordion
-    const body = document.getElementById('acc-body-labels');
-    if (body && !body.classList.contains('open')) toggleAccordion('labels');
-  }
-  if (panel === 'axes') {
-    document.getElementById('acc-xaxis')?.scrollIntoView({behavior:'smooth'});
-    const body = document.getElementById('acc-body-xaxis');
-    if (body && !body.classList.contains('open')) toggleAccordion('xaxis');
-  }
-}
-
-/* ═══════════════════════════════════════════
-   THEME CHIPS
-═══════════════════════════════════════════ */
-function renderThemeChips() {
-  const container = document.getElementById('theme-chips');
-  if (!container) return;
-  container.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
-    const label = t.sublabel ? `${t.label} — ${t.sublabel}` : t.label;
-    return `<div class="theme-chip${selectedTheme === key ? ' active' : ''}" onclick="applyTheme('${key}')">
-      <div class="theme-chip-dot">
-        <div class="theme-chip-dot-l" style="background:${t.primaryColor}"></div>
-        <div class="theme-chip-dot-r" style="background:${t.accentColor}"></div>
-      </div>
-      <span class="theme-chip-name">${label}</span>
-    </div>`;
-  }).join('');
-}
-
-function scrollThemes(dir) {
-  const el = document.getElementById('theme-chips');
-  if (el) el.scrollBy({left: dir * 160, behavior: 'smooth'});
-}
-
-/* ═══════════════════════════════════════════
-   DOWNLOAD CONFIG
-═══════════════════════════════════════════ */
-function downloadConfig() {
-  const text = document.getElementById('config-output')?.textContent || '';
-  const blob = new Blob([text], {type: 'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'chart-config.json';
-  a.click();
 }
 
 function tagFieldRows() {

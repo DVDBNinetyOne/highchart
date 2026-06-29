@@ -57,23 +57,35 @@ body {
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.logo-mark {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: #009d80;
+.n1-wordmark {
+  width: 110px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.logo-divider {
+  color: rgba(255,255,255,.2);
+  font-size: 16px;
+  font-weight: 200;
+  line-height: 1;
+}
+
+.logo-sub {
+  color: rgba(255,255,255,.45);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.topbar-left-meta {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+  gap: 8px;
 }
 
 .doc-title-chip {
@@ -82,6 +94,17 @@ body {
   padding: 4px 10px;
   border-radius: 6px;
   border: 0.5px solid rgba(255,255,255,.1);
+}
+
+.version-chip {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 4px;
+  padding: 2px 7px;
+  letter-spacing: .04em;
 }
 
 .topbar-actions {
@@ -219,6 +242,129 @@ body {
   font-size: 11px;
   font-weight: 600;
   color: #333;
+}
+
+/* ─── Flyout panels ─── */
+.flyout-panel {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#flyout-panel-theme {
+  overflow-y: auto;
+  padding: 6px 6px 10px;
+  gap: 2px;
+  scrollbar-width: thin;
+}
+
+.flyout-theme-hint {
+  font-size: 10px;
+  color: #aaa;
+  padding: 4px 6px 8px;
+  text-align: center;
+}
+
+.flyout-theme-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background .1s, border-color .1s;
+}
+.flyout-theme-chip:hover { background: #f5f4f0; }
+.flyout-theme-chip.active {
+  border-color: #009d80;
+  background: #f0faf7;
+  color: #164848;
+  font-weight: 600;
+}
+
+.flyout-theme-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+  border: 0.5px solid rgba(0,0,0,.08);
+}
+.flyout-theme-dot-l { position: absolute; left: 0; top: 0; width: 50%; height: 100%; }
+.flyout-theme-dot-r { position: absolute; right: 0; top: 0; width: 50%; height: 100%; }
+
+.flyout-theme-name {
+  font-size: 11px;
+  color: #444;
+  line-height: 1.25;
+}
+.flyout-theme-chip.active .flyout-theme-name { color: #164848; }
+
+/* ─── Responsive Preview Toolbar ─── */
+.preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #f4f3ef;
+  border-bottom: 0.5px solid #e4e2db;
+  flex-shrink: 0;
+}
+
+.resp-btns {
+  display: flex;
+  background: #eae9e4;
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.resp-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s, color .12s, box-shadow .12s;
+}
+.resp-btn.active {
+  background: #fff;
+  color: #164848;
+  box-shadow: 0 1px 4px rgba(0,0,0,.09);
+}
+.resp-btn:not(.active):hover { color: #444; }
+
+.viewport-label {
+  font-size: 10px;
+  color: #bbb;
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+  text-align: left;
+}
+
+.preview-stage-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  gap: 16px;
 }
 
 /* ─── Chart Type Bar (inside flyout) ─── */
@@ -400,11 +546,10 @@ body {
 /* ─── Canvas Stage ─── */
 #canvas-stage {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
 }
 #canvas-stage::-webkit-scrollbar { width: 4px; }
 #canvas-stage::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
@@ -412,7 +557,9 @@ body {
 #preview-tab-content {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
 }
 
 /* ─── Cards ─── */
@@ -1802,10 +1949,20 @@ pre#config-output.expanded {
 <!-- ─── Top Bar ─── -->
 <div id="topbar">
   <div class="logo">
-    <div class="logo-mark">N1</div>
-    <span>Highchart Builder</span>
+    <!-- Ninety One wordmark -->
+    <svg class="n1-wordmark" viewBox="0 0 110 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Diamond mark -->
+      <polygon points="10,2 18,14 10,26 2,14" fill="#009d80"/>
+      <!-- "Ninety One" text -->
+      <text x="24" y="19" fill="white" font-size="13" font-weight="600" font-family="Inter,system-ui,sans-serif" letter-spacing="-0.2">Ninety One</text>
+    </svg>
+    <span class="logo-divider">|</span>
+    <span class="logo-sub">Chart Builder</span>
   </div>
-  <div class="doc-title-chip">Untitled chart</div>
+  <div class="topbar-left-meta">
+    <div class="doc-title-chip">Untitled chart</div>
+    <div class="version-chip">v1.0</div>
+  </div>
 
   <!-- Preview / Data tabs -->
   <div class="topbar-tabs">
@@ -1814,21 +1971,6 @@ pre#config-output.expanded {
   </div>
 
   <div class="topbar-actions">
-    <!-- Palette / theme picker -->
-    <div class="theme-picker-wrap" id="theme-picker-wrap">
-      <button class="btn-topbar btn-topbar-ghost btn-icon" id="theme-palette-btn" onclick="toggleThemePicker()" title="Change theme">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="8" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="7" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="8" cy="14" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="14" r="1.5" fill="currentColor" stroke="none"/></svg>
-        Theme
-      </button>
-      <div id="theme-dropdown" class="theme-dropdown">
-        <div class="theme-dropdown-head">
-          <span>Choose theme</span>
-          <span class="theme-dropdown-hint">Colours applied by Sitecore</span>
-        </div>
-        <div id="theme-chips" class="theme-chips-grid"></div>
-      </div>
-    </div>
-
     <button class="btn-topbar btn-topbar-ghost" onclick="openImportWizard()">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Import
@@ -1847,9 +1989,18 @@ pre#config-output.expanded {
 <!-- ─── App Body ─── -->
 <div id="app-body">
 
-  <!-- ─── Rail: right-panel scroll shortcuts ─── -->
+  <!-- ─── Rail ─── -->
   <div id="rail">
-    <button class="rail-btn active" id="rail-text" onclick="railSelect('text')" title="Labels">
+    <button class="rail-btn active" id="rail-type" onclick="railSelect('type')" title="Chart type">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
+      Type
+    </button>
+    <button class="rail-btn" id="rail-theme" onclick="railSelect('theme')" title="Theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+      Theme
+    </button>
+    <div class="rail-sep"></div>
+    <button class="rail-btn" id="rail-text" onclick="railSelect('text')" title="Labels &amp; text">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
       Text
     </button>
@@ -1859,14 +2010,22 @@ pre#config-output.expanded {
     </button>
   </div>
 
-  <!-- ─── Flyout: Chart Types ─── -->
+  <!-- ─── Flyout: switchable panels ─── -->
   <div id="flyout">
     <div id="flyout-head">
       <span id="flyout-title">Chart type</span>
     </div>
-    <div id="chart-type-bar-wrap">
-      <div id="chart-type-bar-header"><span id="chart-type-bar-title"></span></div>
-      <div id="chart-type-bar"></div>
+    <!-- Panel: Chart Types -->
+    <div id="flyout-panel-type" class="flyout-panel">
+      <div id="chart-type-bar-wrap">
+        <div id="chart-type-bar-header"><span id="chart-type-bar-title"></span></div>
+        <div id="chart-type-bar"></div>
+      </div>
+    </div>
+    <!-- Panel: Theme Picker -->
+    <div id="flyout-panel-theme" class="flyout-panel" style="display:none">
+      <div class="flyout-theme-hint">Colours applied by Sitecore</div>
+      <div id="flyout-theme-chips"></div>
     </div>
   </div>
 
@@ -1878,6 +2037,27 @@ pre#config-output.expanded {
 
       <!-- Preview content -->
       <div id="preview-tab-content">
+
+        <!-- Responsive view toolbar -->
+        <div class="preview-toolbar">
+          <div class="resp-btns">
+            <button class="resp-btn active" data-vp="desktop" onclick="setViewport('desktop')" title="Desktop">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+              Desktop
+            </button>
+            <button class="resp-btn" data-vp="tablet" onclick="setViewport('tablet')" title="Tablet">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5" stroke-linecap="round"/></svg>
+              Tablet
+            </button>
+            <button class="resp-btn" data-vp="mobile" onclick="setViewport('mobile')" title="Mobile">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke-width="2.5" stroke-linecap="round"/></svg>
+              Mobile
+            </button>
+          </div>
+          <span class="viewport-label" id="viewport-label">Full width</span>
+        </div>
+
+        <div class="preview-stage-wrap">
         <div class="card" id="preview-card">
           <div id="colour-override-warning" class="colour-override-warning">
             <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
@@ -1899,6 +2079,7 @@ pre#config-output.expanded {
             </div>
           </div>
         </div>
+        </div><!-- /.preview-stage-wrap -->
       </div>
 
       <!-- Data content -->
@@ -2690,9 +2871,8 @@ function applyTheme(key) {
   renderColourRows();
   schedUpdate();
   renderThemeChips();
-  // Close picker after selection
-  document.getElementById('theme-dropdown')?.classList.remove('open');
-  document.getElementById('theme-palette-btn')?.classList.remove('active');
+  // Re-render flyout chips to reflect new active state
+  renderFlyoutThemeChips();
 }
 
 function checkColourOverrides() {
@@ -4290,13 +4470,28 @@ function switchTab(tab) {
 }
 
 /* ═══════════════════════════════════════════
-   RAIL NAVIGATION (scroll-to shortcuts)
+   RAIL NAVIGATION
 ═══════════════════════════════════════════ */
 function railSelect(panel) {
   document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
   const railBtn = document.getElementById('rail-' + panel);
   if (railBtn) railBtn.classList.add('active');
 
+  const typePanel  = document.getElementById('flyout-panel-type');
+  const themePanel = document.getElementById('flyout-panel-theme');
+  const flyoutTitle = document.getElementById('flyout-title');
+
+  if (panel === 'type') {
+    if (typePanel)  typePanel.style.display  = 'flex';
+    if (themePanel) themePanel.style.display = 'none';
+    if (flyoutTitle) flyoutTitle.textContent = 'Chart type';
+  } else if (panel === 'theme') {
+    if (typePanel)  typePanel.style.display  = 'none';
+    if (themePanel) themePanel.style.display = 'flex';
+    if (flyoutTitle) flyoutTitle.textContent = 'Theme';
+    renderFlyoutThemeChips();
+  }
+  // text / axes are right-panel scroll shortcuts — don't switch flyout
   if (panel === 'text') {
     document.getElementById('acc-labels')?.scrollIntoView({behavior:'smooth'});
     const body = document.getElementById('acc-body-labels');
@@ -4307,6 +4502,52 @@ function railSelect(panel) {
     const body = document.getElementById('acc-body-xaxis');
     if (body && !body.classList.contains('open')) toggleAccordion('xaxis');
   }
+}
+
+/* ═══════════════════════════════════════════
+   FLYOUT THEME CHIPS
+═══════════════════════════════════════════ */
+function renderFlyoutThemeChips() {
+  const container = document.getElementById('flyout-theme-chips');
+  if (!container) return;
+  container.innerHTML = Object.entries(N1_THEMES).map(([key, t]) => {
+    const label = t.sublabel ? `${t.label}<br><span style="font-size:10px;color:#999">${t.sublabel}</span>` : t.label;
+    return `<button class="flyout-theme-chip${selectedTheme === key ? ' active' : ''}" onclick="applyTheme('${key}')">
+      <div class="flyout-theme-dot">
+        <div class="flyout-theme-dot-l" style="background:${t.primaryColor}"></div>
+        <div class="flyout-theme-dot-r" style="background:${t.accentColor}"></div>
+      </div>
+      <span class="flyout-theme-name">${label}</span>
+    </button>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE VIEWPORT PREVIEW
+═══════════════════════════════════════════ */
+function setViewport(size) {
+  const wrap = document.getElementById('preview-card');
+  const label = document.getElementById('viewport-label');
+  document.querySelectorAll('.resp-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.resp-btn[data-vp="${size}"]`)?.classList.add('active');
+
+  if (size === 'desktop') {
+    wrap.style.maxWidth = '';
+    wrap.style.marginLeft = '';
+    wrap.style.marginRight = '';
+    if (label) label.textContent = 'Full width';
+  } else if (size === 'tablet') {
+    wrap.style.maxWidth = '768px';
+    wrap.style.marginLeft = 'auto';
+    wrap.style.marginRight = 'auto';
+    if (label) label.textContent = '768px';
+  } else if (size === 'mobile') {
+    wrap.style.maxWidth = '375px';
+    wrap.style.marginLeft = 'auto';
+    wrap.style.marginRight = 'auto';
+    if (label) label.textContent = '375px';
+  }
+  schedUpdate();
 }
 
 /* ═══════════════════════════════════════════

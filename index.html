@@ -3575,8 +3575,6 @@ function renderChartTypeBar() {
       html += `<button
         class="ct-btn${isActive ? ' active' : ''}${isDev ? ' dev-type' : ''}"
         onclick="selectChartType('${c.type}')"
-        onmouseenter="previewChartType('${c.type}')"
-        onmouseleave="revertChartPreview()"
         title="${c.desc}"
         ${isDev ? 'disabled' : ''}>
         ${chartMiniSvgBar(c.type)}
@@ -3612,8 +3610,6 @@ function renderPickerBody() {
         : `<span class="picker-cms-badge ${isCms?'ready':'dev'}">${isCms?'CMS Ready':'Dev needed'}</span>`;
       html += `<button class="${cls}"
         onclick="selectChartType('${c.type}')"
-        onmouseenter="previewChartType('${c.type}')"
-        onmouseleave="revertChartPreview()"
         ${isDev ? 'disabled title="Requires developer setup in Sitecore"' : ''}>
         <div class="picker-card-thumb">${chartMiniSvg(c.type)}</div>
         <div class="picker-card-info">

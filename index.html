@@ -2388,6 +2388,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <button class="seg-btn" data-lw="1" onclick="setLineWidth(1)">Thin</button>
             <button class="seg-btn active" data-lw="2" onclick="setLineWidth(2)">Medium</button>
             <button class="seg-btn" data-lw="4" onclick="setLineWidth(4)">Thick</button>
+            <button class="seg-btn" data-lw="6" onclick="setLineWidth(6)">Bold</button>
           </div>
         </div>
         <div class="field-row">
@@ -2417,6 +2418,15 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <button class="seg-btn" onclick="setStep('left')">Left</button>
             <button class="seg-btn" onclick="setStep('center')">Centre</button>
             <button class="seg-btn" onclick="setStep('right')">Right</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Transition</label>
+          <div class="seg-group">
+            <button class="seg-btn" data-anim="0" onclick="setAnimation(0)">None</button>
+            <button class="seg-btn" data-anim="400" onclick="setAnimation(400)">Fast</button>
+            <button class="seg-btn active" data-anim="800" onclick="setAnimation(800)">Normal</button>
+            <button class="seg-btn" data-anim="1600" onclick="setAnimation(1600)">Slow</button>
           </div>
         </div>
       </div>
@@ -2931,6 +2941,7 @@ let state = {
   decimals: null,
   tooltipMode: 'single',
   yPlotLines: [],
+  animationDuration: 800,
 };
 
 let cmsAvailability = {};
@@ -3041,6 +3052,12 @@ function setLineWidth(w) {
   schedUpdate(); persist();
 }
 
+function setAnimation(ms) {
+  state.animationDuration = ms;
+  document.querySelectorAll('[data-anim]').forEach(b => b.classList.toggle('active', +b.dataset.anim === ms));
+  schedUpdate(); persist();
+}
+
 function setDashStyle(ds) {
   state.dashStyle = ds;
   schedUpdate(); persist();
@@ -3113,12 +3130,15 @@ function applyTheme(key) {
   if (!N1_THEMES[key]) return;
   selectedTheme = key;
   try { localStorage.setItem('n1_selected_theme', key); } catch(e) {}
+  // Clear per-series overrides so theme palette takes effect immediately
+  state.series.forEach(sr => { sr.colorOverride = false; });
+  overrideWarningDismissed = false;
   applyThemeCss(key);
   renderThemePills();
   renderColourRows();
+  checkColourOverrides();
   schedUpdate();
   renderThemeChips();
-  // Re-render flyout chips to reflect new active state
   renderFlyoutThemeChips();
 }
 
@@ -3168,6 +3188,8 @@ function syncSidebarToState() {
     const el = g('toggle-'+['markers','datalabels','gridlines','legend','tooltip','xline'][i]);
     if (el) el.classList.toggle('on', !!s[k]);
   });
+  document.querySelectorAll('[data-lw]').forEach(b => b.classList.toggle('active', +b.dataset.lw === s.lineWidth));
+  document.querySelectorAll('[data-anim]').forEach(b => b.classList.toggle('active', +b.dataset.anim === (s.animationDuration ?? 800)));
   updateAccLinesVisibility();
   updateDonutVisibility();
 }
@@ -3670,7 +3692,7 @@ function update() {
       height: s.chartHeight,
       style: { fontFamily: 'system-ui, -apple-system, sans-serif' },
       zoomType: s.zoom || undefined,
-      animation: false,
+      animation: s.animationDuration > 0 ? { duration: s.animationDuration } : false,
     },
     title: { text: s.title || null, style: { color: headCol } },
     subtitle: { text: s.subtitle || null, style: { color: textCol } },

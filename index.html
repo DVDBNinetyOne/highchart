@@ -3885,7 +3885,7 @@ function formatConfig(obj, indent) {
         const vals = v.map(x => x === null ? 'null' : typeof x === 'string' ? `'${x}'` : x);
         const inline = `[${vals.join(', ')}]`;
         if (inline.length <= 72) {
-          lines.push(`${pad}${k}: ${inline}`);
+          lines.push(`${pad}${k}: ${inline},`);
         } else {
           lines.push(`${pad}${k}: [`);
           const CHUNK = 8;
@@ -3893,7 +3893,7 @@ function formatConfig(obj, indent) {
             const chunk = vals.slice(i, i + CHUNK);
             lines.push(`${pad1}${chunk.join(', ')}${i + CHUNK < vals.length ? ',' : ''}`);
           }
-          lines.push(`${pad}]`);
+          lines.push(`${pad}],`);
         }
       } else {
         lines.push(`${pad}${k}: [`);
@@ -3911,21 +3911,21 @@ function formatConfig(obj, indent) {
             lines.push(`${pad1}${val}${comma}`);
           }
         });
-        lines.push(`${pad}]`);
+        lines.push(`${pad}],`);
       }
     } else if (typeof v === 'object') {
       const inner = formatConfig(v, indent + 1);
       if (inner) {
         lines.push(`${pad}${k}: {`);
         lines.push(inner);
-        lines.push(`${pad}}`);
+        lines.push(`${pad}},`);
       } else {
-        lines.push(`${pad}${k}: {}`);
+        lines.push(`${pad}${k}: {},`);
       }
     } else if (typeof v === 'string') {
-      lines.push(`${pad}${k}: '${v}'`);
+      lines.push(`${pad}${k}: '${v}',`);
     } else {
-      lines.push(`${pad}${k}: ${v}`);
+      lines.push(`${pad}${k}: ${v},`);
     }
   }
   return lines.join('\n');

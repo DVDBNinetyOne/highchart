@@ -131,6 +131,31 @@ body {
   gap: 2px;
 }
 
+/* Unsaved dot on version badge */
+.version-badge[data-dirty]::after {
+  content: '•';
+  color: #fcaa28;
+  margin-left: 2px;
+  font-size: 13px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+/* Active version in history list */
+.vh-item.active-version {
+  background: rgba(0,157,128,.07);
+}
+.vh-item.active-version .vh-item-name { color: #009d80; font-weight: 600; }
+.vh-active-label {
+  font-size: 10px;
+  color: #009d80;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,157,128,.3);
+  background: rgba(0,157,128,.08);
+}
+
 .btn-icon {
   display: flex;
   align-items: center;
@@ -2166,9 +2191,13 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
     <!-- Save / History -->
     <div class="version-wrap" id="version-wrap">
-      <button class="btn-topbar btn-topbar-ghost btn-icon" onclick="saveVersion()" title="Save a snapshot">
+      <button class="btn-topbar btn-topbar-ghost btn-icon" id="save-btn" onclick="saveCurrentVersion()" title="Save changes to current version (Ctrl+S)">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Save
+      </button>
+      <button class="btn-topbar btn-topbar-ghost btn-icon" onclick="newVersion()" title="Create a new version from current state">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New version
       </button>
       <button class="btn-topbar btn-topbar-ghost btn-icon" id="history-btn" onclick="toggleVersionHistory()" title="Version history">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/></svg>
@@ -3295,7 +3324,10 @@ function closeTypePicker(e) {
   }
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('type-picker-overlay').classList.remove('open'); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('type-picker-overlay').classList.remove('open');
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentVersion(); }
+});
 
 let pickerPreviewType = null;
 
@@ -3976,6 +4008,7 @@ function copyConfig() {
 ═══════════════════════════════════════════ */
 function persist() {
   try { localStorage.setItem('n1_last_session', JSON.stringify(state)); } catch(e) {}
+  markDirty();
 }
 
 /* ═══════════════════════════════════════════
@@ -4843,6 +4876,8 @@ function setViewport(size) {
    VERSION HISTORY (localStorage)
 ═══════════════════════════════════════════ */
 const VH_KEY = 'n1_version_history';
+let currentVersionId = null;  // which version we're currently working on
+let isDirty = false;
 
 function getVersionHistory() {
   try { return JSON.parse(localStorage.getItem(VH_KEY) || '[]'); } catch(e) { return []; }
@@ -4851,39 +4886,92 @@ function setVersionHistory(list) {
   try { localStorage.setItem(VH_KEY, JSON.stringify(list)); } catch(e) {}
 }
 
-function saveVersion() {
+function markDirty() {
+  if (isDirty) return;
+  isDirty = true;
+  const badge = document.getElementById('version-badge');
+  if (badge) badge.dataset.dirty = '1';
+}
+
+function markClean() {
+  isDirty = false;
+  const badge = document.getElementById('version-badge');
+  if (badge) delete badge.dataset.dirty;
+}
+
+function flashBadge() {
+  const badge = document.getElementById('version-badge');
+  if (badge) { badge.style.background = 'rgba(0,157,128,.3)'; setTimeout(() => badge.style.background = '', 900); }
+}
+
+// Save changes into the current version (Ctrl+S style — no new version created)
+function saveCurrentVersion() {
+  const title = document.getElementById('doc-title')?.value.trim() || 'Untitled chart';
+  const history = getVersionHistory();
+
+  if (currentVersionId) {
+    // Update the existing version entry in place
+    const idx = history.findIndex(h => h.id === currentVersionId);
+    if (idx !== -1) {
+      history[idx].state = JSON.parse(JSON.stringify(state));
+      history[idx].theme = selectedTheme;
+      history[idx].name = title;
+      history[idx].ts = new Date().toISOString();
+      setVersionHistory(history);
+      markClean();
+      renderVersionHistoryList();
+      flashBadge();
+      return;
+    }
+  }
+
+  // No current version yet — create v1 automatically
+  const vNum = history.length + 1;
+  const id = Date.now();
+  currentVersionId = id;
+  history.unshift({ id, vNum, name: title, ts: new Date().toISOString(),
+    state: JSON.parse(JSON.stringify(state)), theme: selectedTheme });
+  if (history.length > 30) history.splice(30);
+  setVersionHistory(history);
+  const badge = document.getElementById('version-badge');
+  if (badge) badge.textContent = `v${vNum}`;
+  markClean();
+  renderVersionHistoryList();
+  flashBadge();
+}
+
+// Branch off a new version from the current state
+function newVersion() {
   const title = document.getElementById('doc-title')?.value.trim() || 'Untitled chart';
   const history = getVersionHistory();
   const vNum = history.length + 1;
-  history.unshift({
-    id: Date.now(),
-    vNum,
-    name: title,
-    ts: new Date().toISOString(),
-    state: JSON.parse(JSON.stringify(state)),
-    theme: selectedTheme
-  });
+  const id = Date.now();
+  currentVersionId = id;
+  history.unshift({ id, vNum, name: title, ts: new Date().toISOString(),
+    state: JSON.parse(JSON.stringify(state)), theme: selectedTheme });
   if (history.length > 30) history.splice(30);
   setVersionHistory(history);
-  // Update badge
   const badge = document.getElementById('version-badge');
   if (badge) badge.textContent = `v${vNum}`;
+  markClean();
   renderVersionHistoryList();
-  // Flash badge
-  if (badge) { badge.style.background = 'rgba(0,157,128,.25)'; setTimeout(() => badge.style.background = '', 800); }
+  flashBadge();
 }
 
+// Switch to a version from history (sets it as the active version)
 function restoreVersion(id) {
   const history = getVersionHistory();
   const v = history.find(h => h.id === id);
   if (!v) return;
-  if (!confirm(`Restore "${v.name}" (v${v.vNum})? Unsaved current work will be lost.`)) return;
+  if (isDirty && !confirm(`Switch to v${v.vNum}? Unsaved changes to the current version will be lost.`)) return;
+  currentVersionId = id;
   Object.assign(state, JSON.parse(JSON.stringify(v.state)));
   applyTheme(v.theme);
   const badge = document.getElementById('version-badge');
   if (badge) badge.textContent = `v${v.vNum}`;
   const titleEl = document.getElementById('doc-title');
   if (titleEl) titleEl.value = v.name;
+  markClean();
   renderColourRows();
   renderThemePills();
   schedUpdate();
@@ -4904,13 +4992,17 @@ function renderVersionHistoryList() {
   if (empty) empty.style.display = 'none';
   list.innerHTML = history.map(v => {
     const d = new Date(v.ts);
-    const ts = d.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) + ' · ' + d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
-    return `<div class="vh-item">
+    const ts = d.toLocaleDateString('en-GB', {day:'numeric',month:'short'}) + ' · ' + d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
+    const isCurrent = v.id === currentVersionId;
+    const action = isCurrent
+      ? `<span class="vh-active-label">Current</span>`
+      : `<button class="vh-restore-btn" onclick="restoreVersion(${v.id})">Switch</button>`;
+    return `<div class="vh-item${isCurrent ? ' active-version' : ''}">
       <div class="vh-item-info">
         <div class="vh-item-name">v${v.vNum} — ${v.name}</div>
         <div class="vh-item-ts">${ts}</div>
       </div>
-      <button class="vh-restore-btn" onclick="restoreVersion(${v.id})">Restore</button>
+      ${action}
     </div>`;
   }).join('');
 }

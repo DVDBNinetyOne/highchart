@@ -4393,6 +4393,11 @@ function wizardNext() {
       }
       return;
     }
+    // Data-only import (xlsx/csv dropped with no chart file)
+    if (wizardData.dataOnly && wizardData.csvFile) {
+      applyDataFileDirectly(wizardData.csvFile);
+      return;
+    }
     if (!wizardData.file && !wizardData.parsedConfig) {
       errEl.textContent = 'Please select a file first.';
       errEl.style.display = 'block';
@@ -4439,9 +4444,15 @@ function handleFilesSelect(fileList) {
 
   wizardData.extraFiles = primaryFiles.slice(1);
 
-  // If it's a data-only drop (no chart file), parse and apply directly — skip the wizard
+  // Data-only drop (no chart file) — open wizard at step 1 so user sees the file and clicks Next
   if (!primaryFiles.length && dataFiles.length) {
-    applyDataFileDirectly(dataFiles[0]);
+    wizardData.dataOnly = true;
+    document.getElementById('import-wizard-overlay').style.display = 'flex';
+    wizardStep = 1;
+    renderWizardStep();
+    renderFileChips();
+    const zone = document.getElementById('drop-zone');
+    if (zone) zone.style.borderColor = '#009d80';
     return;
   }
 
@@ -4845,15 +4856,19 @@ function parseCSV(text) {
   if (lines.length < 2) return {};
   const headers = lines[0];
   const categories = [];
-  const series = headers.slice(1).map(h => ({ name: h, data: [] }));
+  const series = headers.slice(1).map(h => ({ name: h.trim(), data: [] }));
   lines.slice(1).forEach(row => {
-    categories.push(row[0] || '');
+    const cat = (row[0] || '').trim();
+    if (!cat) return; // skip blank rows
+    categories.push(cat);
     series.forEach((s, i) => {
       const v = parseFloat(row[i+1]);
       s.data.push(isNaN(v) ? null : v);
     });
   });
-  return { categories, series };
+  // Drop series with no name or all-null data
+  const filtered = series.filter(s => s.name && s.data.some(v => v !== null));
+  return { categories, series: filtered };
 }
 
 async function parseXLSXFile(file) {
@@ -4863,25 +4878,28 @@ async function parseXLSXFile(file) {
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
   if (rows.length < 2) return {};
   // First row = headers; first column = category labels
-  const headers    = rows[0].map(String);
+  const headers = rows[0].map(String);
   const categories = [];
-  const series     = headers.slice(1).map(h => ({ name: String(h), data: [] }));
+  const series = headers.slice(1).map(h => ({ name: String(h).trim(), data: [] }));
+
   rows.slice(1).forEach(row => {
-    categories.push(String(row[0] ?? ''));
+    const cat = String(row[0] ?? '').trim();
+    if (!cat) return; // skip blank rows
+    categories.push(cat);
     series.forEach((s, i) => {
       const v = parseFloat(row[i + 1]);
       s.data.push(isNaN(v) ? null : v);
     });
   });
-  return { categories, series };
+
+  // Drop series with no name or all-null data
+  const filtered = series.filter(s => s.name && s.data.some(v => v !== null));
+  return { categories, series: filtered };
 }
 
 async function applyDataFileDirectly(file) {
   const ext = file.name.split('.').pop().toLowerCase();
-  // Open the wizard first so the user sees a loading state
-  wizardData = { csvFile: null };
-  wizardStep = 1;
-  document.getElementById('import-wizard-overlay').style.display = 'flex';
+  // Wizard is already open — just show loading state in the body
   const body = document.getElementById('import-wizard-body');
   if (body) body.innerHTML = '<div style="text-align:center;padding:40px 0;color:#888;font-size:13px">Reading file…</div>';
 

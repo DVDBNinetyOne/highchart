@@ -16,6 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/packed-bubble.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/treemap.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
 /* ─── Reset & Base ─── */
@@ -4304,9 +4305,9 @@ function renderWizardStep() {
         <div id="drop-zone" style="border:2px dashed #ddd;border-radius:8px;padding:28px 24px;text-align:center;cursor:pointer;transition:border-color 0.15s" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#009d80'" ondragleave="this.style.borderColor='#ddd'" ondrop="handleFileDrop(event)">
           <div style="font-size:26px;margin-bottom:6px">📁</div>
           <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:3px">Drop files here or click to browse</div>
-          <div style="font-size:11px;color:#999">PPTX · SVG · PNG · JPG — optionally add a CSV for data</div>
+          <div style="font-size:11px;color:#999">PPTX · SVG · PNG · JPG — optionally add a CSV or Excel file for data</div>
         </div>
-        <input type="file" id="file-input" accept=".pptx,.svg,.png,.jpg,.jpeg,.gif,.webp,.csv,image/*" style="display:none" multiple onchange="handleFilesSelect(this.files)">
+        <input type="file" id="file-input" accept=".pptx,.svg,.png,.jpg,.jpeg,.gif,.webp,.csv,.xlsx,.xls,image/*" style="display:none" multiple onchange="handleFilesSelect(this.files)">
         <div id="file-chips" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
         <div style="margin-top:14px;border-top:1px solid #eee;padding-top:12px">
           <div style="font-size:12px;color:#888;margin-bottom:6px">Anthropic API key (for AI image reading):</div>
@@ -4351,7 +4352,7 @@ function renderWizardStep() {
         <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:4px">Drop CSV here or click to browse</div>
         <div style="font-size:12px;color:#888">Optional — skip if you want to use extracted data</div>
       </div>
-      <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none" onchange="handleCsvSelect(this.files[0])">
+      <input type="file" id="csv-file-input" accept=".csv,.xlsx,.xls,text/csv" style="display:none" onchange="handleCsvSelect(this.files[0])">
       <div id="csv-preview" style="margin-top:12px;font-size:12px;color:#009d80;font-weight:600"></div>
       <div style="margin-top:16px;text-align:right">
         <button class="btn-outline" style="font-size:12px;border-color:#009d80;color:#009d80" onclick="skipCsv()">Skip CSV and apply →</button>
@@ -4427,15 +4428,20 @@ function handleFilesSelect(fileList) {
   if (!fileList || !fileList.length) return;
   const files = Array.from(fileList);
 
-  // Separate CSV from primary (chart) files
-  const csvFiles     = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
-  const primaryFiles = files.filter(f => !f.name.toLowerCase().endsWith('.csv'));
+  const dataExts = ['csv', 'xlsx', 'xls'];
+  const dataFiles    = files.filter(f => dataExts.includes(f.name.split('.').pop().toLowerCase()));
+  const primaryFiles = files.filter(f => !dataExts.includes(f.name.split('.').pop().toLowerCase()));
 
   if (primaryFiles.length) wizardData.file = primaryFiles[0];
-  if (csvFiles.length)     wizardData.csvFile = csvFiles[0];
+  if (dataFiles.length)    wizardData.csvFile = dataFiles[0];
 
-  // Warn if multiple primary files — only first is used
   wizardData.extraFiles = primaryFiles.slice(1);
+
+  // If it's a data-only drop (no chart file), parse and apply directly — skip the wizard
+  if (!primaryFiles.length && dataFiles.length) {
+    applyDataFileDirectly(dataFiles[0]);
+    return;
+  }
 
   renderFileChips();
   const zone = document.getElementById('drop-zone');
@@ -4526,14 +4532,16 @@ async function applyAndFinish() {
   if (!cfg) { closeImportWizard(); return; }
 
   if (wizardData.csvFile) {
-    const text = await wizardData.csvFile.text();
-    const csvData = parseCSV(text);
-    if (csvData.categories) cfg.categories = csvData.categories;
-    if (csvData.series) {
+    const ext = wizardData.csvFile.name.split('.').pop().toLowerCase();
+    const dataFile = ext === 'xlsx' || ext === 'xls'
+      ? await parseXLSXFile(wizardData.csvFile)
+      : parseCSV(await wizardData.csvFile.text());
+    if (dataFile.categories) cfg.categories = dataFile.categories;
+    if (dataFile.series) {
       cfg.series = cfg.series ? cfg.series.map((s, i) => ({
         ...s,
-        data: (csvData.series[i] || csvData.series[0] || s).data,
-      })) : csvData.series;
+        data: (dataFile.series[i] || dataFile.series[0] || s).data,
+      })) : dataFile.series;
     }
   }
 
@@ -4844,6 +4852,60 @@ function parseCSV(text) {
     });
   });
   return { categories, series };
+}
+
+async function parseXLSXFile(file) {
+  const buf = await file.arrayBuffer();
+  const wb  = XLSX.read(buf, { type: 'array' });
+  const ws  = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (rows.length < 2) return {};
+  // First row = headers; first column = category labels
+  const headers    = rows[0].map(String);
+  const categories = [];
+  const series     = headers.slice(1).map(h => ({ name: String(h), data: [] }));
+  rows.slice(1).forEach(row => {
+    categories.push(String(row[0] ?? ''));
+    series.forEach((s, i) => {
+      const v = parseFloat(row[i + 1]);
+      s.data.push(isNaN(v) ? null : v);
+    });
+  });
+  return { categories, series };
+}
+
+async function applyDataFileDirectly(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  let data;
+  try {
+    if (ext === 'xlsx' || ext === 'xls') {
+      data = await parseXLSXFile(file);
+    } else {
+      data = parseCSV(await file.text());
+    }
+  } catch(e) {
+    alert('Could not read file: ' + (e.message || e));
+    return;
+  }
+  if (!data.categories?.length && !data.series?.length) {
+    alert('No data found in file — check the first sheet has headers in row 1 and category labels in column A.');
+    return;
+  }
+  if (data.categories?.length) state.categories = data.categories;
+  if (data.series?.length) {
+    state.series = data.series.map((s, i) => ({
+      name: s.name || 'Series ' + (i + 1),
+      data: s.data,
+      color: N1_PALETTE[i % N1_PALETTE.length],
+      colorOverride: false,
+    }));
+  }
+  dismissBanner();
+  switchTab('data');
+  renderGrid();
+  renderColourRows();
+  schedUpdate();
+  persist();
 }
 
 /* ═══════════════════════════════════════════

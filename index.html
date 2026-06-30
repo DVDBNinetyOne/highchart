@@ -4579,6 +4579,10 @@ function applyAIConfig(cfg) {
     color: s.color || N1_PALETTE[i % N1_PALETTE.length],
     colorOverride: !!s.color,
   }));
+  // If imported categories are text labels (not plain numbers), force category axis
+  if (cfg.categories?.length && cfg.categories.some(c => isNaN(Number(c)))) {
+    state.xAxisType = 'category';
+  }
   if (cfg.xAxisTitle || cfg.xTitle) state.xTitle = cfg.xAxisTitle || cfg.xTitle;
   if (cfg.yAxisTitle || cfg.yTitle) state.yTitle = cfg.yAxisTitle || cfg.yTitle;
   if (cfg.chartHeight)  state.chartHeight = cfg.chartHeight;

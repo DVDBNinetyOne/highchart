@@ -4320,11 +4320,12 @@ function renderWizardStep() {
       </div>
     `;
   } else if (wizardStep === 2) {
-    nextBtn.textContent = wizardData.csvFile ? 'Apply to chart' : 'Use this data';
+    const _src = wizardData.source;
+    nextBtn.textContent = (wizardData.csvFile || _src === 'xlsx' || _src === 'csv') ? 'Apply to chart' : 'Use this data';
     const cfg = wizardData.parsedConfig || {};
     const src = wizardData.source || 'unknown';
-    const bannerColor = src === 'pptx' ? '#009d80' : src === 'ai' ? '#1a5c9a' : src === 'paste' ? '#164848' : '#c07000';
-    const bannerLabel = src === 'pptx' ? 'Exact data from PPTX' : src === 'ai' ? 'AI Vision result' : src === 'paste' ? 'Parsed from pasted config' : 'Example data (mock)';
+    const bannerColor = src === 'pptx' ? '#009d80' : src === 'ai' ? '#1a5c9a' : src === 'paste' ? '#164848' : src === 'xlsx' ? '#1d6a3e' : src === 'csv' ? '#2a7a4b' : '#c07000';
+    const bannerLabel = src === 'pptx' ? 'Exact data from PPTX' : src === 'ai' ? 'AI Vision result' : src === 'paste' ? 'Parsed from pasted config' : src === 'xlsx' ? 'Parsed from Excel file' : src === 'csv' ? 'Parsed from CSV file' : 'Example data (mock)';
 
     body.innerHTML = `
       <div style="background:${bannerColor};color:#fff;border-radius:4px;padding:8px 14px;font-size:12px;font-weight:600;margin-bottom:16px">${bannerLabel}</div>
@@ -4401,8 +4402,9 @@ function wizardNext() {
     if (apiKey) localStorage.setItem('n1_api_key', apiKey);
     processFile();
   } else if (wizardStep === 2) {
-    // Skip CSV step if one was already provided with the upload
-    if (wizardData.csvFile) { applyAndFinish(); return; }
+    // Data-file sources already have full data — apply directly, skip CSV step
+    const src = wizardData.source;
+    if (wizardData.csvFile || src === 'xlsx' || src === 'csv') { applyAndFinish(); return; }
     wizardStep = 3;
     renderWizardStep();
   } else if (wizardStep === 3) {
@@ -4876,6 +4878,13 @@ async function parseXLSXFile(file) {
 
 async function applyDataFileDirectly(file) {
   const ext = file.name.split('.').pop().toLowerCase();
+  // Open the wizard first so the user sees a loading state
+  wizardData = { csvFile: null };
+  wizardStep = 1;
+  document.getElementById('import-wizard-overlay').style.display = 'flex';
+  const body = document.getElementById('import-wizard-body');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px 0;color:#888;font-size:13px">Reading file…</div>';
+
   let data;
   try {
     if (ext === 'xlsx' || ext === 'xls') {
@@ -4884,28 +4893,21 @@ async function applyDataFileDirectly(file) {
       data = parseCSV(await file.text());
     }
   } catch(e) {
+    closeImportWizard();
     alert('Could not read file: ' + (e.message || e));
     return;
   }
   if (!data.categories?.length && !data.series?.length) {
+    closeImportWizard();
     alert('No data found in file — check the first sheet has headers in row 1 and category labels in column A.');
     return;
   }
-  if (data.categories?.length) state.categories = data.categories;
-  if (data.series?.length) {
-    state.series = data.series.map((s, i) => ({
-      name: s.name || 'Series ' + (i + 1),
-      data: s.data,
-      color: N1_PALETTE[i % N1_PALETTE.length],
-      colorOverride: false,
-    }));
-  }
-  dismissBanner();
-  switchTab('data');
-  renderGrid();
-  renderColourRows();
-  schedUpdate();
-  persist();
+
+  // Load into wizard as parsed config and jump to Review step
+  wizardData.parsedConfig = { categories: data.categories, series: data.series, type: state.chartType };
+  wizardData.source = (ext === 'xlsx' || ext === 'xls') ? 'xlsx' : 'csv';
+  wizardStep = 2;
+  renderWizardStep();
 }
 
 /* ═══════════════════════════════════════════

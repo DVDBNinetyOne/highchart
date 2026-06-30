@@ -502,7 +502,7 @@ body {
 }
 .flyout-theme-card:hover { border-color: rgba(0,157,128,.45); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 .flyout-theme-card.active { border-color: #009d80; box-shadow: 0 2px 8px rgba(0,157,128,.2); }
-.ftc-preview { width: 100%; height: 56px; overflow: hidden; display: block; }
+.ftc-preview { width: 100%; height: 40px; overflow: hidden; display: block; }
 .ftc-label { padding: 6px 7px 6px; background: #fff; }
 .ftc-primary { display: block; font-size: 11px; font-weight: 700; color: #1a1a1a; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ftc-accent  { display: block; font-size: 10px; color: #555; font-weight: 500; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5227,19 +5227,20 @@ function renderFlyoutThemeChips() {
     groups[t.label].push({ key, t });
   });
 
-  // Mini line chart SVG on theme background
-  function miniChartSvg(t) {
-    const [c0, c1, c2] = t.chartSeriesColors;
+  // Swatch preview: theme background + coloured dot row
+  function swatchSvg(t) {
     const bg = t.primaryColor;
-    const grid = 'rgba(255,255,255,0.12)';
-    return `<svg width="100%" height="56" viewBox="0 0 96 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
-      <rect width="96" height="56" fill="${bg}"/>
-      <line x1="0" y1="42" x2="96" y2="42" stroke="${grid}" stroke-width="0.6"/>
-      <line x1="0" y1="28" x2="96" y2="28" stroke="${grid}" stroke-width="0.6"/>
-      <line x1="0" y1="14" x2="96" y2="14" stroke="${grid}" stroke-width="0.6"/>
-      <polyline points="6,44 22,30 38,36 54,18 72,24 90,12" stroke="${c0||'#fff'}" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
-      <polyline points="6,50 22,44 38,28 54,38 72,20 90,30" stroke="${c1||'#fff'}" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>
-      <polyline points="6,38 22,48 38,42 54,46 72,34 90,40" stroke="${c2||'#fff'}" stroke-width="1.6" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.7"/>
+    const cols = t.chartSeriesColors.slice(0, 5);
+    const n = cols.length;
+    const r = 5;
+    const total = 96;
+    const step = total / (n + 1);
+    const dots = cols.map((c, i) =>
+      `<circle cx="${Math.round(step * (i + 1))}" cy="20" r="${r}" fill="${c}" opacity="0.95"/>`
+    ).join('');
+    return `<svg width="100%" height="40" viewBox="0 0 96 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="96" height="40" fill="${bg}"/>
+      ${dots}
     </svg>`;
   }
 
@@ -5250,7 +5251,7 @@ function renderFlyoutThemeChips() {
     items.forEach(({ key, t }) => {
       const isActive = selectedTheme === key;
       html += `<button class="flyout-theme-card${isActive ? ' active' : ''}" onclick="applyTheme('${key}')">
-        <div class="ftc-preview">${miniChartSvg(t)}</div>
+        <div class="ftc-preview">${swatchSvg(t)}</div>
         <div class="ftc-label">
           <span class="ftc-primary">${t.label}</span>
           ${t.sublabel ? `<span class="ftc-accent">${t.sublabel}</span>` : ''}

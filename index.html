@@ -837,20 +837,28 @@ body {
 
 /* ─── Right Panel ─── */
 #right-panel {
-  width: 280px;
+  width: 300px;
   flex-shrink: 0;
   background: #fff;
   border-left: 0.5px solid #e0e0e0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  max-width: 280px;
-  transition: max-width 0.22s ease, border-color 0.22s ease;
+  position: relative;
 }
-#right-panel.collapsed {
-  max-width: 0;
-  overflow: hidden;
-  border-left-color: transparent;
+#rp-drag-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s;
+}
+#rp-drag-handle:hover, #rp-drag-handle.dragging {
+  background: rgba(0,157,128,0.25);
 }
 #rp-expand-tab {
   display: none;
@@ -899,8 +907,8 @@ body {
   flex-shrink: 0;
 }
 
-.rp-title { font-size: 12px; font-weight: 600; color: #333; }
-.rp-sub { font-size: 10px; color: #aaa; }
+.rp-title { font-size: 13px; font-weight: 600; color: #222; }
+.rp-sub { font-size: 11px; color: #999; }
 
 #import-data-slot {
   margin: 10px 14px;
@@ -1326,18 +1334,18 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
 .accordion-header {
   width: 100%;
-  padding: 10px 16px;
+  padding: 11px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #444;
+  letter-spacing: 0.07em;
+  color: #333;
   font-family: inherit;
 }
 .accordion-header:hover { background: #fafafa; }
@@ -1362,9 +1370,9 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 }
 
 .field-row label {
-  font-size: 12px;
-  color: #555;
-  min-width: 90px;
+  font-size: 13px;
+  color: #333;
+  min-width: 96px;
   flex-shrink: 0;
 }
 
@@ -1419,16 +1427,16 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
 .seg-btn {
   flex: 1;
-  padding: 5px 8px;
+  padding: 6px 8px;
   border: none;
   background: #fff;
   font-size: 12px;
-  color: #888;
+  color: #555;
   cursor: pointer;
   font-family: inherit;
   transition: background 0.15s, color 0.15s;
 }
-.seg-btn.active { background: #333; color: #fff; }
+.seg-btn.active { background: #222; color: #fff; }
 
 .colour-swatches {
   display: flex;
@@ -1456,19 +1464,19 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 .series-colour-section:last-child { border-bottom: none; }
 
 .series-name-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: #222;
   margin-bottom: 6px;
 }
 
 .hex-input {
-  width: 72px;
+  width: 76px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
   padding: 0 6px;
-  height: 26px;
+  height: 28px;
   font-family: monospace;
   outline: none;
 }
@@ -2377,6 +2385,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
   <!-- ─── Right Panel ─── -->
   <div id="right-panel">
+    <div id="rp-drag-handle" title="Drag to resize"></div>
     <div id="right-panel-head">
       <div class="rp-icon">
         <svg id="sidebar-chart-icon" width="18" height="18" viewBox="0 0 22 22" fill="none"><polyline points="2,16 7,8 12,12 17,4" stroke="#009d80" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/></svg>
@@ -3180,13 +3189,58 @@ function toggleRightPanel() {
     p.style.opacity = '0';
     p.style.borderLeftColor = 'transparent';
   } else {
-    p.style.width = '280px';
+    p.style.width = (p._savedWidth || '300') + 'px';
     p.style.minWidth = '';
     p.style.overflow = '';
     p.style.opacity = '1';
     p.style.borderLeftColor = '';
   }
 }
+
+(function initPanelResize() {
+  function setup() {
+    const handle = document.getElementById('rp-drag-handle');
+    const panel  = document.getElementById('right-panel');
+    if (!handle || !panel) return;
+    let startX, startW;
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = panel.offsetWidth;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMove(e) {
+        const delta = startX - e.clientX; // dragging left = wider
+        const newW = Math.max(240, Math.min(560, startW + delta));
+        panel.style.width = newW + 'px';
+        panel._savedWidth = newW;
+        // reflow Highcharts to fill new canvas width
+        if (window.chartInstance) {
+          clearTimeout(panel._reflowTimer);
+          panel._reflowTimer = setTimeout(() => {
+            try { window.chartInstance.reflow(); } catch(e) {}
+          }, 30);
+        }
+      }
+
+      function onUp() {
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        try { window.chartInstance && window.chartInstance.reflow(); } catch(e) {}
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
+})();
 
 function setDashStyle(ds) {
   state.dashStyle = ds;

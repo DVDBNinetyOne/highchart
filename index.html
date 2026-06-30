@@ -844,16 +844,33 @@ body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  transition: width 0.22s ease;
-  overflow-x: hidden;
+  max-width: 280px;
+  transition: max-width 0.22s ease, border-color 0.22s ease;
 }
 #right-panel.collapsed {
-  width: 36px;
-  overflow-y: hidden;
+  max-width: 0;
+  overflow: hidden;
+  border-left-color: transparent;
 }
-#right-panel.collapsed > *:not(#right-panel-head) { display: none !important; }
-#right-panel.collapsed #right-panel-head { padding: 12px 8px; justify-content: center; }
-#right-panel.collapsed #rp-collapse-btn { transform: rotate(180deg); }
+#rp-expand-tab {
+  display: none;
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  background: #fff;
+  border: 0.5px solid #e0e0e0;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  padding: 10px 6px;
+  cursor: pointer;
+  color: #888;
+  box-shadow: -2px 0 6px rgba(0,0,0,.06);
+  transition: color 0.15s;
+}
+#rp-expand-tab:hover { color: #333; }
+#app-body.rp-collapsed #rp-expand-tab { display: flex; }
 #right-panel::-webkit-scrollbar { width: 4px; }
 #right-panel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
 
@@ -2711,6 +2728,11 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </div>
   </div><!-- /right-panel -->
 
+  <!-- Floating re-expand tab shown when right panel is collapsed -->
+  <button id="rp-expand-tab" onclick="toggleRightPanel()" title="Expand settings">
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><polyline points="5,2 10,7 5,12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+
 </div><!-- /app-body -->
 
 <!-- ─── Chart Type Picker Overlay ─── -->
@@ -3146,7 +3168,24 @@ function setBorderRadius(v) {
 
 function toggleRightPanel() {
   const p = document.getElementById('right-panel');
-  p.classList.toggle('collapsed');
+  const body = document.getElementById('app-body');
+  const collapsing = !p.classList.contains('collapsed');
+  p.classList.toggle('collapsed', collapsing);
+  body.classList.toggle('rp-collapsed', collapsing);
+  if (collapsing) {
+    p.style.transition = 'width 0.22s ease, opacity 0.15s ease';
+    p.style.width = '0';
+    p.style.minWidth = '0';
+    p.style.overflow = 'hidden';
+    p.style.opacity = '0';
+    p.style.borderLeftColor = 'transparent';
+  } else {
+    p.style.width = '280px';
+    p.style.minWidth = '';
+    p.style.overflow = '';
+    p.style.opacity = '1';
+    p.style.borderLeftColor = '';
+  }
 }
 
 function setDashStyle(ds) {

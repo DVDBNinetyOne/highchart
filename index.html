@@ -415,6 +415,21 @@ body {
   flex-direction: column;
   overflow: hidden;
   animation: n1-slide-in .2s ease both;
+  position: relative;
+}
+#flyout-drag-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s;
+}
+#flyout-drag-handle:hover, #flyout-drag-handle.dragging {
+  background: rgba(0,157,128,0.25);
 }
 
 #flyout-head {
@@ -464,59 +479,38 @@ body {
 .flyout-theme-group-label:first-child { padding-top: 4px; }
 
 /* ── Theme chip ── */
-.flyout-theme-chip {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-  font-family: inherit;
-  background: transparent;
-  width: 100%;
-  text-align: left;
-  transition: background .12s, border-color .12s;
+/* ── Theme card grid ── */
+.flyout-theme-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  padding: 0 10px 10px;
 }
-.flyout-theme-chip:hover { background: #f5f4f0; }
-.flyout-theme-chip.active {
-  border-color: #009d80;
-  background: #eef8f5;
-}
-
-/* ── Palette swatch strip ── */
-.flyout-palette {
-  display: flex;
-  flex-shrink: 0;
-  width: 64px;
-  height: 24px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid rgba(0,0,0,.1);
-}
-.flyout-palette-seg { flex: 1; height: 100%; }
-.flyout-palette-seg:first-child { flex: 2; } /* primary gets double width */
-
-/* ── Chip label ── */
-.flyout-theme-labels {
+.flyout-theme-card {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  min-width: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #fff;
+  padding: 0;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color .15s, box-shadow .15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
-.flyout-theme-primary-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: #222;
-  line-height: 1.2;
+.flyout-theme-card:hover { border-color: rgba(0,157,128,.45); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.flyout-theme-card.active { border-color: #009d80; box-shadow: 0 2px 8px rgba(0,157,128,.2); }
+.ftc-preview { width: 100%; height: 56px; overflow: hidden; display: block; }
+.ftc-label { padding: 5px 6px 5px; background: #fff; }
+.ftc-primary { display: block; font-size: 10px; font-weight: 700; color: #222; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ftc-accent  { display: block; font-size: 9px; color: #888; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flyout-theme-card.active .ftc-primary { color: #009d80; }
+.flyout-theme-group-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: #aaa; padding: 10px 10px 4px;
 }
-.flyout-theme-accent-name {
-  font-size: 10px;
-  color: #777;
-  line-height: 1.2;
-}
-.flyout-theme-chip.active .flyout-theme-primary-name { color: #164848; }
-.flyout-theme-chip.active .flyout-theme-accent-name  { color: #009d80; }
 
 .preview-stage-wrap {
   display: flex;
@@ -561,26 +555,27 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  padding: 8px 6px 7px;
+  justify-content: center;
+  padding: 12px 6px 10px;
   cursor: pointer;
-  border: 0.5px solid transparent;
-  gap: 5px;
+  border: 1.5px solid transparent;
+  gap: 8px;
   background: transparent;
   font-family: inherit;
-  font-size: 10px;
-  color: #888;
+  font-size: 12px;
+  color: #555;
   animation: n1-fade-up .22s ease both;
   min-width: unset;
-  border-radius: 0;
+  border-radius: 8px;
   box-shadow: none;
   white-space: nowrap;
   position: relative;
+  margin: 2px;
 }
-.ct-btn:hover { background: #f9f8f6; transform: none; box-shadow: none; border-color: transparent; color: #333; }
+.ct-btn:hover { background: #f5f4f0; border-color: transparent; color: #222; }
 .ct-btn.active { background: #edf7f4; border-color: #009d80; color: #009d80; font-weight: 600; box-shadow: none; }
 .ct-btn.active::before { display: none; }
-.ct-btn.dev-type { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.ct-btn.dev-type { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 .ct-btn svg { display: block; }
 
 /* ─── Canvas ─── */
@@ -2292,6 +2287,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
   <!-- ─── Flyout: switchable panels ─── -->
   <div id="flyout">
+    <div id="flyout-drag-handle" title="Drag to resize"></div>
     <div id="flyout-head">
       <span id="flyout-title">Chart type</span>
     </div>
@@ -3198,10 +3194,8 @@ function toggleRightPanel() {
 }
 
 (function initPanelResize() {
-  function setup() {
-    const handle = document.getElementById('rp-drag-handle');
-    const panel  = document.getElementById('right-panel');
-    if (!handle || !panel) return;
+  function makeDraggable(handle, panel, opts) {
+    // opts: { dir: 'left'|'right', min, max, onResize }
     let startX, startW;
     handle.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -3212,17 +3206,13 @@ function toggleRightPanel() {
       document.body.style.userSelect = 'none';
 
       function onMove(e) {
-        const delta = startX - e.clientX; // dragging left = wider
-        const newW = Math.max(240, Math.min(560, startW + delta));
+        const delta = opts.dir === 'left'
+          ? startX - e.clientX   // right panel: drag left = wider
+          : e.clientX - startX;  // flyout: drag right = wider
+        const newW = Math.max(opts.min, Math.min(opts.max, startW + delta));
         panel.style.width = newW + 'px';
         panel._savedWidth = newW;
-        // reflow Highcharts to fill new canvas width
-        if (window.chartInstance) {
-          clearTimeout(panel._reflowTimer);
-          panel._reflowTimer = setTimeout(() => {
-            try { window.chartInstance.reflow(); } catch(e) {}
-          }, 30);
-        }
+        if (opts.onResize) opts.onResize(newW);
       }
 
       function onUp() {
@@ -3238,6 +3228,29 @@ function toggleRightPanel() {
       document.addEventListener('mouseup', onUp);
     });
   }
+
+  function setup() {
+    const rpHandle = document.getElementById('rp-drag-handle');
+    const rpPanel  = document.getElementById('right-panel');
+    if (rpHandle && rpPanel) {
+      makeDraggable(rpHandle, rpPanel, {
+        dir: 'left', min: 240, max: 560,
+        onResize: () => {
+          clearTimeout(rpPanel._reflowTimer);
+          rpPanel._reflowTimer = setTimeout(() => {
+            try { window.chartInstance && window.chartInstance.reflow(); } catch(e) {}
+          }, 30);
+        }
+      });
+    }
+
+    const foHandle = document.getElementById('flyout-drag-handle');
+    const foPanel  = document.getElementById('flyout');
+    if (foHandle && foPanel) {
+      makeDraggable(foHandle, foPanel, { dir: 'right', min: 160, max: 360 });
+    }
+  }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();
 })();
@@ -3756,19 +3769,19 @@ function chartMiniSvg(type) {
 // Compact inline icons for the chart type bar (32×24)
 function chartMiniSvgBar(type) {
   const icons = {
-    line:       `<svg width="32" height="22" viewBox="0 0 32 22"><polyline points="2,17 8,9 14,13 20,5 26,8 30,6" stroke="#009d80" stroke-width="1.8" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
-    spline:     `<svg width="32" height="22" viewBox="0 0 32 22"><path d="M2,17 C6,11 9,7 14,10 C19,13 22,4 26,5 C28,5.5 29,5 30,5" stroke="#009d80" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`,
-    area:       `<svg width="32" height="22" viewBox="0 0 32 22"><polygon points="2,17 8,9 14,13 20,5 26,8 30,6 30,20 2,20" fill="#009d80" fill-opacity="0.2" stroke="#009d80" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
-    areaspline: `<svg width="32" height="22" viewBox="0 0 32 22"><path d="M2,17 C6,11 9,7 14,10 C19,13 22,4 26,5 L30,5 L30,20 L2,20 Z" fill="#009d80" fill-opacity="0.2" stroke="#009d80" stroke-width="1.8" stroke-linecap="round"/></svg>`,
-    column:     `<svg width="32" height="22" viewBox="0 0 32 22"><rect x="2" y="10" width="6" height="10" rx="1" fill="#164848"/><rect x="10" y="5" width="6" height="15" rx="1" fill="#009d80"/><rect x="18" y="13" width="6" height="7" rx="1" fill="#7ab5b5"/><rect x="26" y="7" width="4" height="13" rx="1" fill="#164848" fill-opacity="0.5"/></svg>`,
-    bar:        `<svg width="32" height="22" viewBox="0 0 32 22"><rect x="2" y="2" width="16" height="5" rx="1" fill="#164848"/><rect x="2" y="9" width="26" height="5" rx="1" fill="#009d80"/><rect x="2" y="16" width="11" height="5" rx="1" fill="#7ab5b5"/></svg>`,
-    pie:        `<svg width="32" height="22" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="#c8e0e0"/><path d="M16,11 L16,2 A9,9 0 0,1 23.8,15.5 Z" fill="#164848"/><path d="M16,11 L23.8,15.5 A9,9 0 0,1 8.2,15.5 Z" fill="#009d80"/></svg>`,
-    donut:      `<svg width="32" height="22" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="none" stroke="#c8e0e0" stroke-width="6"/><path d="M16,2 A9,9 0 0,1 23.8,15.5" fill="none" stroke="#164848" stroke-width="6"/><path d="M23.8,15.5 A9,9 0 0,1 8.2,15.5" fill="none" stroke="#009d80" stroke-width="6"/><circle cx="16" cy="11" r="3" fill="#fff"/></svg>`,
-    scatter:    `<svg width="32" height="22" viewBox="0 0 32 22"><circle cx="6" cy="16" r="2" fill="#164848"/><circle cx="12" cy="7" r="2" fill="#009d80"/><circle cx="18" cy="13" r="2" fill="#7ab5b5"/><circle cx="24" cy="4" r="2" fill="#f0a500"/><circle cx="29" cy="10" r="2" fill="#d83949"/></svg>`,
-    bubble:     `<svg width="32" height="22" viewBox="0 0 32 22"><circle cx="8" cy="15" r="5" fill="#164848" fill-opacity="0.7"/><circle cx="20" cy="9" r="7" fill="#009d80" fill-opacity="0.65"/><circle cx="28" cy="16" r="3.5" fill="#7ab5b5" fill-opacity="0.7"/></svg>`,
-    sunburst:   `<svg width="32" height="22" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="#e0e0e0"/><path d="M16,11 L16,2 A9,9 0 0,1 25,11 Z" fill="#bbb"/><circle cx="16" cy="11" r="4" fill="#f5f5f5"/></svg>`,
-    treemap:    `<svg width="32" height="22" viewBox="0 0 32 22"><rect x="1" y="1" width="17" height="20" rx="1" fill="#bbb"/><rect x="20" y="1" width="11" height="11" rx="1" fill="#ccc"/><rect x="20" y="14" width="11" height="7" rx="1" fill="#d8d8d8"/></svg>`,
-    packedbubble:`<svg width="32" height="22" viewBox="0 0 32 22"><circle cx="11" cy="11" r="8" fill="#bbb" fill-opacity="0.6"/><circle cx="23" cy="9" r="6" fill="#ccc" fill-opacity="0.6"/><circle cx="21" cy="18" r="4" fill="#d8d8d8" fill-opacity="0.6"/></svg>`,
+    line:       `<svg width="48" height="33" viewBox="0 0 32 22"><polyline points="2,17 8,9 14,13 20,5 26,8 30,6" stroke="#009d80" stroke-width="1.8" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
+    spline:     `<svg width="48" height="33" viewBox="0 0 32 22"><path d="M2,17 C6,11 9,7 14,10 C19,13 22,4 26,5 C28,5.5 29,5 30,5" stroke="#009d80" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`,
+    area:       `<svg width="48" height="33" viewBox="0 0 32 22"><polygon points="2,17 8,9 14,13 20,5 26,8 30,6 30,20 2,20" fill="#009d80" fill-opacity="0.2" stroke="#009d80" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    areaspline: `<svg width="48" height="33" viewBox="0 0 32 22"><path d="M2,17 C6,11 9,7 14,10 C19,13 22,4 26,5 L30,5 L30,20 L2,20 Z" fill="#009d80" fill-opacity="0.2" stroke="#009d80" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    column:     `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="2" y="10" width="6" height="10" rx="1" fill="#164848"/><rect x="10" y="5" width="6" height="15" rx="1" fill="#009d80"/><rect x="18" y="13" width="6" height="7" rx="1" fill="#7ab5b5"/><rect x="26" y="7" width="4" height="13" rx="1" fill="#164848" fill-opacity="0.5"/></svg>`,
+    bar:        `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="2" y="2" width="16" height="5" rx="1" fill="#164848"/><rect x="2" y="9" width="26" height="5" rx="1" fill="#009d80"/><rect x="2" y="16" width="11" height="5" rx="1" fill="#7ab5b5"/></svg>`,
+    pie:        `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="#c8e0e0"/><path d="M16,11 L16,2 A9,9 0 0,1 23.8,15.5 Z" fill="#164848"/><path d="M16,11 L23.8,15.5 A9,9 0 0,1 8.2,15.5 Z" fill="#009d80"/></svg>`,
+    donut:      `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="none" stroke="#c8e0e0" stroke-width="6"/><path d="M16,2 A9,9 0 0,1 23.8,15.5" fill="none" stroke="#164848" stroke-width="6"/><path d="M23.8,15.5 A9,9 0 0,1 8.2,15.5" fill="none" stroke="#009d80" stroke-width="6"/><circle cx="16" cy="11" r="3" fill="#fff"/></svg>`,
+    scatter:    `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="6" cy="16" r="2" fill="#164848"/><circle cx="12" cy="7" r="2" fill="#009d80"/><circle cx="18" cy="13" r="2" fill="#7ab5b5"/><circle cx="24" cy="4" r="2" fill="#f0a500"/><circle cx="29" cy="10" r="2" fill="#d83949"/></svg>`,
+    bubble:     `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="8" cy="15" r="5" fill="#164848" fill-opacity="0.7"/><circle cx="20" cy="9" r="7" fill="#009d80" fill-opacity="0.65"/><circle cx="28" cy="16" r="3.5" fill="#7ab5b5" fill-opacity="0.7"/></svg>`,
+    sunburst:   `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="#e0e0e0"/><path d="M16,11 L16,2 A9,9 0 0,1 25,11 Z" fill="#bbb"/><circle cx="16" cy="11" r="4" fill="#f5f5f5"/></svg>`,
+    treemap:    `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="1" y="1" width="17" height="20" rx="1" fill="#bbb"/><rect x="20" y="1" width="11" height="11" rx="1" fill="#ccc"/><rect x="20" y="14" width="11" height="7" rx="1" fill="#d8d8d8"/></svg>`,
+    packedbubble:`<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="11" cy="11" r="8" fill="#bbb" fill-opacity="0.6"/><circle cx="23" cy="9" r="6" fill="#ccc" fill-opacity="0.6"/><circle cx="21" cy="18" r="4" fill="#d8d8d8" fill-opacity="0.6"/></svg>`,
   };
   return icons[type] || icons.line;
 }
@@ -5207,33 +5220,43 @@ function renderFlyoutThemeChips() {
   const container = document.getElementById('flyout-theme-chips');
   if (!container) return;
 
-  // Group themes by primary label
   const groups = {};
   Object.entries(N1_THEMES).forEach(([key, t]) => {
     if (!groups[t.label]) groups[t.label] = [];
     groups[t.label].push({ key, t });
   });
 
+  // Mini line chart SVG on theme background
+  function miniChartSvg(t) {
+    const [c0, c1, c2] = t.chartSeriesColors;
+    const bg = t.primaryColor;
+    const grid = 'rgba(255,255,255,0.12)';
+    return `<svg width="100%" height="56" viewBox="0 0 96 56" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <rect width="96" height="56" fill="${bg}"/>
+      <line x1="0" y1="42" x2="96" y2="42" stroke="${grid}" stroke-width="0.6"/>
+      <line x1="0" y1="28" x2="96" y2="28" stroke="${grid}" stroke-width="0.6"/>
+      <line x1="0" y1="14" x2="96" y2="14" stroke="${grid}" stroke-width="0.6"/>
+      <polyline points="6,44 22,30 38,36 54,18 72,24 90,12" stroke="${c0||'#fff'}" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline points="6,50 22,44 38,28 54,38 72,20 90,30" stroke="${c1||'#fff'}" stroke-width="2.2" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>
+      <polyline points="6,38 22,48 38,42 54,46 72,34 90,40" stroke="${c2||'#fff'}" stroke-width="1.6" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.7"/>
+    </svg>`;
+  }
+
   let html = '';
   Object.entries(groups).forEach(([groupLabel, items]) => {
     html += `<div class="flyout-theme-group-label">${groupLabel}</div>`;
+    html += `<div class="flyout-theme-cards">`;
     items.forEach(({ key, t }) => {
-      // Build palette: primary (wide) + up to 3 series colors
-      const seriesSwatches = t.chartSeriesColors.slice(0, 3).map(c =>
-        `<div class="flyout-palette-seg" style="background:${c}"></div>`
-      ).join('');
       const isActive = selectedTheme === key;
-      html += `<button class="flyout-theme-chip${isActive ? ' active' : ''}" onclick="applyTheme('${key}')">
-        <div class="flyout-palette">
-          <div class="flyout-palette-seg" style="background:${t.primaryColor}"></div>
-          ${seriesSwatches}
-        </div>
-        <div class="flyout-theme-labels">
-          <span class="flyout-theme-primary-name">${t.label}</span>
-          ${t.sublabel ? `<span class="flyout-theme-accent-name">${t.sublabel}</span>` : ''}
+      html += `<button class="flyout-theme-card${isActive ? ' active' : ''}" onclick="applyTheme('${key}')">
+        <div class="ftc-preview">${miniChartSvg(t)}</div>
+        <div class="ftc-label">
+          <span class="ftc-primary">${t.label}</span>
+          ${t.sublabel ? `<span class="ftc-accent">${t.sublabel}</span>` : ''}
         </div>
       </button>`;
     });
+    html += `</div>`;
   });
 
   container.innerHTML = html;

@@ -3037,6 +3037,7 @@ let state = {
 let cmsAvailability = {};
 let cmsEditMode = false;
 let chartInstance = null;
+window.chartInstance = null;
 let debounceTimer = null;
 let wizardStep = 1;
 let wizardData = {};
@@ -3086,6 +3087,18 @@ window.addEventListener('DOMContentLoaded', () => {
   tagFieldRows();
   setTimeout(initFieldHovers, 300); // after Highcharts SVG renders
   initConfigResize();
+
+  // Reflow chart whenever its container changes size (viewport switch, panel drag, window resize)
+  const chartEl = document.getElementById('chart-container');
+  if (chartEl && window.ResizeObserver) {
+    let reflowTimer;
+    new ResizeObserver(() => {
+      clearTimeout(reflowTimer);
+      reflowTimer = setTimeout(() => {
+        try { window.chartInstance && window.chartInstance.reflow(); } catch(e) {}
+      }, 30);
+    }).observe(chartEl);
+  }
 });
 
 /* ═══════════════════════════════════════════
@@ -3962,8 +3975,8 @@ function update() {
   };
 
   const container = document.getElementById('chart-container');
-  if (chartInstance) { try { chartInstance.destroy(); } catch(e){} }
-  chartInstance = Highcharts.chart(container, opts);
+  if (chartInstance) { try { chartInstance.destroy(); } catch(e){} chartInstance = window.chartInstance = null; }
+  chartInstance = window.chartInstance = Highcharts.chart(container, opts);
   container.style.height = s.chartHeight + 'px';
 
   renderConfig();
@@ -5284,7 +5297,8 @@ function setViewport(size) {
     wrap.style.marginLeft = 'auto';
     wrap.style.marginRight = 'auto';
   }
-  schedUpdate();
+  // Reflow rather than rebuild — viewport change is layout-only, not data
+  setTimeout(() => { try { window.chartInstance && window.chartInstance.reflow(); } catch(e){} }, 50);
 }
 
 /* ═══════════════════════════════════════════

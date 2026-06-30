@@ -4045,26 +4045,37 @@ function renderWizardStep() {
 
   if (wizardStep === 1) {
     nextBtn.textContent = 'Next';
+    const mode = wizardData.importMode || 'file';
     body.innerHTML = `
-      <p style="font-size:13px;color:#555;margin-bottom:16px">Upload a PPTX, SVG, or image file. We'll extract the chart data for you.</p>
-      <div id="drop-zone" style="border:2px dashed #ddd;border-radius:8px;padding:48px 24px;text-align:center;cursor:pointer;transition:border-color 0.15s" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#009d80'" ondragleave="this.style.borderColor='#ddd'" ondrop="handleFileDrop(event)">
-        <div style="font-size:32px;margin-bottom:8px">📁</div>
-        <div style="font-size:15px;font-weight:600;color:#333;margin-bottom:4px">Drop file here or click to browse</div>
-        <div style="font-size:12px;color:#888">PPTX, SVG, PNG, JPG, GIF, WEBP</div>
+      <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid #e2e0d8;border-radius:7px;overflow:hidden">
+        <button onclick="wizardSetMode('file')" style="flex:1;padding:8px 0;font-size:12px;font-weight:600;border:none;cursor:pointer;transition:background .12s;background:${mode==='file'?'#221b3b':'#fafaf7'};color:${mode==='file'?'#fff':'#555'}">Upload file</button>
+        <button onclick="wizardSetMode('paste')" style="flex:1;padding:8px 0;font-size:12px;font-weight:600;border:none;border-left:1px solid #e2e0d8;cursor:pointer;transition:background .12s;background:${mode==='paste'?'#221b3b':'#fafaf7'};color:${mode==='paste'?'#fff':'#555'}">Paste config</button>
       </div>
-      <input type="file" id="file-input" accept=".pptx,.svg,.png,.jpg,.jpeg,.gif,.webp,image/*" style="display:none" onchange="handleFileSelect(this.files[0])">
-      <div id="file-name-display" style="margin-top:12px;font-size:12px;color:#009d80;font-weight:600"></div>
-      <div style="margin-top:20px;border-top:1px solid #eee;padding-top:16px">
-        <div style="font-size:12px;color:#888;margin-bottom:8px">Or enter an Anthropic API key for AI-powered image reading:</div>
-        <input type="password" id="wiz-api-key" class="field-input" placeholder="sk-ant-..." style="width:100%" value="${localStorage.getItem('n1_api_key')||''}">
+      <div id="wiz-file-pane" style="display:${mode==='file'?'block':'none'}">
+        <p style="font-size:13px;color:#555;margin-bottom:12px">Upload a PPTX, SVG, or image — we'll extract the chart data.</p>
+        <div id="drop-zone" style="border:2px dashed #ddd;border-radius:8px;padding:36px 24px;text-align:center;cursor:pointer;transition:border-color 0.15s" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#009d80'" ondragleave="this.style.borderColor='#ddd'" ondrop="handleFileDrop(event)">
+          <div style="font-size:28px;margin-bottom:8px">📁</div>
+          <div style="font-size:14px;font-weight:600;color:#333;margin-bottom:4px">Drop file here or click to browse</div>
+          <div style="font-size:12px;color:#888">PPTX, SVG, PNG, JPG, GIF, WEBP</div>
+        </div>
+        <input type="file" id="file-input" accept=".pptx,.svg,.png,.jpg,.jpeg,.gif,.webp,image/*" style="display:none" onchange="handleFileSelect(this.files[0])">
+        <div id="file-name-display" style="margin-top:10px;font-size:12px;color:#009d80;font-weight:600"></div>
+        <div style="margin-top:16px;border-top:1px solid #eee;padding-top:14px">
+          <div style="font-size:12px;color:#888;margin-bottom:6px">Anthropic API key (for AI image reading):</div>
+          <input type="password" id="wiz-api-key" class="field-input" placeholder="sk-ant-..." style="width:100%" value="${localStorage.getItem('n1_api_key')||''}">
+        </div>
+      </div>
+      <div id="wiz-paste-pane" style="display:${mode==='paste'?'block':'none'}">
+        <p style="font-size:13px;color:#555;margin-bottom:10px">Paste any Highcharts config — JSON, JS object literal, or copied from this builder. All formats accepted.</p>
+        <textarea id="wiz-paste-input" style="width:100%;height:220px;font-family:monospace;font-size:11px;border:1px solid #ddd;border-radius:6px;padding:10px;resize:vertical;outline:none;line-height:1.5" placeholder="{&#10;  chart: {&#10;    type: 'line',&#10;    height: 450,&#10;  },&#10;  series: [...]&#10;}">${wizardData.pastedText||''}</textarea>
       </div>
     `;
   } else if (wizardStep === 2) {
     nextBtn.textContent = 'Use this data';
     const cfg = wizardData.parsedConfig || {};
     const src = wizardData.source || 'unknown';
-    const bannerColor = src === 'pptx' ? '#009d80' : src === 'ai' ? '#1a5c9a' : '#c07000';
-    const bannerLabel = src === 'pptx' ? 'Exact data from PPTX' : src === 'ai' ? 'AI Vision result' : 'Example data (mock)';
+    const bannerColor = src === 'pptx' ? '#009d80' : src === 'ai' ? '#1a5c9a' : src === 'paste' ? '#164848' : '#c07000';
+    const bannerLabel = src === 'pptx' ? 'Exact data from PPTX' : src === 'ai' ? 'AI Vision result' : src === 'paste' ? 'Parsed from pasted config' : 'Example data (mock)';
 
     body.innerHTML = `
       <div style="background:${bannerColor};color:#fff;border-radius:4px;padding:8px 14px;font-size:12px;font-weight:600;margin-bottom:16px">${bannerLabel}</div>
@@ -4116,6 +4127,22 @@ function wizardNext() {
   errEl.style.display = 'none';
 
   if (wizardStep === 1) {
+    if (wizardData.importMode === 'paste') {
+      const raw = document.getElementById('wiz-paste-input')?.value.trim();
+      if (!raw) { errEl.textContent = 'Please paste a config first.'; errEl.style.display = 'block'; return; }
+      wizardData.pastedText = raw;
+      try {
+        const hc = parseHighchartsConfig(raw);
+        wizardData.parsedConfig = highchartsConfigToInternal(hc);
+        wizardData.source = 'paste';
+        wizardStep = 2;
+        renderWizardStep();
+      } catch(e) {
+        errEl.textContent = 'Could not parse config: ' + e.message;
+        errEl.style.display = 'block';
+      }
+      return;
+    }
     if (!wizardData.file && !wizardData.parsedConfig) {
       errEl.textContent = 'Please select a file first.';
       errEl.style.display = 'block';
@@ -4136,6 +4163,14 @@ function wizardNext() {
 
 function wizardBack() {
   if (wizardStep > 1) { wizardStep--; renderWizardStep(); }
+}
+
+function wizardSetMode(mode) {
+  // Preserve textarea content across re-render
+  const ta = document.getElementById('wiz-paste-input');
+  if (ta) wizardData.pastedText = ta.value;
+  wizardData.importMode = mode;
+  renderWizardStep();
 }
 
 function handleFileSelect(file) {
@@ -4237,10 +4272,19 @@ function applyAIConfig(cfg) {
     name: s.name || 'Series ' + (i+1),
     data: s.data || [],
     color: s.color || N1_PALETTE[i % N1_PALETTE.length],
-    colorOverride: !!s.color, // only override if colour was explicitly in config
+    colorOverride: !!s.color,
   }));
-  if (cfg.xAxisTitle) state.xTitle = cfg.xAxisTitle;
-  if (cfg.yAxisTitle) state.yTitle = cfg.yAxisTitle;
+  if (cfg.xAxisTitle || cfg.xTitle) state.xTitle = cfg.xAxisTitle || cfg.xTitle;
+  if (cfg.yAxisTitle || cfg.yTitle) state.yTitle = cfg.yAxisTitle || cfg.yTitle;
+  if (cfg.chartHeight)  state.chartHeight = cfg.chartHeight;
+  if (cfg.yMin != null) state.yMin = cfg.yMin;
+  if (cfg.yMax != null) state.yMax = cfg.yMax;
+  if (cfg.yScale)       state.yScale = cfg.yScale;
+  if (cfg.lineWidth != null) state.lineWidth = cfg.lineWidth;
+  if (cfg.markers != null)   state.markers = cfg.markers;
+  if (cfg.stacking)     state.stacking = cfg.stacking;
+  if (cfg.dashStyle)    state.dashStyle = cfg.dashStyle;
+  if (cfg.legend === false) state.legend = false;
 
   syncSidebarToState();
   renderColourRows();
@@ -4248,6 +4292,108 @@ function applyAIConfig(cfg) {
   updateChartTypeUI();
   update();
   persist();
+}
+
+/* ═══════════════════════════════════════════
+   HIGHCHARTS CONFIG STRING PARSER
+   Handles: valid JSON, JS object literals (single quotes, unquoted keys,
+   trailing commas), and the old no-comma format from this builder.
+═══════════════════════════════════════════ */
+function parseHighchartsConfig(str) {
+  str = str.trim();
+
+  // Strip common wrappers: Highcharts.chart('id', {...}) or chart({...})
+  str = str.replace(/^(?:Highcharts\.chart|Highcharts\.stockChart|chart)\s*\([^,{]*,?\s*/, '');
+  str = str.replace(/\)\s*;?\s*$/, '');
+  str = str.trim();
+
+  // Try direct eval (handles valid JS object literals, single quotes, unquoted keys)
+  try {
+    // eslint-disable-next-line no-new-func
+    return Function('"use strict"; return (' + str + ')')();
+  } catch(e1) {
+    // Preprocess: add missing commas between consecutive properties
+    // Pattern: a line ending with a value char, followed by newline + whitespace + identifier + colon
+    let fixed = str.replace(
+      /(['"}\]\w])\s*\n(\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*:)/g,
+      '$1,\n$2'
+    );
+    try {
+      // eslint-disable-next-line no-new-func
+      return Function('"use strict"; return (' + fixed + ')')();
+    } catch(e2) {
+      // Last resort: JSON.parse (requires double quotes + commas)
+      return JSON.parse(str);
+    }
+  }
+}
+
+// Map a raw Highcharts config object → the internal parsedConfig format
+function highchartsConfigToInternal(hc) {
+  const out = { _source: 'paste' };
+
+  // Chart type (handle 'donut' as pie + innerSize)
+  const chartType = hc.chart?.type || (hc.series?.[0]?.type) || 'line';
+  out.type = chartType;
+
+  // Title / subtitle
+  out.title    = hc.title?.text    || '';
+  out.subtitle = hc.subtitle?.text || '';
+
+  // xAxis
+  const xa = Array.isArray(hc.xAxis) ? hc.xAxis[0] : hc.xAxis;
+  if (xa?.categories?.length) out.categories = xa.categories;
+  if (xa?.title?.text) out.xTitle = xa.title.text;
+
+  // yAxis
+  const ya = Array.isArray(hc.yAxis) ? hc.yAxis[0] : hc.yAxis;
+  if (ya?.title?.text) out.yTitle = ya.title.text;
+  if (ya?.min != null) out.yMin = ya.min;
+  if (ya?.max != null) out.yMax = ya.max;
+  if (ya?.type === 'logarithmic') out.yScale = 'logarithmic';
+  if (ya?.gridLineWidth === 0) out.gridLines = false;
+
+  // plotOptions
+  const spo = hc.plotOptions?.series || hc.plotOptions?.[chartType] || {};
+  if (spo.lineWidth != null) out.lineWidth = spo.lineWidth;
+  if (spo.marker?.enabled != null) out.markers = spo.marker.enabled;
+  if (spo.stacking) out.stacking = spo.stacking;
+  if (spo.dashStyle) out.dashStyle = spo.dashStyle;
+  if (spo.connectNulls) out.connectNulls = true;
+
+  // Legend
+  if (hc.legend?.enabled === false) out.legend = false;
+
+  // Chart height
+  if (hc.chart?.height) out.chartHeight = Number(hc.chart.height);
+
+  // Series — normalise point objects {y, name} and xy-pairs [x,y]
+  if (hc.series?.length) {
+    out.series = hc.series.map((s, i) => {
+      const data = (s.data || []).map(d => {
+        if (d === null || d === undefined) return null;
+        if (typeof d === 'number') return d;
+        if (Array.isArray(d)) return d[1] ?? null;   // [x, y]
+        if (typeof d === 'object') return d.y ?? null;
+        return parseFloat(d) || null;
+      });
+      return {
+        name: s.name || 'Series ' + (i + 1),
+        data,
+        color: s.color || null,
+        colorOverride: !!s.color,
+      };
+    });
+    // Derive categories from point names if not set in xAxis
+    if (!out.categories?.length && hc.series[0]?.data?.length) {
+      const pts = hc.series[0].data;
+      if (pts.every(d => typeof d === 'object' && d !== null && !Array.isArray(d) && d.name)) {
+        out.categories = pts.map(d => d.name);
+      }
+    }
+  }
+
+  return out;
 }
 
 /* ═══════════════════════════════════════════

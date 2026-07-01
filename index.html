@@ -4032,6 +4032,13 @@ function update() {
       valuePrefix: s.ttPrefix || undefined,
       valueSuffix: s.ttSuffix || undefined,
       valueDecimals: s.decimals,
+      formatter: (isScatter || isBubble) ? function() {
+        const cat = s.categories[this.x] ?? this.x;
+        const prefix = s.ttPrefix || '';
+        const suffix = s.ttSuffix || '';
+        const dec = s.decimals != null ? this.y.toFixed(s.decimals) : this.y;
+        return `<b>${cat}</b><br/>${this.series.name}: <b>${prefix}${dec}${suffix}</b>`;
+      } : undefined,
     },
     plotOptions: {
       series: {

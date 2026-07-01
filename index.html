@@ -5706,6 +5706,7 @@ const CHART_TEMPLATES = [
     name: 'Scatter (XY)',
     desc: 'Risk/return, named points',
     section: 'Scatter & Bubble',
+    typeHint: 'scatter',
     preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><line x1="60" y1="2" x2="60" y2="52" stroke="#b2a896" stroke-width="0.5"/><circle cx="28" cy="10" r="4" fill="#199e81" opacity="0.85"/><circle cx="58" cy="20" r="4" fill="#199e81" opacity="0.85"/><circle cx="66" cy="34" r="4" fill="#199e81" opacity="0.85"/><circle cx="42" cy="40" r="4" fill="#199e81" opacity="0.85"/><circle cx="62" cy="26" r="4" fill="#199e81" opacity="0.85"/><circle cx="48" cy="44" r="4" fill="#dc4354" opacity="0.85"/><circle cx="84" cy="4"  r="4" fill="#dc4354" opacity="0.85"/><circle cx="64" cy="18" r="4" fill="#dc4354" opacity="0.85"/></svg>`,
     rawConfig: {
       chart: { type: 'scatter', height: 650, zoomType: 'xy' },
@@ -5759,6 +5760,7 @@ const CHART_TEMPLATES = [
     name: 'Bubble (XYZ)',
     desc: 'Named points, z = size',
     section: 'Scatter & Bubble',
+    typeHint: 'bubble',
     preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="22" cy="10" r="9"  fill="rgba(0,157,128,0.5)"/><circle cx="46" cy="8"  r="10" fill="rgba(0,157,128,0.45)"/><circle cx="56" cy="18" r="7"  fill="rgba(0,157,128,0.5)"/><circle cx="72" cy="22" r="14" fill="rgba(0,157,128,0.35)"/><circle cx="96" cy="36" r="18" fill="rgba(0,157,128,0.3)"/></svg>`,
     rawConfig: {
       chart: { type: 'bubble', height: 600, zooming: { type: 'xy' } },
@@ -5896,14 +5898,34 @@ function loadTemplate(id) {
   const tpl = CHART_TEMPLATES.find(t => t.id === id);
   if (!tpl) return;
 
+  // Always reset to Springbok cream + Ocean teal (CSS only — don't wipe series colours)
+  selectedTheme = 'springbok-cream_ocean-teal';
+  try { localStorage.setItem('n1_selected_theme', selectedTheme); } catch(e) {}
+  applyThemeCss(selectedTheme);
+  renderFlyoutThemeChips();
+  renderThemePills();
+
+  // Flash the card to confirm selection
+  const card = document.querySelector(`.lib-card[onclick="loadTemplate('${id}')"]`);
+  if (card) {
+    card.style.borderColor = '#009d80';
+    card.style.boxShadow = '0 0 0 2px rgba(0,157,128,0.25)';
+    setTimeout(() => { card.style.borderColor = ''; card.style.boxShadow = ''; }, 800);
+  }
+
   if (tpl.rawConfig) {
-    // Advanced chart types rendered directly — builder can't edit these
+    // Advanced chart types rendered directly — builder can't fully edit these
     if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
     const el = document.getElementById('chart-container');
     if (el) el.style.height = (tpl.rawConfig.chart?.height || 500) + 'px';
     const cfg = Object.assign({}, tpl.rawConfig, { credits: { enabled: false } });
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
-    railSelect('type');
+    if (tpl.typeHint) {
+      state.chartType = tpl.typeHint;
+      updateChartTypeUI();
+      if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
+    }
+    // Stay on library panel
     return;
   }
 
@@ -5912,9 +5934,10 @@ function loadTemplate(id) {
   syncSidebarToState();
   updateChartTypeUI();
   updateFieldVisibility();
+  if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();  // highlight the correct type card in the flyout
   schedUpdate();
   persist();
-  railSelect('type');
+  // Stay on library panel — don't switch away
 }
 
 /* ═══════════════════════════════════════════

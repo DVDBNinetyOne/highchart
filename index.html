@@ -470,10 +470,87 @@ body {
 
 /* ─── Library panel ─── */
 #flyout-panel-library {
+  overflow: hidden;
+  padding: 0;
+  flex-direction: column;
+}
+#flyout-library-content {
   overflow-y: auto;
-  padding: 2px 6px 16px;
+  flex: 1;
+  padding: 0 6px 16px;
   scrollbar-width: thin;
 }
+.lib-save-bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 8px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+.lib-save-input {
+  flex: 1;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.lib-save-input:focus { border-color: #009d80; }
+.lib-save-input::placeholder { color: #bbb; }
+.lib-save-btn {
+  background: #009d80;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.lib-save-btn:hover { background: #007d65; }
+.lib-saved-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.2s;
+}
+.lib-saved-card:hover { background: #f5faf8; border-color: #e0ede9; }
+.lib-saved-card.loaded { background: #e8f5f1; border-color: #009d80; }
+.lib-saved-icon { flex-shrink: 0; width: 26px; height: 26px; opacity: 0.65; }
+.lib-saved-icon svg { width: 100%; height: 100%; }
+.lib-saved-info { flex: 1; min-width: 0; }
+.lib-saved-title { font-size: 11px; font-weight: 600; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-saved-meta { font-size: 10px; color: #999; margin-top: 1px; }
+.lib-saved-del {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+.lib-saved-del:hover { color: #d83949; background: #fff0f1; }
+.lib-empty {
+  font-size: 11px;
+  color: #c0c0c0;
+  text-align: center;
+  padding: 10px 8px 4px;
+  font-style: italic;
+}
+.lib-section-divider { height: 1px; background: #f0f0f0; margin: 8px 0; }
 .lib-section-label {
   font-size: 9px;
   font-weight: 700;
@@ -2379,6 +2456,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </div>
     <!-- Panel: Library -->
     <div id="flyout-panel-library" class="flyout-panel" style="display:none">
+      <div class="lib-save-bar">
+        <input type="text" id="lib-save-title" class="lib-save-input" placeholder="Name this chart…" onkeydown="if(event.key==='Enter')saveCurrentChart()"/>
+        <button class="lib-save-btn" onclick="saveCurrentChart()">Save</button>
+      </div>
       <div id="flyout-library-content"></div>
     </div>
     <!-- Panel: Theme Picker -->
@@ -5877,25 +5958,119 @@ const CHART_TEMPLATES = [
   },
 ];
 
+/* ── My Charts (saved) ───────────────────── */
+const SAVED_CHARTS_KEY = 'n1_saved_charts';
+
+function getSavedCharts() {
+  try { return JSON.parse(localStorage.getItem(SAVED_CHARTS_KEY)) || []; }
+  catch(e) { return []; }
+}
+
+function formatSavedDate(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
+function saveCurrentChart() {
+  const input = document.getElementById('lib-save-title');
+  const title = input?.value.trim();
+  if (!title) { input?.classList.add('lib-save-input--shake'); setTimeout(() => input?.classList.remove('lib-save-input--shake'), 400); input?.focus(); return; }
+  const saved = getSavedCharts();
+  const existing = saved.find(c => c.title === title);
+  const version = existing ? existing.version + 1 : 1;
+  const id = existing ? existing.id : 'chart_' + Date.now();
+  const entry = {
+    id, title, version,
+    savedAt: new Date().toISOString(),
+    chartType: state.chartType,
+    state: JSON.parse(JSON.stringify(state)),
+  };
+  const idx = saved.findIndex(c => c.id === id);
+  if (idx >= 0) saved[idx] = entry; else saved.unshift(entry);
+  localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(saved));
+  renderMyCharts();
+  // Brief save confirmation on button
+  const btn = document.querySelector('.lib-save-btn');
+  if (btn) { btn.textContent = version === 1 ? 'Saved!' : 'v' + version + ' saved!'; setTimeout(() => { btn.textContent = 'Save'; }, 1200); }
+}
+
+function deleteSavedChart(id) {
+  const saved = getSavedCharts().filter(c => c.id !== id);
+  localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(saved));
+  renderMyCharts();
+}
+
+function loadSavedChartById(id) {
+  const entry = getSavedCharts().find(c => c.id === id);
+  if (!entry) return;
+  selectedTheme = 'springbok-cream_ocean-teal';
+  try { localStorage.setItem('n1_selected_theme', selectedTheme); } catch(e) {}
+  applyThemeCss(selectedTheme);
+  renderFlyoutThemeChips();
+  renderThemePills();
+  document.querySelectorAll('.lib-saved-card').forEach(c => c.classList.remove('loaded'));
+  document.querySelectorAll('.lib-card').forEach(c => c.classList.remove('loaded'));
+  const card = document.querySelector(`.lib-saved-card[data-id="${id}"]`);
+  if (card) card.classList.add('loaded');
+  Object.assign(state, entry.state);
+  state.series = entry.state.series.map(s => ({ ...s }));
+  syncSidebarToState();
+  updateChartTypeUI();
+  updateFieldVisibility();
+  renderColourRows();
+  checkColourOverrides();
+  if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
+  schedUpdate();
+  persist();
+  const input = document.getElementById('lib-save-title');
+  if (input) input.value = entry.title;
+}
+
+function renderMyCharts() {
+  const container = document.getElementById('lib-my-charts-container');
+  if (!container) return;
+  const saved = getSavedCharts();
+  container.innerHTML = saved.length === 0
+    ? `<div class="lib-section-label">My Charts</div><div class="lib-empty">Name and save the current chart above</div>`
+    : `<div class="lib-section-label">My Charts</div>
+       ${saved.map(c => `
+         <div class="lib-saved-card" data-id="${c.id}" onclick="loadSavedChartById('${c.id}')">
+           <div class="lib-saved-icon">${chartSvgIconSmall(c.chartType)}</div>
+           <div class="lib-saved-info">
+             <div class="lib-saved-title">${c.title}</div>
+             <div class="lib-saved-meta">v${c.version} &middot; ${formatSavedDate(c.savedAt)}</div>
+           </div>
+           <button class="lib-saved-del" onclick="event.stopPropagation();deleteSavedChart('${c.id}')" title="Remove">×</button>
+         </div>`).join('')}`;
+}
+
 function renderLibrary() {
   const container = document.getElementById('flyout-library-content');
   if (!container) return;
   const sections = [...new Set(CHART_TEMPLATES.map(t => t.section))];
-  container.innerHTML = sections.map(sec => {
-    const cards = CHART_TEMPLATES.filter(t => t.section === sec);
-    return `
-      <div class="lib-section-label">${sec}</div>
-      <div class="lib-grid">
-        ${cards.map(t => `
-          <div class="lib-card" onclick="loadTemplate('${t.id}')" title="${t.desc}">
-            <div class="lib-card-preview">${t.preview}</div>
-            <div class="lib-card-name">${t.name}</div>
-            <div class="lib-card-desc">${t.desc}</div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }).join('');
+  container.innerHTML = `
+    <div id="lib-my-charts-container"></div>
+    <div class="lib-section-divider"></div>
+    ${sections.map(sec => {
+      const cards = CHART_TEMPLATES.filter(t => t.section === sec);
+      return `
+        <div class="lib-section-label">${sec}</div>
+        <div class="lib-grid">
+          ${cards.map(t => `
+            <div class="lib-card" onclick="loadTemplate('${t.id}')" title="${t.desc}">
+              <div class="lib-card-preview">${t.preview}</div>
+              <div class="lib-card-name">${t.name}</div>
+              <div class="lib-card-desc">${t.desc}</div>
+            </div>
+          `).join('')}
+        </div>`;
+    }).join('')}`;
+  renderMyCharts();
 }
 
 function loadTemplate(id) {
@@ -5911,8 +6086,12 @@ function loadTemplate(id) {
 
   // Mark the selected card persistently (like theme chips)
   document.querySelectorAll('.lib-card').forEach(c => c.classList.remove('loaded'));
+  document.querySelectorAll('.lib-saved-card').forEach(c => c.classList.remove('loaded'));
   const card = document.querySelector(`.lib-card[onclick="loadTemplate('${id}')"]`);
   if (card) card.classList.add('loaded');
+  // Pre-fill save title with template name if input is empty
+  const saveInput = document.getElementById('lib-save-title');
+  if (saveInput && !saveInput.value) saveInput.value = tpl.name || '';
 
   if (tpl.rawConfig) {
     // Advanced chart types rendered directly — builder can't fully edit these

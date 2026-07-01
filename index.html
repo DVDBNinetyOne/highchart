@@ -1361,10 +1361,15 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 .accordion-header.open .chevron { transform: rotate(180deg); }
 
 .accordion-body {
-  display: none;
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 16px;
+  transition: max-height 0.28s ease, padding 0.28s ease;
+}
+.accordion-body.open {
+  max-height: 900px;
   padding: 12px 16px 16px;
 }
-.accordion-body.open { display: block; }
 
 .field-row {
   display: flex;
@@ -2468,15 +2473,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <label>Connect gaps</label>
           <button class="toggle-pill" id="toggle-connectnulls" onclick="toggleSetting('connectNulls')"></button>
         </div>
-        <div class="field-row" id="fr-stepline">
-          <label>Step line</label>
-          <div class="seg-group">
-            <button class="seg-btn active" data-step="" onclick="setStep('')">Off</button>
-            <button class="seg-btn" data-step="left" onclick="setStep('left')">Left</button>
-            <button class="seg-btn" data-step="center" onclick="setStep('center')">Centre</button>
-            <button class="seg-btn" data-step="right" onclick="setStep('right')">Right</button>
-          </div>
-        </div>
         <div class="field-row" id="fr-transition">
           <label>Duration</label>
           <input type="range" min="0" max="2000" step="50" value="800" style="flex:1" id="anim-duration-slider" oninput="setAnimation(+this.value)">
@@ -3469,7 +3465,6 @@ function updateFieldVisibility() {
   show('fr-dashstyle',   isLineLike);
   show('fill-row',       isArea);
   show('fr-connectnulls', isLineLike);
-  show('fr-stepline',    isLine);
   // fr-opacity, fr-transition, easing-row always visible inside acc-lines
 
   // Horizontal / Vertical axis accordions — hide for pie/donut

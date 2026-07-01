@@ -2425,7 +2425,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         Lines &amp; markers <span class="chevron">▾</span>
       </button>
       <div class="accordion-body" id="acc-body-lines">
-        <div class="field-row">
+        <div class="field-row" id="fr-thickness">
           <label>Thickness</label>
           <div class="seg-group">
             <button class="seg-btn" data-lw="1" onclick="setLineWidth(1)">Thin</button>
@@ -2434,11 +2434,11 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <button class="seg-btn" data-lw="6" onclick="setLineWidth(6)">Bold</button>
           </div>
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-markers">
           <label>Show dots</label>
           <button class="toggle-pill" id="toggle-markers" onclick="toggleSetting('markers')"></button>
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-markersize">
           <label>Dot size</label>
           <div class="seg-group">
             <button class="seg-btn" data-mr="3" onclick="setMarkerRadius(3)">S</button>
@@ -2447,49 +2447,45 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <button class="seg-btn" data-mr="9" onclick="setMarkerRadius(9)">XL</button>
           </div>
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-opacity">
           <label>Opacity</label>
           <input type="range" min="0.1" max="1" step="0.05" value="1" style="flex:1" id="series-opacity-slider" oninput="onSeriesOpacity(this.value)">
           <span id="opacity-val" style="font-size:11px;color:#888;min-width:28px;text-align:right">100%</span>
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-dashstyle">
           <label>Style</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setDashStyle('Solid')">Solid</button>
-            <button class="seg-btn" onclick="setDashStyle('Dash')">Dashed</button>
-            <button class="seg-btn" onclick="setDashStyle('Dot')">Dotted</button>
+            <button class="seg-btn active" data-ds="Solid" onclick="setDashStyle('Solid')">Solid</button>
+            <button class="seg-btn" data-ds="Dash" onclick="setDashStyle('Dash')">Dashed</button>
+            <button class="seg-btn" data-ds="Dot" onclick="setDashStyle('Dot')">Dotted</button>
           </div>
         </div>
         <div class="field-row" id="fill-row">
           <label>Fill strength</label>
           <input type="range" min="0" max="1" step="0.05" value="0.3" style="flex:1" id="fill-opacity-slider" oninput="onFillOpacity(this.value)">
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-connectnulls">
           <label>Connect gaps</label>
           <button class="toggle-pill" id="toggle-connectnulls" onclick="toggleSetting('connectNulls')"></button>
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-stepline">
           <label>Step line</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setStep('')">Off</button>
-            <button class="seg-btn" onclick="setStep('left')">Left</button>
-            <button class="seg-btn" onclick="setStep('center')">Centre</button>
-            <button class="seg-btn" onclick="setStep('right')">Right</button>
+            <button class="seg-btn active" data-step="" onclick="setStep('')">Off</button>
+            <button class="seg-btn" data-step="left" onclick="setStep('left')">Left</button>
+            <button class="seg-btn" data-step="center" onclick="setStep('center')">Centre</button>
+            <button class="seg-btn" data-step="right" onclick="setStep('right')">Right</button>
           </div>
         </div>
-        <div class="field-row">
-          <label>Transition</label>
-          <div class="seg-group">
-            <button class="seg-btn" data-anim="0" onclick="setAnimation(0)">None</button>
-            <button class="seg-btn" data-anim="400" onclick="setAnimation(400)">Fast</button>
-            <button class="seg-btn active" data-anim="800" onclick="setAnimation(800)">Normal</button>
-            <button class="seg-btn" data-anim="1600" onclick="setAnimation(1600)">Slow</button>
-          </div>
+        <div class="field-row" id="fr-transition">
+          <label>Duration</label>
+          <input type="range" min="0" max="2000" step="50" value="800" style="flex:1" id="anim-duration-slider" oninput="setAnimation(+this.value)">
+          <span id="anim-duration-val" style="font-size:11px;color:#888;min-width:36px;text-align:right">800ms</span>
         </div>
         <div class="field-row" id="easing-row">
           <label>Easing</label>
           <select class="field-input" id="sb-easing" onchange="onField('animationEasing',this.value)">
-            <option value="swing">Swing (default)</option>
+            <option value="swing">Swing</option>
             <option value="linear">Linear</option>
             <option value="easeInQuad">Ease In</option>
             <option value="easeOutQuad">Ease Out</option>
@@ -2541,7 +2537,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </div>
 
     <!-- Accordion: Horizontal axis -->
-    <div class="accordion-section">
+    <div class="accordion-section" id="acc-haxis">
       <button class="accordion-header" onclick="toggleAccordion('xaxis')">
         Horizontal axis <span class="chevron">▾</span>
       </button>
@@ -2574,7 +2570,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </div>
 
     <!-- Accordion: Vertical axis -->
-    <div class="accordion-section">
+    <div class="accordion-section" id="acc-vaxis">
       <button class="accordion-header" onclick="toggleAccordion('yaxis')">
         Vertical axis <span class="chevron">▾</span>
       </button>
@@ -2686,21 +2682,21 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <label>Chart height</label>
           <input class="field-input" id="sb-height" type="number" value="450" placeholder="450" oninput="onField('chartHeight',this.value)">
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-stacking">
           <label>Stacking</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setStack('')">Off</button>
-            <button class="seg-btn" onclick="setStack('normal')">Stack</button>
-            <button class="seg-btn" onclick="setStack('percent')">%</button>
+            <button class="seg-btn active" data-stack="" onclick="setStack('')">Off</button>
+            <button class="seg-btn" data-stack="normal" onclick="setStack('normal')">Stack</button>
+            <button class="seg-btn" data-stack="percent" onclick="setStack('percent')">%</button>
           </div>
         </div>
-        <div class="field-row">
+        <div class="field-row" id="fr-zoom">
           <label>Allow zoom</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setZoom('')">None</button>
-            <button class="seg-btn" onclick="setZoom('x')">X</button>
-            <button class="seg-btn" onclick="setZoom('y')">Y</button>
-            <button class="seg-btn" onclick="setZoom('xy')">XY</button>
+            <button class="seg-btn active" data-zoom="" onclick="setZoom('')">None</button>
+            <button class="seg-btn" data-zoom="x" onclick="setZoom('x')">X</button>
+            <button class="seg-btn" data-zoom="y" onclick="setZoom('y')">Y</button>
+            <button class="seg-btn" data-zoom="xy" onclick="setZoom('xy')">XY</button>
           </div>
         </div>
         <div class="field-row" id="donut-row" style="display:none">
@@ -3171,9 +3167,10 @@ function setLineWidth(w) {
 
 function setAnimation(ms) {
   state.animationDuration = ms;
-  document.querySelectorAll('[data-anim]').forEach(b => b.classList.toggle('active', +b.dataset.anim === ms));
-  const easingRow = document.getElementById('easing-row');
-  if (easingRow) easingRow.style.display = ms === 0 ? 'none' : '';
+  const slider = document.getElementById('anim-duration-slider');
+  if (slider) slider.value = ms;
+  const val = document.getElementById('anim-duration-val');
+  if (val) val.textContent = ms === 0 ? 'None' : ms + 'ms';
   schedUpdate(); persist();
 }
 
@@ -3294,6 +3291,7 @@ function toggleRightPanel() {
 
 function setDashStyle(ds) {
   state.dashStyle = ds;
+  document.querySelectorAll('[data-ds]').forEach(b => b.classList.toggle('active', b.dataset.ds === ds));
   schedUpdate(); persist();
 }
 
@@ -3320,11 +3318,13 @@ function setLegendPos(pos) {
 
 function setStack(s) {
   state.stacking = s;
+  document.querySelectorAll('[data-stack]').forEach(b => b.classList.toggle('active', b.dataset.stack === s));
   schedUpdate(); persist();
 }
 
 function setZoom(z) {
   state.zoom = z;
+  document.querySelectorAll('[data-zoom]').forEach(b => b.classList.toggle('active', b.dataset.zoom === z));
   schedUpdate(); persist();
 }
 
@@ -3421,32 +3421,72 @@ function syncSidebarToState() {
     const el = g('toggle-'+['markers','datalabels','gridlines','legend','tooltip','xline'][i]);
     if (el) el.classList.toggle('on', !!s[k]);
   });
-  document.querySelectorAll('[data-lw]').forEach(b => b.classList.toggle('active', +b.dataset.lw === s.lineWidth));
-  document.querySelectorAll('[data-anim]').forEach(b => b.classList.toggle('active', +b.dataset.anim === (s.animationDuration ?? 800)));
+  document.querySelectorAll('[data-lw]').forEach(b => b.classList.toggle('active', +b.dataset.lw === (s.lineWidth ?? 2)));
   document.querySelectorAll('[data-mr]').forEach(b => b.classList.toggle('active', +b.dataset.mr === (s.markerRadius ?? 4)));
   document.querySelectorAll('[data-xtype]').forEach(b => b.classList.toggle('active', b.dataset.xtype === (s.xAxisType || 'category')));
   document.querySelectorAll('[data-pp]').forEach(b => b.classList.toggle('active', +b.dataset.pp === (s.pointPadding ?? 0.1)));
   document.querySelectorAll('[data-br]').forEach(b => b.classList.toggle('active', +b.dataset.br === (s.borderRadius ?? 0)));
+  document.querySelectorAll('[data-ds]').forEach(b => b.classList.toggle('active', b.dataset.ds === (s.dashStyle || 'Solid')));
+  document.querySelectorAll('[data-step]').forEach(b => b.classList.toggle('active', b.dataset.step === (s.stepLine || '')));
+  document.querySelectorAll('[data-stack]').forEach(b => b.classList.toggle('active', b.dataset.stack === (s.stacking || '')));
+  document.querySelectorAll('[data-zoom]').forEach(b => b.classList.toggle('active', b.dataset.zoom === (s.zoom || '')));
   const opSlider = document.getElementById('series-opacity-slider');
-  if (opSlider) { opSlider.value = s.seriesOpacity ?? 1; }
+  if (opSlider) opSlider.value = s.seriesOpacity ?? 1;
   const opVal = document.getElementById('opacity-val');
   if (opVal) opVal.textContent = Math.round((s.seriesOpacity ?? 1) * 100) + '%';
+  const animMs = s.animationDuration ?? 800;
+  const animSlider = document.getElementById('anim-duration-slider');
+  if (animSlider) animSlider.value = animMs;
+  const animVal = document.getElementById('anim-duration-val');
+  if (animVal) animVal.textContent = animMs === 0 ? 'None' : animMs + 'ms';
+  const easingSel = document.getElementById('sb-easing');
+  if (easingSel) easingSel.value = s.animationEasing || 'swing';
   updateAccLinesVisibility();
   updateDonutVisibility();
 }
 
-function updateAccLinesVisibility() {
-  const lineTypes = ['line','spline','area','areaspline'];
-  const show = lineTypes.includes(state.chartType);
-  document.getElementById('acc-lines').style.display = show ? '' : 'none';
-  const fillRow = document.getElementById('fill-row');
-  if (fillRow) fillRow.style.display = ['area','areaspline'].includes(state.chartType) ? '' : 'none';
+function updateFieldVisibility() {
+  const t = state.chartType;
+  const isLine     = ['line','spline'].includes(t);
+  const isArea     = ['area','areaspline'].includes(t);
+  const isLineLike = isLine || isArea;
+  const isColBar   = ['column','bar'].includes(t);
+  const isPie      = ['pie','donut'].includes(t);
+  const isScatter  = ['scatter','bubble'].includes(t);
+
+  function show(id, visible) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? '' : 'none';
+  }
+
+  // Lines & Markers accordion — show for all except pie/donut
+  show('acc-lines', !isPie);
+
+  // Within Lines & Markers
+  show('fr-thickness',   isLineLike);
+  show('fr-markers',     isLineLike || isScatter);
+  show('fr-markersize',  isLineLike || isScatter);
+  show('fr-dashstyle',   isLineLike);
+  show('fill-row',       isArea);
+  show('fr-connectnulls', isLineLike);
+  show('fr-stepline',    isLine);
+  // fr-opacity, fr-transition, easing-row always visible inside acc-lines
+
+  // Horizontal / Vertical axis accordions — hide for pie/donut
+  show('acc-haxis', !isPie);
+  show('acc-vaxis', !isPie);
+
+  // Advanced fields
+  show('fr-stacking', isLineLike || isColBar);
+  show('fr-zoom',     !isPie);
+  show('donut-row',   t === 'donut');
+  show('col-padding-row', isColBar);
+  show('col-radius-row',  isColBar);
 }
 
-function updateDonutVisibility() {
-  const dr = document.getElementById('donut-row');
-  if (dr) dr.style.display = state.chartType === 'donut' ? '' : 'none';
-}
+// Keep old names as aliases so any existing callers still work
+function updateAccLinesVisibility() { updateFieldVisibility(); }
+function updateDonutVisibility()     { updateFieldVisibility(); }
 
 /* ═══════════════════════════════════════════
    COLOURS
@@ -3851,8 +3891,7 @@ function updateChartTypeUI() {
   document.getElementById('sidebar-chart-name').textContent = map[state.chartType] || state.chartType;
   const iconEl = document.getElementById('sidebar-chart-icon');
   if (iconEl) iconEl.innerHTML = chartSvgIconSmall(state.chartType).replace(/<svg[^>]*>/, '').replace('</svg>', '');
-  updateAccLinesVisibility();
-  updateDonutVisibility();
+  updateFieldVisibility();
 }
 
 function toggleCmsEdit(e) {
@@ -5036,7 +5075,11 @@ function setYScale(s) {
   schedUpdate(); persist();
 }
 
-function setStep(s) { state.stepLine = s; schedUpdate(); persist(); }
+function setStep(s) {
+  state.stepLine = s;
+  document.querySelectorAll('[data-step]').forEach(b => b.classList.toggle('active', b.dataset.step === s));
+  schedUpdate(); persist();
+}
 function setDecimals(n) { state.decimals = n; schedUpdate(); persist(); }
 function setTooltipMode(m) { state.tooltipMode = m; schedUpdate(); persist(); }
 

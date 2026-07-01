@@ -5703,54 +5703,170 @@ const CHART_TEMPLATES = [
   /* ── Scatter & Bubble ────────────────────── */
   {
     id: 'ex-scatter',
-    name: 'Scatter',
-    desc: 'Risk/return plot',
+    name: 'Scatter (XY)',
+    desc: 'Risk/return, named points',
     section: 'Scatter & Bubble',
-    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="18" cy="38" r="3.5" fill="#199e81" opacity="0.8"/><circle cx="50" cy="18" r="3.5" fill="#199e81" opacity="0.8"/><circle cx="64" cy="28" r="3.5" fill="#199e81" opacity="0.8"/><circle cx="30" cy="44" r="3.5" fill="#199e81" opacity="0.8"/><circle cx="72" cy="14" r="3.5" fill="#199e81" opacity="0.8"/><circle cx="38" cy="8"  r="3.5" fill="#dc4354" opacity="0.8"/><circle cx="90" cy="6"  r="3.5" fill="#dc4354" opacity="0.8"/><circle cx="60" cy="16" r="3.5" fill="#dc4354" opacity="0.8"/></svg>`,
-    state: {
-      chartType: 'scatter',
-      title: '',
-      subtitle: '',
-      categories: ['EM LC Sov','EM HC Sov','EM HC Corp','Global Agg','US High Yield','All Frontier Local','Frontier HC','50/50 Frontier'],
-      series: [
-        { name: 'EM indices',       colorOverride: true, color: '#199e81', data: [11.3,8.8,6.3,4.3,7.6,null,null,null] },
-        { name: 'Frontier indices',  colorOverride: true, color: '#dc4354', data: [null,null,null,null,null,3.7,12.7,8.2] },
-      ],
-      animationDuration: 800, animationEasing: 'swing',
-      lineWidth: 0, markers: true, markerRadius: 6, dashStyle: 'Solid',
-      fillOpacity: 0.3, seriesOpacity: 1,
-      xAxisType: 'category', xTitle: 'Annualised Return', xRotation: 0, xLine: true,
-      yTitle: 'Annualised Volatility', yMin: null, yMax: null, yScale: 'linear', yFormat: '{value}%',
-      gridLines: false, legend: true, legendPos: 'bottom',
-      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
-      decimals: 1, dataLabels: false, connectNulls: false,
-      stacking: '', zoom: 'xy', chartHeight: 500, borderRadius: 0, pointPadding: 0.1, innerSize: 60,
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><line x1="60" y1="2" x2="60" y2="52" stroke="#b2a896" stroke-width="0.5"/><circle cx="28" cy="10" r="4" fill="#199e81" opacity="0.85"/><circle cx="58" cy="20" r="4" fill="#199e81" opacity="0.85"/><circle cx="66" cy="34" r="4" fill="#199e81" opacity="0.85"/><circle cx="42" cy="40" r="4" fill="#199e81" opacity="0.85"/><circle cx="62" cy="26" r="4" fill="#199e81" opacity="0.85"/><circle cx="48" cy="44" r="4" fill="#dc4354" opacity="0.85"/><circle cx="84" cy="4"  r="4" fill="#dc4354" opacity="0.85"/><circle cx="64" cy="18" r="4" fill="#dc4354" opacity="0.85"/></svg>`,
+    rawConfig: {
+      chart: { type: 'scatter', height: 650, zoomType: 'xy' },
+      title: { text: '' },
+      subtitle: { text: '' },
+      legend: { enabled: false },
+      xAxis: {
+        plotLines: [{ color: '#b2a896', width: 1, value: 0, zIndex: 4 }],
+        title: { text: 'Annualised Return', margin: 10 },
+        labels: { format: '{value}%' },
+        min: -1, max: 6,
+        lineWidth: 1, lineColor: '#b2a896'
+      },
+      yAxis: {
+        title: { text: 'Annualised Volatility' },
+        labels: { format: '{value}%' },
+        startOnTick: true, tickInterval: 2, min: 0, max: 14, gridLineWidth: 0
+      },
+      tooltip: { headerFormat: '' },
+      plotOptions: {
+        scatter: {
+          lineWidth: 0,
+          dataLabels: {
+            enabled: true, format: '{point.name}',
+            allowOverlap: false, align: 'left', x: 6,
+            style: { fontWeight: '400', fontSize: '11px', textOutline: 'none' }
+          }
+        }
+      },
+      series: [{
+        color: '#199e81', name: 'EM indices',
+        data: [
+          { x: -0.1, y: 11.3, name: 'EM LC Sov' },
+          { x: 3.0,  y: 8.8,  name: 'EM HC Sov' },
+          { x: 3.7,  y: 6.3,  name: 'EM HC Corp' },
+          { x: 1.5,  y: 4.3,  name: 'Global Agg' },
+          { x: 3.3,  y: 7.6,  name: 'US High Yield' }
+        ]
+      }, {
+        name: 'Frontier indices', color: '#dc4354',
+        data: [
+          { x: 1.9, y: 3.7,  name: 'All Frontier Local' },
+          { x: 5.2, y: 12.7, name: 'Frontier HC Index' },
+          { x: 3.5, y: 8.2,  name: '50/50 Frontier' }
+        ]
+      }]
     }
   },
   {
     id: 'ex-bubble',
-    name: 'Bubble',
-    desc: 'Size = z value',
+    name: 'Bubble (XYZ)',
+    desc: 'Named points, z = size',
     section: 'Scatter & Bubble',
-    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="22" cy="34" r="13" fill="rgba(0,157,128,0.45)"/><circle cx="54" cy="20" r="19" fill="rgba(251,170,150,0.45)"/><circle cx="85" cy="36" r="10" fill="rgba(0,157,128,0.45)"/><circle cx="108" cy="18" r="14" fill="rgba(251,170,150,0.45)"/></svg>`,
-    state: {
-      chartType: 'bubble',
-      title: '',
-      subtitle: '',
-      categories: ['2019','2020','2021','2022','2023'],
-      series: [
-        { name: 'Fund A', colorOverride: false, data: [12.4, 8.1, 15.2, -3.5, 9.8] },
-        { name: 'Fund B', colorOverride: false, data: [9.2, 11.5, 7.8, 1.2, 12.1] },
-      ],
-      animationDuration: 800, animationEasing: 'swing',
-      lineWidth: 0, markers: true, markerRadius: 5, dashStyle: 'Solid',
-      fillOpacity: 0.3, seriesOpacity: 1,
-      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
-      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
-      gridLines: true, legend: true, legendPos: 'bottom',
-      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
-      decimals: 1, dataLabels: false, connectNulls: false,
-      stacking: '', zoom: '', chartHeight: 420, borderRadius: 0, pointPadding: 0.1, innerSize: 60,
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="22" cy="10" r="9"  fill="rgba(0,157,128,0.5)"/><circle cx="46" cy="8"  r="10" fill="rgba(0,157,128,0.45)"/><circle cx="56" cy="18" r="7"  fill="rgba(0,157,128,0.5)"/><circle cx="72" cy="22" r="14" fill="rgba(0,157,128,0.35)"/><circle cx="96" cy="36" r="18" fill="rgba(0,157,128,0.3)"/></svg>`,
+    rawConfig: {
+      chart: { type: 'bubble', height: 600, zooming: { type: 'xy' } },
+      legend: { enabled: false },
+      title: { text: 'Sugar and fat intake per country' },
+      xAxis: {
+        gridLineWidth: 0,
+        title: { text: 'Daily fat intake (g)' },
+        labels: { format: '{value} gr' }
+      },
+      yAxis: {
+        startOnTick: false, endOnTick: false,
+        title: { text: 'Daily sugar intake (g)' },
+        labels: { format: '{value} gr' },
+        maxPadding: 0.2,
+        plotLines: [{
+          dashStyle: 'dot', width: 2, value: 50,
+          label: { align: 'right', style: { fontStyle: 'italic' }, text: 'Safe sugar intake 50g/day', x: -10 },
+          zIndex: 3
+        }]
+      },
+      tooltip: { useHTML: true, headerFormat: '<b>{point.key}</b><br/>' },
+      plotOptions: {
+        series: { dataLabels: { enabled: true, format: '{point.name}' } }
+      },
+      series: [{
+        colorByPoint: true,
+        data: [
+          { x: 95,   y: 95,   z: 13.8, name: 'BE', key: 'Belgium' },
+          { x: 86.5, y: 102.9,z: 14.7, name: 'DE', key: 'Germany' },
+          { x: 80.8, y: 91.5, z: 15.8, name: 'FI', key: 'Finland' },
+          { x: 80.4, y: 102.5,z: 12,   name: 'NL', key: 'Netherlands' },
+          { x: 64,   y: 82.9, z: 31.3, name: 'NZ', key: 'New Zealand' }
+        ]
+      }]
+    }
+  },
+  {
+    id: 'ex-treemap',
+    name: 'Treemap',
+    desc: 'End of Easy Globalisation',
+    section: 'Scatter & Bubble',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#221b3b"/><rect x="1"  y="1"  width="55" height="35" fill="#fbaa96" rx="1"/><rect x="58" y="1"  width="61" height="35" fill="#cf6f13" rx="1"/><rect x="1"  y="38" width="118" height="15" fill="#009d80" rx="1"/><text x="5"  y="14" font-size="7" fill="#221b3b" font-family="sans-serif">State</text><text x="62" y="14" font-size="7" fill="#fff" font-family="sans-serif">Tech</text><text x="5"  y="48" font-size="7" fill="#fff" font-family="sans-serif">Resources</text></svg>`,
+    rawConfig: {
+      chart: { type: 'treemap', height: 600, spacing: [12,12,12,12] },
+      title: { text: 'End of Easy Globalization', align: 'left' },
+      plotOptions: {
+        treemap: {
+          allowTraversingTree: true, interactByLeaf: false,
+          nodeSizeBy: 'leaf', borderWidth: 2, borderRadius: 0,
+          layoutStartingDirection: 'vertical',
+          dataLabels: { style: { textOutline: 'none', color: '#e8e5ce' } },
+          states: { hover: { brightness: 0.08 } }
+        }
+      },
+      series: [{
+        type: 'treemap',
+        allowTraversingTree: true,
+        levels: [{
+          level: 1, layoutAlgorithm: 'sliceAndDice', groupPadding: 14,
+          dataLabels: { enabled: true, align: 'left', verticalAlign: 'top', padding: 8,
+            style: { fontSize: '14px', fontWeight: '700', color: '#e8e5ce' } }
+        }, {
+          level: 2, groupPadding: 8,
+          dataLabels: { enabled: true, inside: true, style: { fontSize: '12px', fontWeight: '600', color: '#e8e5ce' } }
+        }],
+        data: [
+          { id: 'ROOT',  name: 'Globalization Shift', color: '#221b3b' },
+          { id: 'STATE', parent: 'ROOT', name: 'State / Demographics', color: '#fbaa96' },
+          { id: 'TECH',  parent: 'ROOT', name: 'Tech / Markets',       color: '#cf6f13' },
+          { id: 'RES',   parent: 'ROOT', name: 'Resources / Supply',   color: '#009d80' },
+          { parent: 'STATE', name: 'Population decline', value: 2, color: '#ffb5a3' },
+          { parent: 'STATE', name: 'Migration shock',    value: 2, color: '#ffb5a3' },
+          { parent: 'TECH',  name: 'Capex cycle',        value: 2, color: '#d27c28' },
+          { parent: 'RES',   name: 'Bottlenecks',        value: 2, color: '#19a68c' }
+        ]
+      }]
+    }
+  },
+  {
+    id: 'ex-packedbubble',
+    name: 'Packed Bubble',
+    desc: 'Grouped bubble clusters',
+    section: 'Scatter & Bubble',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="20" cy="27" r="18" fill="rgba(0,157,128,0.15)" stroke="#009d80" stroke-width="1"/><circle cx="16" cy="24" r="6"  fill="rgba(0,157,128,0.6)"/><circle cx="26" cy="32" r="9"  fill="rgba(0,157,128,0.5)"/><circle cx="70" cy="27" r="20" fill="rgba(251,170,150,0.15)" stroke="#fbaa96" stroke-width="1"/><circle cx="64" cy="22" r="5"  fill="rgba(251,170,150,0.7)"/><circle cx="74" cy="30" r="11" fill="rgba(251,170,150,0.6)"/></svg>`,
+    rawConfig: {
+      chart: { type: 'packedbubble', height: 520 },
+      title: { text: 'Packed Bubble' },
+      tooltip: { pointFormat: '<strong>{point.name}:</strong> {point.value}' },
+      plotOptions: {
+        packedbubble: {
+          minSize: '20%', maxSize: '100%',
+          useSimulation: true,
+          layoutAlgorithm: {
+            splitSeries: true, gravitationalConstant: 0.005,
+            friction: -0.98, parentNodeLimit: true,
+            seriesInteraction: false, dragBetweenSeries: false
+          },
+          dataLabels: { enabled: true, format: '{point.name}', style: { textOutline: 'none' } }
+        }
+      },
+      series: [{
+        name: 'Group A',
+        data: [{ name: 'A1', value: 10 }, { name: 'A2', value: 30 }, { name: 'A3', value: 50 }]
+      }, {
+        name: 'Group B',
+        data: [{ name: 'B1', value: 15 }, { name: 'B2', value: 35 }, { name: 'B3', value: 55 }]
+      }]
     }
   },
 ];
@@ -5779,6 +5895,18 @@ function renderLibrary() {
 function loadTemplate(id) {
   const tpl = CHART_TEMPLATES.find(t => t.id === id);
   if (!tpl) return;
+
+  if (tpl.rawConfig) {
+    // Advanced chart types rendered directly — builder can't edit these
+    if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
+    const el = document.getElementById('chart-container');
+    if (el) el.style.height = (tpl.rawConfig.chart?.height || 500) + 'px';
+    const cfg = Object.assign({}, tpl.rawConfig, { credits: { enabled: false } });
+    chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+    railSelect('type');
+    return;
+  }
+
   Object.assign(state, tpl.state);
   state.series = tpl.state.series.map(s => ({ ...s }));
   syncSidebarToState();

@@ -2486,6 +2486,18 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <button class="seg-btn" data-anim="1600" onclick="setAnimation(1600)">Slow</button>
           </div>
         </div>
+        <div class="field-row" id="easing-row">
+          <label>Easing</label>
+          <select class="field-input" id="sb-easing" onchange="onField('animationEasing',this.value)">
+            <option value="swing">Swing (default)</option>
+            <option value="linear">Linear</option>
+            <option value="easeInQuad">Ease In</option>
+            <option value="easeOutQuad">Ease Out</option>
+            <option value="easeInOutQuad">Ease In-Out</option>
+            <option value="easeOutBounce">Bounce</option>
+            <option value="easeOutElastic">Elastic</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -3028,6 +3040,7 @@ let state = {
   tooltipMode: 'single',
   yPlotLines: [],
   animationDuration: 800,
+  animationEasing: 'swing',
   markerRadius: 4,
   seriesOpacity: 1,
   xAxisType: 'category',
@@ -3159,6 +3172,8 @@ function setLineWidth(w) {
 function setAnimation(ms) {
   state.animationDuration = ms;
   document.querySelectorAll('[data-anim]').forEach(b => b.classList.toggle('active', +b.dataset.anim === ms));
+  const easingRow = document.getElementById('easing-row');
+  if (easingRow) easingRow.style.display = ms === 0 ? 'none' : '';
   schedUpdate(); persist();
 }
 
@@ -3400,6 +3415,7 @@ function syncSidebarToState() {
   if (g('sb-csv-url'))    g('sb-csv-url').value = s.csvUrl || '';
   if (g('sb-tt-prefix'))  g('sb-tt-prefix').value = s.ttPrefix || '';
   if (g('sb-tt-suffix'))  g('sb-tt-suffix').value = s.ttSuffix || '';
+  if (g('sb-easing'))     g('sb-easing').value = s.animationEasing || 'swing';
   const toggles = ['markers','dataLabels','gridlines','legend','tooltip','xline'];
   ['markers','dataLabels','gridLines','legend','tooltip','xLine'].forEach((k,i) => {
     const el = g('toggle-'+['markers','datalabels','gridlines','legend','tooltip','xline'][i]);
@@ -3914,7 +3930,7 @@ function update() {
       height: s.chartHeight,
       style: { fontFamily: 'system-ui, -apple-system, sans-serif' },
       zoomType: s.zoom || undefined,
-      animation: s.animationDuration > 0 ? { duration: s.animationDuration } : false,
+      animation: s.animationDuration > 0 ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false,
     },
     title: { text: s.title || null, style: { color: headCol } },
     subtitle: { text: s.subtitle || null, style: { color: textCol } },

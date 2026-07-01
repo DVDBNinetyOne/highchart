@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FT-style Draw-on Animation — Highcharts Test</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-more.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', serif;
+    background: #fff1e6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .chart-wrap {
+    width: 100%;
+    max-width: 900px;
+    background: #fff1e6;
+    padding: 32px 32px 24px;
+  }
+  .chart-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+  .chart-subtitle {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 20px;
+  }
+  #chart-container {
+    width: 100%;
+    height: 480px;
+  }
+  .chart-source {
+    font-size: 11px;
+    color: #999;
+    margin-top: 10px;
+    text-align: right;
+  }
+  .replay-btn {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 8px 20px;
+    background: #cc0000;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.3px;
+  }
+  .replay-btn:hover { background: #aa0000; }
+</style>
+</head>
+<body>
+
+<div class="chart-wrap">
+  <div class="chart-title">Active number go down</div>
+  <div class="chart-subtitle">Long term cumulative flow data for active and passive equity and bond funds</div>
+  <div id="chart-container"></div>
+  <div class="chart-source">Source: EPFR &nbsp;|&nbsp; Placeholder data for testing</div>
+</div>
+<button class="replay-btn" onclick="replayChart()">↺ Replay animation</button>
+
+<script>
+// ── Placeholder data: quarterly from 2001 to 2025 ──────────────────────────
+// Values in $trillions (cumulative net flows, approximate shape)
+function makeYears(start, end) {
+  const y = [];
+  for (let yr = start; yr <= end; yr++) y.push(yr);
+  return y;
+}
+
+const years = makeYears(2001, 2025);
+
+// Passive Bonds — starts flat, takes off post-2010, surges past $3tn by 2025
+const passiveBonds = [
+  0,0,0,0,0.02,0.05,0.08,0.14,0.05,0.08,
+  0.15,0.28,0.42,0.58,0.76,0.95,1.15,1.42,1.61,1.38,
+  1.60,1.90,2.30,2.80,3.40
+];
+
+// Active Bonds — rises earlier, peaks ~$1.5tn, drops back
+const activeBonds = [
+  0,0.02,0.05,0.12,0.22,0.35,0.48,0.30,-0.1,0.05,
+  0.18,0.32,0.55,0.72,0.85,0.95,1.02,1.12,1.05,0.65,
+  0.80,0.85,0.90,1.30,1.55
+];
+
+// Passive Equities — faded, rises then volatile
+const passiveEquities = [
+  0,0,0.01,0.03,0.06,0.10,0.14,0.05,-0.05,0.02,
+  0.08,0.14,0.22,0.32,0.40,0.50,0.58,0.70,0.65,0.45,
+  0.55,0.60,0.68,0.80,0.95
+];
+
+// Active Equities — faded, slight rise then flat/down
+const activeEquities = [
+  0,0.02,0.04,0.08,0.10,0.08,0.05,-0.10,-0.20,-0.12,
+  -0.05,0.02,0.06,0.10,0.12,0.08,0.05,0.04,0.00,-0.18,
+  -0.10,-0.08,-0.05,0.00,0.05
+];
+
+let chart;
+
+function buildChart(animate) {
+  if (chart) { try { chart.destroy(); } catch(e){} }
+
+  chart = Highcharts.chart('chart-container', {
+    chart: {
+      type: 'spline',
+      backgroundColor: '#fff1e6',
+      animation: animate ? {
+        duration: 2800,
+        easing: 'linear'
+      } : false,
+      style: { fontFamily: 'Georgia, serif' },
+      marginRight: 120,
+      marginTop: 10,
+    },
+
+    title: { text: null },
+    subtitle: { text: null },
+    credits: { enabled: false },
+    legend: {
+      enabled: true,
+      align: 'left',
+      verticalAlign: 'top',
+      itemStyle: { fontWeight: 'normal', fontSize: '12px', color: '#333', fontFamily: 'Georgia, serif' },
+      symbolWidth: 16,
+      symbolHeight: 2,
+      symbolRadius: 0,
+      y: -10,
+    },
+
+    xAxis: {
+      categories: years,
+      tickInterval: 2,
+      lineWidth: 0,
+      tickWidth: 0,
+      labels: {
+        style: { color: '#888', fontSize: '11px', fontFamily: 'Georgia, serif' }
+      },
+      crosshair: {
+        width: 1,
+        color: 'rgba(0,0,0,0.15)',
+        dashStyle: 'Solid'
+      }
+    },
+
+    yAxis: {
+      title: { text: null },
+      gridLineColor: 'rgba(0,0,0,0.08)',
+      gridLineWidth: 1,
+      labels: {
+        formatter: function() {
+          if (this.value === 0) return '$0tn';
+          return '$' + this.value + 'tn';
+        },
+        style: { color: '#888', fontSize: '11px', fontFamily: 'Georgia, serif' }
+      },
+      tickAmount: 4,
+    },
+
+    tooltip: {
+      shared: true,
+      backgroundColor: 'rgba(255,255,255,0.96)',
+      borderWidth: 0,
+      shadow: { color: 'rgba(0,0,0,0.08)', offsetX: 0, offsetY: 2, opacity: 0.3, width: 8 },
+      style: { fontSize: '12px', fontFamily: 'Georgia, serif' },
+      formatter: function() {
+        let s = `<b>${this.x}</b><br/>`;
+        this.points.forEach(p => {
+          s += `<span style="color:${p.color}">●</span> ${p.series.name}: <b>$${p.y.toFixed(2)}tn</b><br/>`;
+        });
+        return s;
+      }
+    },
+
+    plotOptions: {
+      spline: {
+        marker: { enabled: false },
+        states: { hover: { lineWidthPlus: 0 } },
+      },
+      series: {
+        animation: animate ? { duration: 2800, easing: 'linear' } : false,
+        dataLabels: { allowOverlap: false },
+      }
+    },
+
+    series: [
+      {
+        name: 'Passive Bonds',
+        data: passiveBonds,
+        color: '#cc0000',
+        lineWidth: 2.5,
+        zIndex: 4,
+        dataLabels: {
+          enabled: true,
+          formatter: function() {
+            if (this.point.index === this.series.data.length - 1) {
+              return '<span style="color:#cc0000;font-size:11px">Passive<br/>Bonds</span>';
+            }
+            return null;
+          },
+          x: 8, align: 'left', verticalAlign: 'middle',
+          style: { textOutline: 'none', fontFamily: 'Georgia, serif' },
+          useHTML: true,
+        }
+      },
+      {
+        name: 'Active Bonds',
+        data: activeBonds,
+        color: '#6ec6e6',
+        lineWidth: 2.5,
+        zIndex: 3,
+        dataLabels: {
+          enabled: true,
+          formatter: function() {
+            if (this.point.index === this.series.data.length - 1) {
+              return '<span style="color:#6ec6e6;font-size:11px">Active<br/>Bonds</span>';
+            }
+            return null;
+          },
+          x: 8, align: 'left', verticalAlign: 'middle',
+          style: { textOutline: 'none', fontFamily: 'Georgia, serif' },
+          useHTML: true,
+        }
+      },
+      {
+        name: 'Passive Equities',
+        data: passiveEquities,
+        color: 'rgba(204,0,0,0.25)',
+        lineWidth: 1.5,
+        zIndex: 2,
+        dataLabels: { enabled: false }
+      },
+      {
+        name: 'Active Equities',
+        data: activeEquities,
+        color: 'rgba(110,198,230,0.3)',
+        lineWidth: 1.5,
+        zIndex: 1,
+        dataLabels: { enabled: false }
+      },
+    ]
+  });
+}
+
+function replayChart() { buildChart(true); }
+
+// Initial render with animation
+buildChart(true);
+</script>
+</body>
+</html>

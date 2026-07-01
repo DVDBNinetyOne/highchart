@@ -468,6 +468,63 @@ body {
   padding: 4px 8px 6px;
 }
 
+/* ─── Library panel ─── */
+#flyout-panel-library {
+  overflow-y: auto;
+  padding: 2px 6px 16px;
+  scrollbar-width: thin;
+}
+.lib-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #aaa;
+  text-transform: uppercase;
+  padding: 10px 6px 4px;
+}
+.lib-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.lib-card {
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 8px 8px 6px;
+  cursor: pointer;
+  transition: border-color 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s cubic-bezier(0.4,0,0.2,1);
+  background: #fff;
+}
+.lib-card:hover {
+  border-color: #009d80;
+  box-shadow: 0 2px 8px rgba(0,157,128,0.12);
+}
+.lib-card-preview {
+  width: 100%;
+  height: 52px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 5px;
+  background: #f8f8f8;
+}
+.lib-card-preview svg { width: 100%; height: 100%; }
+.lib-card-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-card-desc {
+  font-size: 10px;
+  color: #999;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Theme group header ── */
 .flyout-theme-group-label {
   font-size: 9px;
@@ -2296,6 +2353,11 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="21" x2="21" y2="21"/><line x1="3" y1="3" x2="3" y2="21"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="13" cy="10" r="1.5" fill="currentColor"/><circle cx="18" cy="6" r="1.5" fill="currentColor"/></svg>
       Axes
     </button>
+    <div class="rail-sep"></div>
+    <button class="rail-btn" id="rail-library" onclick="railSelect('library')" title="Chart library">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Library
+    </button>
   </div>
 
   <!-- ─── Flyout: switchable panels ─── -->
@@ -2310,6 +2372,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div id="chart-type-bar-header"><span id="chart-type-bar-title"></span></div>
         <div id="chart-type-bar"></div>
       </div>
+    </div>
+    <!-- Panel: Library -->
+    <div id="flyout-panel-library" class="flyout-panel" style="display:none">
+      <div id="flyout-library-content"></div>
     </div>
     <!-- Panel: Theme Picker -->
     <div id="flyout-panel-theme" class="flyout-panel" style="display:none">
@@ -5397,6 +5463,240 @@ function switchTab(tab) {
 }
 
 /* ═══════════════════════════════════════════
+   CHART LIBRARY / TEMPLATES
+═══════════════════════════════════════════ */
+const CHART_TEMPLATES = [
+  {
+    id: 'ft-drawon',
+    name: 'FT Draw-on',
+    desc: 'Animated line reveal',
+    section: 'Featured',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#fff1e6"/><polyline points="0,50 20,44 40,34 60,22 80,14 100,8 120,4" fill="none" stroke="#cc0000" stroke-width="2.5"/><polyline points="0,50 20,46 40,40 60,30 80,22 100,14 120,10" fill="none" stroke="#6ec6e6" stroke-width="2.5"/><polyline points="0,52 20,50 40,46 60,40 80,36 100,30 120,26" fill="none" stroke="rgba(204,0,0,0.3)" stroke-width="1.5"/><polyline points="0,52 20,50 40,48 60,46 80,44 100,42 120,40" fill="none" stroke="rgba(110,198,230,0.3)" stroke-width="1.5"/></svg>`,
+    state: {
+      chartType: 'spline',
+      title: 'Active number go down',
+      subtitle: 'Long term cumulative flow data for active and passive equity and bond funds',
+      categories: ['2001','2003','2005','2007','2009','2011','2013','2015','2017','2019','2021','2023','2025'],
+      series: [
+        { name: 'Passive Bonds',    colorOverride: false, data: [0,0,0.05,0.08,0.06,0.28,0.58,0.95,1.42,1.61,1.90,2.80,3.40] },
+        { name: 'Active Bonds',     colorOverride: false, data: [0,0.05,0.22,0.48,0.05,0.32,0.72,0.95,1.12,1.05,0.85,1.30,1.55] },
+        { name: 'Passive Equities', colorOverride: false, data: [0,0,0.06,0.14,0,0.14,0.32,0.50,0.70,0.65,0.60,0.80,0.95] },
+        { name: 'Active Equities',  colorOverride: false, data: [0,0.02,0.10,0.05,0,0.02,0.10,0.08,0.04,0,0,0,0.05] },
+      ],
+      animationDuration: 2800, animationEasing: 'linear',
+      lineWidth: 2, markers: false, markerRadius: 4, dashStyle: 'Solid',
+      fillOpacity: 0.3, seriesOpacity: 1,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: true, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'shared', ttPrefix: '$', ttSuffix: 'tn',
+      decimals: 2, dataLabels: false, connectNulls: true,
+      stacking: '', zoom: '', chartHeight: 420, borderRadius: 0, pointPadding: 0.1, innerSize: 60,
+    }
+  },
+  {
+    id: 'perf-line',
+    name: 'Performance Line',
+    desc: 'Fund vs benchmark',
+    section: 'Featured',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><polyline points="0,40 24,28 48,18 72,26 96,8 120,14" fill="none" stroke="#009d80" stroke-width="2.5"/><polyline points="0,44 24,36 48,28 72,34 96,20 120,26" fill="none" stroke="#fbaa96" stroke-width="2.5"/><polyline points="0,46 24,42 48,36 72,40 96,28 120,32" fill="none" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4,3"/></svg>`,
+    state: {
+      chartType: 'spline', title: '', subtitle: '',
+      categories: ['Jan 23','Apr 23','Jul 23','Oct 23','Jan 24','Apr 24'],
+      series: [
+        { name: 'Fund A',    colorOverride: false, data: [0, 4.2, 9.1, 6.8, 13.5, 11.2] },
+        { name: 'Fund B',    colorOverride: false, data: [0, 2.8, 6.5, 4.1, 9.8, 8.4] },
+        { name: 'Benchmark', colorOverride: false, data: [0, 1.9, 4.8, 3.2, 7.1, 6.3] },
+      ],
+      animationDuration: 800, animationEasing: 'swing',
+      lineWidth: 2, markers: false, markerRadius: 4, dashStyle: 'Solid',
+      fillOpacity: 0.3, seriesOpacity: 1,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: true, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'shared', ttPrefix: '', ttSuffix: '%',
+      decimals: 1, dataLabels: false, connectNulls: false,
+      stacking: '', zoom: '', chartHeight: 420, borderRadius: 0, pointPadding: 0.1, innerSize: 60,
+    }
+  },
+  {
+    id: 'column-compare',
+    name: 'Column Compare',
+    desc: 'Side-by-side bars',
+    section: 'Featured',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><rect x="7"  y="16" width="11" height="36" fill="#009d80"/><rect x="20" y="28" width="11" height="24" fill="#fbaa96"/><rect x="38" y="8"  width="11" height="44" fill="#009d80"/><rect x="51" y="22" width="11" height="30" fill="#fbaa96"/><rect x="69" y="22" width="11" height="30" fill="#009d80"/><rect x="82" y="12" width="11" height="40" fill="#fbaa96"/><rect x="100" y="18" width="11" height="34" fill="#009d80"/><rect x="113" y="30" width="7"  height="22" fill="#fbaa96"/></svg>`,
+    state: {
+      chartType: 'column', title: '', subtitle: '',
+      categories: ['2020','2021','2022','2023'],
+      series: [
+        { name: 'Fund A', colorOverride: false, data: [12.4, 15.2, -3.5, 9.8] },
+        { name: 'Fund B', colorOverride: false, data: [9.2, 7.8, 1.2, 12.1] },
+      ],
+      animationDuration: 800, animationEasing: 'swing',
+      lineWidth: 2, markers: false, markerRadius: 4, dashStyle: 'Solid',
+      fillOpacity: 0.3, seriesOpacity: 1, borderRadius: 0, pointPadding: 0.1,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: true, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
+      decimals: 1, dataLabels: false,
+      stacking: '', zoom: '', chartHeight: 420, innerSize: 60,
+    }
+  },
+  {
+    id: 'area-fill',
+    name: 'Area Fill',
+    desc: 'Shaded area chart',
+    section: 'Featured',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><polygon points="0,54 0,34 30,22 60,28 90,12 120,18 120,54" fill="rgba(0,157,128,0.18)"/><polyline points="0,34 30,22 60,28 90,12 120,18" fill="none" stroke="#009d80" stroke-width="2.5"/><polygon points="0,54 0,44 30,38 60,42 90,30 120,36 120,54" fill="rgba(251,170,150,0.18)"/><polyline points="0,44 30,38 60,42 90,30 120,36" fill="none" stroke="#fbaa96" stroke-width="2"/></svg>`,
+    state: {
+      chartType: 'areaspline', title: '', subtitle: '',
+      categories: ['Jan 23','Apr 23','Jul 23','Oct 23','Jan 24','Apr 24'],
+      series: [
+        { name: 'Fund A',    colorOverride: false, data: [0, 4.2, 9.1, 6.8, 13.5, 11.2] },
+        { name: 'Benchmark', colorOverride: false, data: [0, 1.9, 4.8, 3.2, 7.1, 6.3] },
+      ],
+      animationDuration: 800, animationEasing: 'easeOutQuad',
+      lineWidth: 2, markers: false, markerRadius: 4, dashStyle: 'Solid',
+      fillOpacity: 0.25, seriesOpacity: 1,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: true, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'shared', ttPrefix: '', ttSuffix: '%',
+      decimals: 1, dataLabels: false, connectNulls: false,
+      stacking: '', zoom: '', chartHeight: 420, borderRadius: 0, pointPadding: 0.1, innerSize: 60,
+    }
+  },
+  {
+    id: 'bar-horizontal',
+    name: 'Bar Chart',
+    desc: 'Horizontal ranking',
+    section: 'Other',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><rect x="0" y="6"  width="88" height="8" fill="#009d80"/><rect x="0" y="16" width="65" height="8" fill="#fbaa96"/><rect x="0" y="26" width="100" height="8" fill="#009d80"/><rect x="0" y="36" width="48" height="8" fill="#fbaa96"/><rect x="0" y="46" width="72" height="8" fill="#009d80"/></svg>`,
+    state: {
+      chartType: 'bar', title: '', subtitle: '',
+      categories: ['Strategy A','Strategy B','Strategy C','Strategy D','Strategy E'],
+      series: [
+        { name: '1Y Return', colorOverride: false, data: [12.4, 8.6, 15.2, 5.8, 10.4] },
+      ],
+      animationDuration: 800, animationEasing: 'swing',
+      lineWidth: 2, markers: false, markerRadius: 4, dashStyle: 'Solid',
+      fillOpacity: 0.3, seriesOpacity: 1, borderRadius: 2, pointPadding: 0.15,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: false, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
+      decimals: 1, dataLabels: true,
+      stacking: '', zoom: '', chartHeight: 420, innerSize: 60,
+    }
+  },
+  {
+    id: 'donut-alloc',
+    name: 'Donut',
+    desc: 'Ring allocation',
+    section: 'Other',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="60" cy="27" r="20" fill="none" stroke="#009d80" stroke-width="13" stroke-dasharray="50 76" stroke-dashoffset="0"/><circle cx="60" cy="27" r="20" fill="none" stroke="#fbaa96" stroke-width="13" stroke-dasharray="30 96" stroke-dashoffset="-50"/><circle cx="60" cy="27" r="20" fill="none" stroke="#164848" stroke-width="13" stroke-dasharray="20 106" stroke-dashoffset="-80"/><circle cx="60" cy="27" r="20" fill="none" stroke="#f0c080" stroke-width="13" stroke-dasharray="96 0" stroke-dashoffset="-100"/><circle cx="60" cy="27" r="12" fill="#f8f8f8"/></svg>`,
+    state: {
+      chartType: 'donut', title: '', subtitle: '',
+      categories: ['Equities','Bonds','Alternatives','Cash'],
+      series: [{ name: 'Allocation', colorOverride: false, data: [45, 30, 15, 10] }],
+      animationDuration: 800, animationEasing: 'swing', innerSize: 60,
+      lineWidth: 2, markers: false, markerRadius: 4, dashStyle: 'Solid',
+      fillOpacity: 0.3, seriesOpacity: 1,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: true, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
+      decimals: 1, dataLabels: false,
+      stacking: '', zoom: '', chartHeight: 420, borderRadius: 0, pointPadding: 0.1,
+    }
+  },
+  {
+    id: 'scatter-plot',
+    name: 'Scatter',
+    desc: 'Correlation plot',
+    section: 'Other',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="18" cy="38" r="3.5" fill="#009d80" opacity="0.8"/><circle cx="34" cy="26" r="3.5" fill="#009d80" opacity="0.8"/><circle cx="52" cy="18" r="3.5" fill="#009d80" opacity="0.8"/><circle cx="68" cy="30" r="3.5" fill="#009d80" opacity="0.8"/><circle cx="86" cy="12" r="3.5" fill="#009d80" opacity="0.8"/><circle cx="102" cy="22" r="3.5" fill="#fbaa96" opacity="0.8"/><circle cx="26" cy="46" r="3.5" fill="#fbaa96" opacity="0.8"/><circle cx="60" cy="42" r="3.5" fill="#fbaa96" opacity="0.8"/><circle cx="76" cy="16" r="3.5" fill="#fbaa96" opacity="0.8"/><circle cx="110" cy="32" r="3.5" fill="#fbaa96" opacity="0.8"/></svg>`,
+    state: {
+      chartType: 'scatter', title: '', subtitle: '',
+      categories: ['2019','2020','2021','2022','2023'],
+      series: [
+        { name: 'Fund A', colorOverride: false, data: [12.4, 8.1, 15.2, -3.5, 9.8] },
+        { name: 'Fund B', colorOverride: false, data: [9.2, 11.5, 7.8, 1.2, 12.1] },
+      ],
+      animationDuration: 800, animationEasing: 'swing',
+      lineWidth: 0, markers: true, markerRadius: 5, dashStyle: 'Solid',
+      fillOpacity: 0.3, seriesOpacity: 1,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: true, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
+      decimals: 1, dataLabels: false, connectNulls: false,
+      stacking: '', zoom: '', chartHeight: 420, borderRadius: 0, pointPadding: 0.1, innerSize: 60,
+    }
+  },
+  {
+    id: 'bubble-chart',
+    name: 'Bubble',
+    desc: 'Size = magnitude',
+    section: 'Other',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><circle cx="22" cy="34" r="13" fill="rgba(0,157,128,0.45)"/><circle cx="54" cy="20" r="19" fill="rgba(251,170,150,0.45)"/><circle cx="85" cy="36" r="10" fill="rgba(0,157,128,0.45)"/><circle cx="108" cy="18" r="14" fill="rgba(251,170,150,0.45)"/></svg>`,
+    state: {
+      chartType: 'bubble', title: '', subtitle: '',
+      categories: ['2019','2020','2021','2022','2023'],
+      series: [
+        { name: 'Fund A', colorOverride: false, data: [12.4, 8.1, 15.2, -3.5, 9.8] },
+        { name: 'Fund B', colorOverride: false, data: [9.2, 11.5, 7.8, 1.2, 12.1] },
+      ],
+      animationDuration: 800, animationEasing: 'swing',
+      lineWidth: 0, markers: true, markerRadius: 5, dashStyle: 'Solid',
+      fillOpacity: 0.3, seriesOpacity: 1,
+      xAxisType: 'category', xTitle: '', xRotation: 0, xLine: true,
+      yTitle: '', yMin: null, yMax: null, yScale: 'linear', yFormat: '',
+      gridLines: true, legend: true, legendPos: 'bottom',
+      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
+      decimals: 1, dataLabels: false, connectNulls: false,
+      stacking: '', zoom: '', chartHeight: 420, borderRadius: 0, pointPadding: 0.1, innerSize: 60,
+    }
+  },
+];
+
+function renderLibrary() {
+  const container = document.getElementById('flyout-library-content');
+  if (!container) return;
+  const sections = [...new Set(CHART_TEMPLATES.map(t => t.section))];
+  container.innerHTML = sections.map(sec => {
+    const cards = CHART_TEMPLATES.filter(t => t.section === sec);
+    return `
+      <div class="lib-section-label">${sec}</div>
+      <div class="lib-grid">
+        ${cards.map(t => `
+          <div class="lib-card" onclick="loadTemplate('${t.id}')" title="${t.desc}">
+            <div class="lib-card-preview">${t.preview}</div>
+            <div class="lib-card-name">${t.name}</div>
+            <div class="lib-card-desc">${t.desc}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
+function loadTemplate(id) {
+  const tpl = CHART_TEMPLATES.find(t => t.id === id);
+  if (!tpl) return;
+  Object.assign(state, tpl.state);
+  // Reset series colours to palette defaults
+  state.series = tpl.state.series.map(s => ({ ...s, colorOverride: false }));
+  syncSidebarToState();
+  updateChartTypeUI();
+  updateFieldVisibility();
+  schedUpdate();
+  persist();
+  railSelect('type');
+}
+
+/* ═══════════════════════════════════════════
    RAIL NAVIGATION
 ═══════════════════════════════════════════ */
 function railSelect(panel) {
@@ -5406,17 +5706,29 @@ function railSelect(panel) {
 
   const typePanel  = document.getElementById('flyout-panel-type');
   const themePanel = document.getElementById('flyout-panel-theme');
+  const libPanel   = document.getElementById('flyout-panel-library');
   const flyoutTitle = document.getElementById('flyout-title');
 
-  if (panel === 'type') {
-    if (typePanel)  typePanel.style.display  = 'flex';
+  const hideAll = () => {
+    if (typePanel)  typePanel.style.display  = 'none';
     if (themePanel) themePanel.style.display = 'none';
+    if (libPanel)   libPanel.style.display   = 'none';
+  };
+
+  if (panel === 'type') {
+    hideAll();
+    if (typePanel)  typePanel.style.display  = 'flex';
     if (flyoutTitle) flyoutTitle.textContent = 'Chart type';
   } else if (panel === 'theme') {
-    if (typePanel)  typePanel.style.display  = 'none';
+    hideAll();
     if (themePanel) themePanel.style.display = 'flex';
     if (flyoutTitle) flyoutTitle.textContent = 'Theme';
     renderFlyoutThemeChips();
+  } else if (panel === 'library') {
+    hideAll();
+    if (libPanel)   libPanel.style.display   = 'flex';
+    if (flyoutTitle) flyoutTitle.textContent = 'Library';
+    renderLibrary();
   }
   // text / axes are right-panel scroll shortcuts — don't switch flyout
   if (panel === 'text') {

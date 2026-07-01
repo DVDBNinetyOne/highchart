@@ -2326,10 +2326,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <button class="canvas-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
           <button class="canvas-tab" id="tab-data" onclick="switchTab('data')">Data</button>
         </div>
-        <button id="bg-toggle-btn" title="Toggle page background" onclick="togglePreviewBg()" style="display:flex;align-items:center;gap:5px;padding:4px 9px;border:1px solid #ddd;border-radius:5px;background:#fff;font-size:11px;color:#555;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.borderColor='#009d80';this.style.color='#009d80'" onmouseout="this.style.borderColor='#ddd';this.style.color='#555'">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-          Page bg
-        </button>
         <div class="viewport-select-wrap">
           <svg class="viewport-icon" id="viewport-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
           <select id="viewport-select" class="viewport-select" onchange="setViewport(this.value)">
@@ -3336,32 +3332,15 @@ function renderThemePills() {
   renderThemeChips();
 }
 
-let previewBgOn = false;
-
 function applyThemeCss(key) {
   const t = N1_THEMES[key] || N1_THEMES['springbok-cream_ocean-teal'];
   const card = document.getElementById('preview-card');
   if (card) {
-    card.style.background = previewBgOn ? t.pageBackground : '#ffffff';
+    card.style.background = t.pageBackground;
     card.style.transition = 'background 0.3s';
   }
   const el = document.getElementById('n1-theme-css');
   if (el) el.textContent = '';
-}
-
-function togglePreviewBg() {
-  previewBgOn = !previewBgOn;
-  const btn = document.getElementById('bg-toggle-btn');
-  if (btn) {
-    btn.style.background = previewBgOn ? '#009d80' : '#fff';
-    btn.style.color = previewBgOn ? '#fff' : '#555';
-    btn.style.borderColor = previewBgOn ? '#009d80' : '#ddd';
-    btn.onmouseover = previewBgOn ? null : () => { btn.style.borderColor='#009d80'; btn.style.color='#009d80'; };
-    btn.onmouseout  = previewBgOn ? null : () => { btn.style.borderColor='#ddd';    btn.style.color='#555'; };
-  }
-  applyThemeCss(selectedTheme);
-  // Rebuild chart so chartBackground (transparent) renders on correct bg
-  schedUpdate();
 }
 
 function applyTheme(key) {

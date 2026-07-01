@@ -5934,7 +5934,9 @@ function loadTemplate(id) {
   syncSidebarToState();
   updateChartTypeUI();
   updateFieldVisibility();
-  if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();  // highlight the correct type card in the flyout
+  renderColourRows();
+  checkColourOverrides();
+  if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
   schedUpdate();
   persist();
   // Stay on library panel — don't switch away

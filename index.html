@@ -2122,13 +2122,12 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 #chart-hl-ring {
   position: fixed;
   display: none;
-  border: 2px solid #009d80;
-  border-radius: 4px;
+  border: 1px dashed rgba(0,157,128,0.4);
+  border-radius: 3px;
   pointer-events: none;
   z-index: 200;
-  box-shadow: 0 0 0 3px rgba(0,157,128,0.15);
-  transition: left 0.1s, top 0.1s, width 0.1s, height 0.1s;
-  background: rgba(0,157,128,0.04);
+  transition: left 0.12s, top 0.12s, width 0.12s, height 0.12s, opacity 0.15s;
+  background: rgba(0,157,128,0.03);
 }
 
 /* ─── CMS key tooltip ─── */
@@ -3091,7 +3090,7 @@ window.addEventListener('DOMContentLoaded', () => {
   updateChartTypeUI();
   checkColourOverrides();
   tagFieldRows();
-  setTimeout(initFieldHovers, 300); // after Highcharts SVG renders
+  setTimeout(() => { initFieldHovers(); initChartClickNav(); }, 300); // after Highcharts SVG renders
   initConfigResize();
 
   // Reflow chart whenever its container changes size (viewport switch, panel drag, window resize)
@@ -4054,7 +4053,7 @@ function update() {
   container.style.height = s.chartHeight + 'px';
 
   renderConfig();
-  setTimeout(initFieldHovers, 50);
+  setTimeout(() => { initFieldHovers(); initChartClickNav(); }, 50);
 }
 
 /* ═══════════════════════════════════════════
@@ -5271,7 +5270,7 @@ function highlightChartEl(target) {
   const rect = svgEl.getBoundingClientRect();
   if (!rect.width && !rect.height) { hlRing.style.display = 'none'; return; }
 
-  const pad = 6;
+  const pad = 4;
   hlRing.style.cssText = `
     position: fixed;
     display: block;
@@ -5279,17 +5278,57 @@ function highlightChartEl(target) {
     top: ${rect.top - pad}px;
     width: ${rect.width + pad * 2}px;
     height: ${rect.height + pad * 2}px;
-    border: 2px solid #009d80;
-    border-radius: 4px;
+    border: 1px dashed rgba(0,157,128,0.4);
+    border-radius: 3px;
     pointer-events: none;
     z-index: 200;
-    animation: hlPulse 1.4s ease-in-out infinite;
-    box-shadow: 0 0 0 4px rgba(0,157,128,0.18);
+    background: rgba(0,157,128,0.03);
   `;
 }
 
 function clearChartHighlight() {
   hlRing.style.display = 'none';
+}
+
+// Map Highcharts SVG class fragments → accordion body IDs
+const CLICK_MAP = [
+  { match: /highcharts-series|highcharts-point|highcharts-graph|highcharts-line|highcharts-area|highcharts-column|highcharts-bar|highcharts-bubble|highcharts-scatter/, acc: 'acc-body-lines' },
+  { match: /highcharts-title/,           acc: 'acc-body-labels'  },
+  { match: /highcharts-subtitle/,        acc: 'acc-body-labels'  },
+  { match: /highcharts-xaxis/,           acc: 'acc-body-xaxis'   },
+  { match: /highcharts-yaxis/,           acc: 'acc-body-yaxis'   },
+  { match: /highcharts-legend/,          acc: 'acc-body-legend'  },
+];
+
+function scrollToAccordion(bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const header = body.previousElementSibling;
+  if (!body.classList.contains('open')) {
+    document.querySelectorAll('.accordion-body.open').forEach(b => b.classList.remove('open'));
+    document.querySelectorAll('.accordion-header.open').forEach(h => h.classList.remove('open'));
+    body.classList.add('open');
+    header?.classList.add('open');
+  }
+  body.closest('.accordion-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function initChartClickNav() {
+  if (!chartInstance) return;
+  chartInstance.container.addEventListener('click', function(e) {
+    const cls = (e.target?.className?.baseVal || e.target?.className || '');
+    for (const { match, acc } of CLICK_MAP) {
+      if (match.test(cls)) { scrollToAccordion(acc); return; }
+    }
+    // Walk up a couple of levels in case click landed on a child element
+    let el = e.target?.parentElement;
+    for (let i = 0; i < 3 && el; i++, el = el.parentElement) {
+      const pcls = el.className?.baseVal || el.className || '';
+      for (const { match, acc } of CLICK_MAP) {
+        if (match.test(pcls)) { scrollToAccordion(acc); return; }
+      }
+    }
+  });
 }
 
 function showCmsTooltip(rowEl, cmsKey) {
@@ -5327,7 +5366,7 @@ function highlightSeriesEl(idx) {
     const svgEl = s?.group?.element || s?.graph?.element;
     if (svgEl) {
       const rect = svgEl.getBoundingClientRect();
-      const pad = 6;
+      const pad = 4;
       hlRing.style.cssText = `
         position: fixed;
         display: block;
@@ -5335,12 +5374,11 @@ function highlightSeriesEl(idx) {
         top: ${rect.top - pad}px;
         width: ${rect.width + pad * 2}px;
         height: ${rect.height + pad * 2}px;
-        border: 2px solid #009d80;
-        border-radius: 4px;
+        border: 1px dashed rgba(0,157,128,0.4);
+        border-radius: 3px;
         pointer-events: none;
         z-index: 200;
-        animation: hlPulse 1.4s ease-in-out infinite;
-        box-shadow: 0 0 0 4px rgba(0,157,128,0.18);
+        background: rgba(0,157,128,0.03);
       `;
     }
   } catch(e) {}

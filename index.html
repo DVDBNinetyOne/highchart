@@ -11,7 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/annotations.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/accessibility.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/drilldown.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/bubble.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/highcharts-more.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/sunburst.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/packed-bubble.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/treemap.js"></script>
@@ -3924,7 +3924,9 @@ function update() {
 
 
   const hcType = s.chartType === 'donut' ? 'pie' : s.chartType;
-  const isPie = ['pie','donut'].includes(s.chartType);
+  const isPie     = ['pie','donut'].includes(s.chartType);
+  const isBubble  = hcType === 'bubble';
+  const isScatter = hcType === 'scatter';
 
   const themeColors = theme.chartSeriesColors;
 
@@ -3946,12 +3948,14 @@ function update() {
     series = s.series.map((sr, i) => ({
       type: hcType,
       name: sr.name,
-      data: sr.data.map(v => v === null ? null : v),
+      data: isBubble
+        ? sr.data.map((v, idx) => v === null ? null : { x: idx, y: v, z: Math.abs(v) })
+        : sr.data.map(v => v === null ? null : v),
       color: sr.colorOverride ? sr.color : themeColors[i % themeColors.length],
-      lineWidth: s.lineWidth,
+      lineWidth: (isScatter || isBubble) ? 0 : s.lineWidth,
       dashStyle: s.dashStyle,
       opacity: s.seriesOpacity < 1 ? s.seriesOpacity : undefined,
-      marker: { enabled: s.markers, radius: s.markerRadius || 4 },
+      marker: { enabled: (isScatter || isBubble) ? true : s.markers, radius: s.markerRadius || 4 },
       fillOpacity: ['area','areaspline'].includes(hcType) ? s.fillOpacity : undefined,
       dataLabels: {
         enabled: s.dataLabels,
@@ -3973,9 +3977,23 @@ function update() {
     },
     title: { text: s.title || null, style: { color: headCol } },
     subtitle: { text: s.subtitle || null, style: { color: textCol } },
-    xAxis: isPie ? undefined : {
-      type: s.xAxisType || 'category',
-      categories: s.xAxisType === 'category' ? s.categories : undefined,
+    xAxis: isPie ? undefined : isBubble ? {
+      type: 'linear',
+      tickPositions: s.categories.map((_, i) => i),
+      labels: {
+        rotation: s.xRotation,
+        style: { color: textCol },
+        formatter: function() { return s.categories[this.value] ?? ''; },
+      },
+      min: -0.5,
+      max: s.categories.length - 0.5,
+      title: { text: s.xTitle || null, style: { color: textCol } },
+      lineWidth: s.xLine ? 1 : 0,
+      tickWidth: s.xLine ? 1 : 0,
+      lineColor: `rgba(${hexToRgb(textCol)},0.3)`,
+    } : {
+      type: isScatter ? 'category' : (s.xAxisType || 'category'),
+      categories: s.categories,
       title: { text: s.xTitle || null, style: { color: textCol } },
       labels: { rotation: s.xRotation, style: { color: textCol } },
       lineWidth: s.xLine ? 1 : 0,

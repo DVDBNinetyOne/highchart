@@ -963,6 +963,10 @@ body {
   font-weight: 600;
   color: #aaa;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
   letter-spacing: .06em;
   display: flex;
   align-items: center;
@@ -2517,13 +2521,13 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <div class="config-card-body">
             <div class="pre-wrap" style="margin:0">
               <pre id="config-output"></pre>
-              <textarea id="config-edit-input" style="display:none;width:100%;height:100%;box-sizing:border-box;font-family:monospace;font-size:11px;background:#f8f8f8;border:none;outline:none;padding:12px;resize:none;line-height:1.5;color:#222;flex:1"></textarea>
+              <textarea id="config-edit-input" style="display:none;flex:1;min-height:0;width:100%;box-sizing:border-box;font-family:monospace;font-size:11px;background:#f8f8f8;border:none;outline:none;padding:12px;resize:none;line-height:1.5;color:#222"></textarea>
             </div>
           </div>
-          <div id="config-apply-bar" style="display:none;padding:6px 10px;border-top:1px solid #eee;background:#fafafa;display:none;gap:8px;align-items:center;flex-shrink:0">
+          <div id="config-apply-bar" style="display:none;padding:5px 8px;border-top:1px solid #eee;background:#fafafa;gap:6px;align-items:center;flex-shrink:0;flex-wrap:nowrap;min-height:0">
             <span id="config-apply-msg" style="font-size:11px;color:#888;flex:1"></span>
             <button class="copy-btn-small" onclick="cancelConfigEdit()" style="position:static;background:#fff;color:#888;border-color:#ddd">Cancel</button>
-            <button class="copy-btn-small" onclick="applyConfigEdit()" style="position:static;background:#009d80;color:#fff;border-color:#009d80">Apply to chart</button>
+            <button class="copy-btn-small" onclick="applyConfigEdit()" style="position:static;background:#009d80;color:#fff;border-color:#009d80;white-space:nowrap">Apply</button>
           </div>
         </div>
         </div><!-- /.preview-stage-wrap -->
@@ -4491,7 +4495,7 @@ function enterConfigEdit() {
   ta.style.display  = 'block';
   bar.style.display = 'flex';
   btn.textContent   = 'View';
-  lbl.textContent   = 'Edit config — paste or modify then Apply';
+  lbl.textContent   = 'Edit config';
   document.getElementById('config-apply-msg').textContent = '';
   ta.focus();
 }

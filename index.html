@@ -2508,15 +2508,22 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
         <div id="config-card">
           <div class="config-card-head">
-            <span class="config-card-label">CMS Config — paste into Sitecore</span>
+            <span class="config-card-label" id="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions">
+              <button class="copy-btn-small" id="config-edit-btn" onclick="toggleConfigEdit()" style="position:static">Edit</button>
               <button class="copy-btn-small" onclick="copyConfig()" style="position:static">Copy</button>
             </div>
           </div>
           <div class="config-card-body">
             <div class="pre-wrap" style="margin:0">
               <pre id="config-output"></pre>
+              <textarea id="config-edit-input" style="display:none;width:100%;height:100%;box-sizing:border-box;font-family:monospace;font-size:11px;background:#f8f8f8;border:none;outline:none;padding:12px;resize:none;line-height:1.5;color:#222;flex:1"></textarea>
             </div>
+          </div>
+          <div id="config-apply-bar" style="display:none;padding:6px 10px;border-top:1px solid #eee;background:#fafafa;display:none;gap:8px;align-items:center;flex-shrink:0">
+            <span id="config-apply-msg" style="font-size:11px;color:#888;flex:1"></span>
+            <button class="copy-btn-small" onclick="cancelConfigEdit()" style="position:static;background:#fff;color:#888;border-color:#ddd">Cancel</button>
+            <button class="copy-btn-small" onclick="applyConfigEdit()" style="position:static;background:#009d80;color:#fff;border-color:#009d80">Apply to chart</button>
           </div>
         </div>
         </div><!-- /.preview-stage-wrap -->
@@ -4464,6 +4471,73 @@ function initConfigResize() {
   }, { passive: true });
 
   handle.addEventListener('touchend', () => handle.classList.remove('dragging'));
+}
+
+let _configEditMode = false;
+
+function toggleConfigEdit() {
+  _configEditMode ? cancelConfigEdit() : enterConfigEdit();
+}
+
+function enterConfigEdit() {
+  _configEditMode = true;
+  const pre   = document.getElementById('config-output');
+  const ta    = document.getElementById('config-edit-input');
+  const bar   = document.getElementById('config-apply-bar');
+  const btn   = document.getElementById('config-edit-btn');
+  const lbl   = document.getElementById('config-card-label');
+  ta.value = pre.innerText;
+  pre.style.display = 'none';
+  ta.style.display  = 'block';
+  bar.style.display = 'flex';
+  btn.textContent   = 'View';
+  lbl.textContent   = 'Edit config — paste or modify then Apply';
+  document.getElementById('config-apply-msg').textContent = '';
+  ta.focus();
+}
+
+function cancelConfigEdit() {
+  _configEditMode = false;
+  const pre = document.getElementById('config-output');
+  const ta  = document.getElementById('config-edit-input');
+  const bar = document.getElementById('config-apply-bar');
+  const btn = document.getElementById('config-edit-btn');
+  const lbl = document.getElementById('config-card-label');
+  pre.style.display = '';
+  ta.style.display  = 'none';
+  bar.style.display = 'none';
+  btn.textContent   = 'Edit';
+  lbl.textContent   = 'CMS Config — paste into Sitecore';
+}
+
+function applyConfigEdit() {
+  const ta  = document.getElementById('config-edit-input');
+  const msg = document.getElementById('config-apply-msg');
+  let cfg;
+  try {
+    cfg = (new Function('return (' + ta.value + ')'))();
+  } catch(e) {
+    msg.textContent = '⚠ ' + e.message;
+    msg.style.color = '#d83949';
+    return;
+  }
+  if (!cfg || typeof cfg !== 'object') {
+    msg.textContent = '⚠ Not a valid config object';
+    msg.style.color = '#d83949';
+    return;
+  }
+  try {
+    if (chartInstance) chartInstance.destroy();
+    const el = document.getElementById('chart-container');
+    if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
+    cfg.credits = { enabled: false };
+    chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+    msg.textContent = '✓ Applied';
+    msg.style.color = '#009d80';
+  } catch(e) {
+    msg.textContent = '⚠ Highcharts error: ' + e.message;
+    msg.style.color = '#d83949';
+  }
 }
 
 function copyConfig() {

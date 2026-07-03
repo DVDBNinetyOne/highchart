@@ -5104,7 +5104,27 @@ async function parseXLSXFile(file) {
   const ws  = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
   if (rows.length < 2) return {};
-  // First row = headers; first column = category labels
+
+  // Detect (sort_index, label, value) layout: col A = number, col B = text, col C = number.
+  // Used by N1 market-review exports where col A is a rank/sort integer.
+  const nonEmpty = rows.filter(r => r[0] !== '' || r[1] !== '');
+  const looksLikeSortLabelValue =
+    nonEmpty.length >= 2 &&
+    nonEmpty.every(r => typeof r[0] === 'number' && typeof r[1] === 'string' && r[1].trim() && typeof r[2] === 'number');
+
+  if (looksLikeSortLabelValue) {
+    const items = nonEmpty
+      .map(r => ({ sort: r[0], label: r[1].trim(), value: r[2] }))
+      .filter(i => i.label);
+    items.sort((a, b) => a.sort - b.sort);
+    // Values stored as decimal percentages (e.g. -0.204 = -20.4%) — multiply by 100
+    const allPctDecimal = items.every(i => Math.abs(i.value) <= 1);
+    const categories = items.map(i => i.label);
+    const data = items.map(i => allPctDecimal ? Math.round(i.value * 10000) / 100 : i.value);
+    return { categories, series: [{ name: '', data }] };
+  }
+
+  // Standard table layout: first row = headers; first column = category labels
   const headers = rows[0].map(String);
   const categories = [];
   const series = headers.slice(1).map(h => ({ name: String(h).trim(), data: [] }));

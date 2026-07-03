@@ -4514,12 +4514,31 @@ function cancelConfigEdit() {
   lbl.textContent   = 'CMS Config — paste into Sitecore';
 }
 
+function _sanitiseConfigText(text) {
+  // Replace literal newlines inside string literals (single or double quoted)
+  // so pasted configs with multi-line strings don't cause syntax errors.
+  let out = '', inStr = false, q = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!inStr) {
+      if (ch === '"' || ch === "'") { inStr = true; q = ch; }
+      out += ch;
+    } else {
+      if (ch === '\\') { out += ch + (text[++i] || ''); }
+      else if (ch === q) { inStr = false; out += ch; }
+      else if (ch === '\n') { out += ' '; }
+      else { out += ch; }
+    }
+  }
+  return out;
+}
+
 function applyConfigEdit() {
   const ta  = document.getElementById('config-edit-input');
   const msg = document.getElementById('config-apply-msg');
   let cfg;
   try {
-    cfg = (new Function('return (' + ta.value + ')'))();
+    cfg = (new Function('return (' + _sanitiseConfigText(ta.value) + ')'))();
   } catch(e) {
     msg.textContent = '⚠ ' + e.message;
     msg.style.color = '#d83949';

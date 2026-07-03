@@ -902,6 +902,7 @@ body {
   border-right: none;
   padding: 20px;
   animation: n1-fade-up .3s .1s ease both;
+  position: relative;
 }
 
 /* ─── Config resize handle ─── */
@@ -2508,6 +2509,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             ⚠ <strong>Custom colour override:</strong> one or more series has a manually set colour. This will override the Sitecore theme colour. Only do this if your design requires a specific colour.
           </div>
           <div id="chart-container"></div>
+          <div id="drag-mode-bar" style="display:none;position:absolute;bottom:8px;right:8px;z-index:10;display:none;gap:6px;align-items:center">
+            <span id="drag-coords-badge" style="font-size:10px;font-family:monospace;color:#009d80;background:#f0faf8;border:1px solid #c0e8e0;border-radius:4px;padding:2px 8px;display:none"></span>
+            <button id="drag-mode-btn" onclick="toggleDragMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #009d80;color:#009d80;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">Drag points</button>
+          </div>
         </div>
         <!-- Drag handle to resize config panel -->
         <div class="config-resize-handle" id="config-resize-handle" title="Drag to resize">
@@ -4537,6 +4542,8 @@ function _sanitiseConfigText(text) {
   return out;
 }
 
+let _lastRawConfig = null;
+
 function applyConfigEdit() {
   const ta  = document.getElementById('config-edit-input');
   const msg = document.getElementById('config-apply-msg');
@@ -4559,12 +4566,139 @@ function applyConfigEdit() {
     if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
     cfg.credits = { enabled: false };
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+    _lastRawConfig = JSON.parse(JSON.stringify(cfg));
     msg.textContent = '✓ Applied';
     msg.style.color = '#009d80';
+    // Show drag mode button for scatter/bubble charts
+    const isXY = cfg.chart?.type === 'scatter' || cfg.chart?.type === 'bubble';
+    const bar = document.getElementById('drag-mode-bar');
+    if (bar) bar.style.display = isXY ? 'flex' : 'none';
+    if (_dragMode) { _dragMode = false; _updateDragBtn(); }
   } catch(e) {
     msg.textContent = '⚠ Highcharts error: ' + e.message;
     msg.style.color = '#d83949';
   }
+}
+
+/* ═══════════════════════════════════════════
+   DRAG POINTS MODE
+═══════════════════════════════════════════ */
+let _dragMode = false;
+let _dragState = null;
+
+function _updateDragBtn() {
+  const btn = document.getElementById('drag-mode-btn');
+  if (!btn) return;
+  btn.textContent   = _dragMode ? '✓ Drag on' : 'Drag points';
+  btn.style.background = _dragMode ? '#009d80' : '#fff';
+  btn.style.color      = _dragMode ? '#fff'    : '#009d80';
+}
+
+function toggleDragMode() {
+  _dragMode = !_dragMode;
+  _updateDragBtn();
+  _dragMode ? _attachDragListeners() : _detachDragListeners();
+}
+
+function _attachDragListeners() {
+  const chart = window.chartInstance;
+  if (!chart) return;
+  chart.series.forEach((series, si) => {
+    series.points.forEach((point, pi) => {
+      const el = point.graphic?.element;
+      if (!el) return;
+      el.style.cursor = 'grab';
+      el._n1DragFn = (e) => _onPointDown(e, si, pi);
+      el.addEventListener('mousedown', el._n1DragFn);
+    });
+  });
+}
+
+function _detachDragListeners() {
+  const chart = window.chartInstance;
+  if (!chart) return;
+  chart.series.forEach(series => {
+    series.points.forEach(point => {
+      const el = point.graphic?.element;
+      if (!el) return;
+      el.style.cursor = '';
+      if (el._n1DragFn) { el.removeEventListener('mousedown', el._n1DragFn); el._n1DragFn = null; }
+    });
+  });
+}
+
+function _onPointDown(e, si, pi) {
+  e.preventDefault(); e.stopPropagation();
+  const chart = window.chartInstance;
+  const point = chart.series[si].points[pi];
+  _dragState = { si, pi, point, startX: point.x, startY: point.y };
+  point.graphic.element.style.cursor = 'grabbing';
+  document.addEventListener('mousemove', _onDragMove);
+  document.addEventListener('mouseup', _onDragUp, { once: true });
+}
+
+function _onDragMove(e) {
+  if (!_dragState) return;
+  const chart = window.chartInstance;
+  const rect  = chart.container.getBoundingClientRect();
+  const px = Math.max(chart.plotLeft, Math.min(chart.plotLeft + chart.plotWidth,  e.clientX - rect.left));
+  const py = Math.max(chart.plotTop,  Math.min(chart.plotTop  + chart.plotHeight, e.clientY - rect.top));
+  const nx = Math.round(chart.xAxis[0].toValue(px) * 10) / 10;
+  const ny = Math.round(chart.yAxis[0].toValue(py) * 10) / 10;
+  _dragState.pendingX = nx;
+  _dragState.pendingY = ny;
+  // Move SVG element live
+  const { point } = _dragState;
+  const ox = chart.plotLeft + chart.xAxis[0].toPixels(point.x, true);
+  const oy = chart.plotTop  + chart.yAxis[0].toPixels(point.y, true);
+  point.graphic.attr({ translateX: px - ox, translateY: py - oy });
+  // Show coords badge
+  const badge = document.getElementById('drag-coords-badge');
+  if (badge) { badge.style.display = 'inline'; badge.textContent = `x:${nx}  y:${ny}`; }
+}
+
+function _onDragUp() {
+  if (!_dragState) return;
+  const { si, pi, point } = _dragState;
+  const nx = _dragState.pendingX ?? point.x;
+  const ny = _dragState.pendingY ?? point.y;
+  point.graphic.element.style.cursor = 'grab';
+  point.graphic.attr({ translateX: 0, translateY: 0 });
+  point.update({ x: nx, y: ny }, true, false);
+  // Update stored config
+  if (_lastRawConfig?.series?.[si]?.data?.[pi]) {
+    _lastRawConfig.series[si].data[pi].x = nx;
+    _lastRawConfig.series[si].data[pi].y = ny;
+  }
+  // Refresh textarea
+  const ta = document.getElementById('config-edit-input');
+  if (ta && _lastRawConfig) ta.value = _serializeConfig(_lastRawConfig);
+  if (!_configEditMode) enterConfigEdit();
+  const badge = document.getElementById('drag-coords-badge');
+  if (badge) badge.style.display = 'none';
+  _dragState = null;
+  _attachDragListeners(); // re-attach after point.update() redraws graphics
+}
+
+function _serializeConfig(obj, depth) {
+  depth = depth || 0;
+  const i  = '  '.repeat(depth);
+  const i1 = '  '.repeat(depth + 1);
+  if (obj === null || obj === undefined) return 'null';
+  if (typeof obj === 'string')  return JSON.stringify(obj);
+  if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+  if (Array.isArray(obj)) {
+    if (!obj.length) return '[]';
+    const simple = obj.every(v => v === null || typeof v !== 'object');
+    if (simple) return '[' + obj.map(v => _serializeConfig(v, 0)).join(', ') + ']';
+    return '[\n' + obj.map(v => i1 + _serializeConfig(v, depth + 1)).join(',\n') + '\n' + i + ']';
+  }
+  if (typeof obj === 'object') {
+    const keys = Object.keys(obj);
+    if (!keys.length) return '{}';
+    return '{\n' + keys.map(k => i1 + k + ': ' + _serializeConfig(obj[k], depth + 1)).join(',\n') + '\n' + i + '}';
+  }
+  return String(obj);
 }
 
 function copyConfig() {

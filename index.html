@@ -2369,6 +2369,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
   <!-- Right: chart name · version · save history · actions -->
   <div class="topbar-right">
+    <button class="btn-topbar btn-topbar-ghost btn-icon" onclick="clearChart()" title="Clear everything and start a new blank chart" style="color:#d83949;border-color:rgba(216,57,73,0.25)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      New chart
+    </button>
     <input class="doc-title-input" id="doc-title" value="Untitled chart" placeholder="Chart name"
            onchange="onTitleChange()" title="Click to rename"/>
     <span class="version-badge" id="version-badge">v1</span>
@@ -4580,6 +4584,16 @@ function persist() {
   markDirty();
 }
 
+function clearChart() {
+  if (!confirm('Start a new blank chart? This will clear the current chart.')) return;
+  try { localStorage.removeItem('n1_last_session'); } catch(e) {}
+  // Reset to default theme
+  selectedTheme = 'springbok-cream_ocean-teal';
+  try { localStorage.setItem('n1_selected_theme', selectedTheme); } catch(e) {}
+  // Reload the page — cleanest way to reset all state, UI, and the chart instance
+  window.location.reload();
+}
+
 /* ═══════════════════════════════════════════
    IMPORT WIZARD
 ═══════════════════════════════════════════ */
@@ -5202,22 +5216,19 @@ async function parseXLSXFile(file) {
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
   if (rows.length < 2) return {};
 
-  // Detect (sort_index, label, value) layout: col A = number, col B = text, col C = number.
-  // Used by N1 market-review exports where col A is a rank/sort integer.
-  const nonEmpty = rows.filter(r => r[0] !== '' || r[1] !== '');
-  const looksLikeSortLabelValue =
-    nonEmpty.length >= 2 &&
-    nonEmpty.every(r => typeof r[0] === 'number' && typeof r[1] === 'string' && r[1].trim() && typeof r[2] === 'number');
-
-  if (looksLikeSortLabelValue) {
-    const items = nonEmpty
-      .map(r => ({ sort: r[0], label: r[1].trim(), value: r[2] }))
-      .filter(i => i.label);
-    items.sort((a, b) => a.sort - b.sort);
-    // Values stored as decimal percentages (e.g. -0.204 = -20.4%) — multiply by 100
-    const allPctDecimal = items.every(i => Math.abs(i.value) <= 1);
-    const categories = items.map(i => i.label);
-    const data = items.map(i => allPctDecimal ? Math.round(i.value * 10000) / 100 : i.value);
+  // Detect (sort_index, label, value) layout: col A = integer rank, col B = text, col C = number.
+  // Used by N1 market-review exports. Uses majority-vote so stray rows don't break detection.
+  const isSortLabelValueRow = r =>
+    typeof r[0] === 'number' && Number.isInteger(r[0]) &&
+    typeof r[1] === 'string' && r[1].trim() !== '' &&
+    typeof r[2] === 'number';
+  const candidateRows = rows.filter(r => r[0] !== '' || r[1] !== '');
+  const matchingRows = candidateRows.filter(isSortLabelValueRow);
+  if (matchingRows.length >= 2 && matchingRows.length >= candidateRows.length * 0.6) {
+    matchingRows.sort((a, b) => a[0] - b[0]);
+    const allPctDecimal = matchingRows.every(r => Math.abs(r[2]) <= 1);
+    const categories = matchingRows.map(r => r[1].trim());
+    const data = matchingRows.map(r => allPctDecimal ? Math.round(r[2] * 10000) / 100 : r[2]);
     return { categories, series: [{ name: '', data }] };
   }
 

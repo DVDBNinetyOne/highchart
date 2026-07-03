@@ -4605,11 +4605,20 @@ function _attachDragListeners() {
   if (!chart) return;
   chart.series.forEach((series, si) => {
     series.points.forEach((point, pi) => {
+      // Point marker
       const el = point.graphic?.element;
-      if (!el) return;
-      el.style.cursor = 'grab';
-      el._n1DragFn = (e) => _onPointDown(e, si, pi);
-      el.addEventListener('mousedown', el._n1DragFn);
+      if (el) {
+        el.style.cursor = 'grab';
+        el._n1DragFn = (e) => _onPointDown(e, si, pi);
+        el.addEventListener('mousedown', el._n1DragFn);
+      }
+      // Data label
+      const lel = point.dataLabel?.element;
+      if (lel) {
+        lel.style.cursor = 'move';
+        lel._n1LabelFn = (e) => _onLabelDown(e, si, pi);
+        lel.addEventListener('mousedown', lel._n1LabelFn);
+      }
     });
   });
 }
@@ -4620,9 +4629,15 @@ function _detachDragListeners() {
   chart.series.forEach(series => {
     series.points.forEach(point => {
       const el = point.graphic?.element;
-      if (!el) return;
-      el.style.cursor = '';
-      if (el._n1DragFn) { el.removeEventListener('mousedown', el._n1DragFn); el._n1DragFn = null; }
+      if (el) {
+        el.style.cursor = '';
+        if (el._n1DragFn) { el.removeEventListener('mousedown', el._n1DragFn); el._n1DragFn = null; }
+      }
+      const lel = point.dataLabel?.element;
+      if (lel) {
+        lel.style.cursor = '';
+        if (lel._n1LabelFn) { lel.removeEventListener('mousedown', lel._n1LabelFn); lel._n1LabelFn = null; }
+      }
     });
   });
 }
@@ -4631,14 +4646,45 @@ function _onPointDown(e, si, pi) {
   e.preventDefault(); e.stopPropagation();
   const chart = window.chartInstance;
   const point = chart.series[si].points[pi];
-  _dragState = { si, pi, point, startX: point.x, startY: point.y };
+  _dragState = { isLabel: false, si, pi, point, startX: point.x, startY: point.y };
   point.graphic.element.style.cursor = 'grabbing';
+  document.addEventListener('mousemove', _onDragMove);
+  document.addEventListener('mouseup', _onDragUp, { once: true });
+}
+
+function _onLabelDown(e, si, pi) {
+  e.preventDefault(); e.stopPropagation();
+  const chart = window.chartInstance;
+  const point = chart.series[si].points[pi];
+  const existingDL = _lastRawConfig?.series?.[si]?.data?.[pi]?.dataLabels;
+  _dragState = {
+    isLabel: true, si, pi, point,
+    startMouseX: e.clientX, startMouseY: e.clientY,
+    startOffsetX: existingDL?.x ?? 0,
+    startOffsetY: existingDL?.y ?? 0,
+    pendingDX: 0, pendingDY: 0,
+  };
   document.addEventListener('mousemove', _onDragMove);
   document.addEventListener('mouseup', _onDragUp, { once: true });
 }
 
 function _onDragMove(e) {
   if (!_dragState) return;
+
+  if (_dragState.isLabel) {
+    const dx = e.clientX - _dragState.startMouseX;
+    const dy = e.clientY - _dragState.startMouseY;
+    _dragState.pendingDX = dx;
+    _dragState.pendingDY = dy;
+    const { point } = _dragState;
+    if (point.dataLabel) point.dataLabel.attr({ translateX: dx, translateY: dy });
+    const nx = Math.round(_dragState.startOffsetX + dx);
+    const ny = Math.round(_dragState.startOffsetY + dy);
+    const badge = document.getElementById('drag-coords-badge');
+    if (badge) { badge.style.display = 'inline'; badge.textContent = `label x:${nx}  y:${ny}`; }
+    return;
+  }
+
   const chart = window.chartInstance;
   const rect  = chart.container.getBoundingClientRect();
   const px = Math.max(chart.plotLeft, Math.min(chart.plotLeft + chart.plotWidth,  e.clientX - rect.left));
@@ -4647,37 +4693,67 @@ function _onDragMove(e) {
   const ny = Math.round(chart.yAxis[0].toValue(py) * 10) / 10;
   _dragState.pendingX = nx;
   _dragState.pendingY = ny;
-  // Move SVG element live
   const { point } = _dragState;
   const ox = chart.plotLeft + chart.xAxis[0].toPixels(point.x, true);
   const oy = chart.plotTop  + chart.yAxis[0].toPixels(point.y, true);
   point.graphic.attr({ translateX: px - ox, translateY: py - oy });
-  // Show coords badge
   const badge = document.getElementById('drag-coords-badge');
   if (badge) { badge.style.display = 'inline'; badge.textContent = `x:${nx}  y:${ny}`; }
 }
 
 function _onDragUp() {
   if (!_dragState) return;
+
+  if (_dragState.isLabel) {
+    const { si, pi } = _dragState;
+    const newX = Math.round(_dragState.startOffsetX + (_dragState.pendingDX || 0));
+    const newY = Math.round(_dragState.startOffsetY + (_dragState.pendingDY || 0));
+    if (_lastRawConfig?.series?.[si]?.data?.[pi]) {
+      const existing = _lastRawConfig.series[si].data[pi].dataLabels || {};
+      _lastRawConfig.series[si].data[pi].dataLabels = { ...existing, x: newX, y: newY };
+    }
+    const badge = document.getElementById('drag-coords-badge');
+    if (badge) badge.style.display = 'none';
+    _dragState = null;
+    _reapplyFromRawConfig();
+    return;
+  }
+
   const { si, pi, point } = _dragState;
   const nx = _dragState.pendingX ?? point.x;
   const ny = _dragState.pendingY ?? point.y;
   point.graphic.element.style.cursor = 'grab';
   point.graphic.attr({ translateX: 0, translateY: 0 });
   point.update({ x: nx, y: ny }, true, false);
-  // Update stored config
   if (_lastRawConfig?.series?.[si]?.data?.[pi]) {
     _lastRawConfig.series[si].data[pi].x = nx;
     _lastRawConfig.series[si].data[pi].y = ny;
   }
-  // Refresh textarea
   const ta = document.getElementById('config-edit-input');
   if (ta && _lastRawConfig) ta.value = _serializeConfig(_lastRawConfig);
   if (!_configEditMode) enterConfigEdit();
   const badge = document.getElementById('drag-coords-badge');
   if (badge) badge.style.display = 'none';
   _dragState = null;
-  _attachDragListeners(); // re-attach after point.update() redraws graphics
+  _attachDragListeners();
+}
+
+function _reapplyFromRawConfig() {
+  if (!_lastRawConfig) return;
+  try {
+    if (chartInstance) chartInstance.destroy();
+    const el = document.getElementById('chart-container');
+    const cfg = JSON.parse(JSON.stringify(_lastRawConfig));
+    if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
+    cfg.credits = { enabled: false };
+    chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+    const ta = document.getElementById('config-edit-input');
+    if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    if (!_configEditMode) enterConfigEdit();
+    if (_dragMode) setTimeout(_attachDragListeners, 50);
+  } catch(e) {
+    console.error('_reapplyFromRawConfig:', e);
+  }
 }
 
 function _serializeConfig(obj, depth) {

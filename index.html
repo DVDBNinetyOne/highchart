@@ -4499,7 +4499,7 @@ function enterConfigEdit() {
   const bar   = document.getElementById('config-apply-bar');
   const btn   = document.getElementById('config-edit-btn');
   const lbl   = document.getElementById('config-card-label');
-  ta.value = pre.innerText;
+  ta.value = (_lastRawConfig ? _serializeConfig(_lastRawConfig) : pre.innerText);
   pre.style.display = 'none';
   ta.style.display  = 'block';
   bar.style.display = 'flex';
@@ -4729,9 +4729,9 @@ function _onDragUp() {
     _lastRawConfig.series[si].data[pi].x = nx;
     _lastRawConfig.series[si].data[pi].y = ny;
   }
+  if (!_configEditMode) enterConfigEdit();
   const ta = document.getElementById('config-edit-input');
   if (ta && _lastRawConfig) ta.value = _serializeConfig(_lastRawConfig);
-  if (!_configEditMode) enterConfigEdit();
   const badge = document.getElementById('drag-coords-badge');
   if (badge) badge.style.display = 'none';
   _dragState = null;
@@ -4747,9 +4747,9 @@ function _reapplyFromRawConfig() {
     if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
     cfg.credits = { enabled: false };
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+    if (!_configEditMode) enterConfigEdit();
     const ta = document.getElementById('config-edit-input');
     if (ta) ta.value = _serializeConfig(_lastRawConfig);
-    if (!_configEditMode) enterConfigEdit();
     if (_dragMode) setTimeout(_attachDragListeners, 50);
   } catch(e) {
     console.error('_reapplyFromRawConfig:', e);

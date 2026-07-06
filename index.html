@@ -4778,7 +4778,11 @@ function _serializeConfig(obj, depth) {
 }
 
 function copyConfig() {
-  const text = document.getElementById('config-output').innerText;
+  const ta = document.getElementById('config-edit-input');
+  const pre = document.getElementById('config-output');
+  const text = (ta && ta.style.display !== 'none' && ta.value.trim())
+    ? ta.value
+    : pre.innerText;
   navigator.clipboard.writeText(text).then(() => {
     const t = document.getElementById('copy-toast');
     t.classList.add('show');

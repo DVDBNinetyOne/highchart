@@ -157,10 +157,13 @@ Highcharts.chart('chart', {
           outside: true,
           useHTML: true,
           headerFormat: '',
-          pointFormat: '<div style="max-width:220px;white-space:normal;font-size:11px;line-height:1.5;padding:4px 8px"><span style="color:{point.color}">●</span> {point.name}</div>',
+          pointFormatter: function() {
+            var raw = this.name.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '');
+            return '<div style="white-space:normal;font-size:12px;line-height:1.5;padding:2px 4px"><span style="color:' + this.color + '">●</span> ' + raw + '</div>';
+          },
           backgroundColor: '#1a1a2e',
           borderColor: '#444',
-          style: { color: '#e8e5ce' }
+          style: { color: '#e8e5ce', width: '240px' }
         },
         series: [{
           marker: { radius: 9 },

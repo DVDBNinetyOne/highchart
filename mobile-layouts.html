@@ -123,7 +123,7 @@ Highcharts.chart('chart', {
       verticalAlign: 'top',
       align: 'center',
       format: '<a href="{point.url}" target="{point.target}" style="color:#E8E5CE; font-size: 13px; font-weight: 300;">{point.name}</a>',
-      style: { fontWeight: 'normal' }
+      style: { fontWeight: 'normal', whiteSpace: 'nowrap' }
     }
   }, {
     name: 'International',
@@ -142,7 +142,7 @@ Highcharts.chart('chart', {
       enabled: true,
       format: '{point.name}',
       align: 'center',
-      style: { fontWeight: 'normal' },
+      style: { fontWeight: 'normal', whiteSpace: 'nowrap' },
       verticalAlign: 'top',
       y: 0
     }

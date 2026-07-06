@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile layout — scatter responsive</title>
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a2e; padding: 16px; }
+  #chart { width: 100%; }
+</style>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+Highcharts.chart('chart', {
+  chart: {
+    type: 'scatter',
+    height: 560,
+    backgroundColor: 'transparent'
+  },
+  disableFullscreen: true,
+  title: {
+    text: 'Ninety One core fund range'
+  },
+  legend: {
+    symbolWidth: 0
+  },
+  tooltip: {
+    enabled: false
+  },
+  xAxis: [{
+    title: {
+      text: 'Expected risk (volatility)'
+    },
+    gridLineWidth: 0,
+    lineWidth: 0.25,
+    crosshair: false,
+    startOnTick: true,
+    endOnTick: true,
+    showLastLabel: true,
+    min: 0,
+    max: 9,
+    tickLength: 0,
+    labels: {
+      enabled: false
+    }
+  }, {
+    title: {
+      text: ''
+    },
+    lineWidth: 0,
+    opposite: true,
+    linkedTo: 0,
+    tickLength: 0,
+    labels: {
+      enabled: false
+    },
+    plotBands: [{
+      from: 0,
+      to: 3,
+      color: 'rgba(251, 170, 150, 0.1)',
+      borderColor: '#ffb5a3',
+      label: {
+        text: 'Income',
+        align: 'left',
+        verticalAlign: 'top',
+        y: -10,
+        style: { color: '#e8e5ce' }
+      }
+    }, {
+      from: 3,
+      to: 6,
+      color: 'rgba(34, 27, 59, 0.1)',
+      borderColor: '#292047'
+    }, {
+      from: 6,
+      to: 9,
+      color: 'rgba(216, 57, 73, 0.1)',
+      borderColor: '#db4857',
+      label: {
+        text: 'Growth',
+        align: 'right',
+        verticalAlign: 'top',
+        y: -10,
+        style: { color: '#e8e5ce' }
+      }
+    }]
+  }],
+  yAxis: {
+    title: {
+      text: 'Expected return'
+    },
+    gridLineWidth: 0,
+    lineWidth: 0.25,
+    labels: {
+      enabled: false
+    },
+    plotLines: [{
+      value: 14,
+      color: '#e8e5ce',
+      width: 1,
+      zIndex: 5
+    }]
+  },
+  series: [{
+    name: 'Local',
+    lineWidth: 0,
+    marker: {
+      radius: 5,
+      symbol: 'circle'
+    },
+    data: [
+      { x: 1,   y: 17, name: '<strong>Diversified Income</strong><br />[0%]',       color: '#fbaa96', url: '/en/south-africa/funds-strategies/funds/diversified-income-a-inc-zar-zae000140505' },
+      { x: 3.5, y: 20, name: '<strong>Cautious Managed</strong><br />[40%]',        color: '#009d80' },
+      { x: 5,   y: 22, name: '<strong>Opportunity</strong><br />[75%]',             color: '#009d80' },
+      { x: 6,   y: 25, name: '<strong>Worldwide Flexible</strong><br />[100%]',     color: '#009d80' },
+      { x: 8,   y: 27, name: '<strong>Equity</strong><br />[100%]',                 color: '#d83949' }
+    ],
+    dataLabels: {
+      enabled: true,
+      verticalAlign: 'top',
+      align: 'center',
+      format: '<a href="{point.url}" target="{point.target}" style="color:#E8E5CE; font-size: 13px; font-weight: 300;">{point.name}</a>',
+      style: { fontWeight: 'normal' }
+    }
+  }, {
+    name: 'International',
+    color: 'rgb(119, 244, 191)',
+    lineWidth: 0,
+    marker: {
+      radius: 5
+    },
+    data: [
+      { x: 1, y: 4,  name: '<strong>Global Diversified Income</strong><br />(USD/GBP/ZAR) [0%]',       color: '#fbaa96' },
+      { x: 4, y: 6,  name: '<strong>Global Managed Income</strong><br />(USD/GBP/ZAR) [40%]',          color: '#009d80', dataLabels: { x: 20 } },
+      { x: 5, y: 10, name: '<strong>Global Strategic Managed</strong><br />(USD/GBP/ZAR) [75%]',       color: '#009d80' },
+      { x: 8, y: 13, name: '<strong>Global Franchise</strong><br />(USD/GBP/EUR/ZAR) [100%]',          color: '#d83949' }
+    ],
+    dataLabels: {
+      enabled: true,
+      format: '{point.name}',
+      align: 'center',
+      style: { fontWeight: 'normal' },
+      verticalAlign: 'top',
+      y: 0
+    }
+  }],
+
+  responsive: {
+    rules: [{
+      condition: { maxWidth: 600 },
+      chartOptions: {
+        chart: {
+          height: 380,
+          margin: [40, 12, 50, 12]
+        },
+        title: {
+          style: { fontSize: '13px' }
+        },
+        tooltip: {
+          enabled: true,
+          outside: true,
+          useHTML: true,
+          headerFormat: '',
+          pointFormat: '<div style="max-width:200px;white-space:normal;font-size:11px;line-height:1.4;padding:4px 6px"><span style="color:{point.color}">●</span> {point.name}</div>',
+          backgroundColor: '#1a1a2e',
+          borderColor: '#444',
+          style: { color: '#e8e5ce' }
+        },
+        legend: {
+          enabled: true
+        },
+        series: [{
+          marker: { radius: 9 },
+          dataLabels: { enabled: false }
+        }, {
+          marker: { radius: 9 },
+          dataLabels: { enabled: false }
+        }],
+        xAxis: [{}, {
+          plotBands: [{
+            from: 0, to: 3,
+            color: 'rgba(251, 170, 150, 0.1)',
+            borderColor: '#ffb5a3',
+            label: {
+              text: 'Income', align: 'left', verticalAlign: 'top', y: -10,
+              style: { color: '#e8e5ce', fontSize: '9px' }
+            }
+          }, {
+            from: 3, to: 6,
+            color: 'rgba(34, 27, 59, 0.1)',
+            borderColor: '#292047'
+          }, {
+            from: 6, to: 9,
+            color: 'rgba(216, 57, 73, 0.1)',
+            borderColor: '#db4857',
+            label: {
+              text: 'Growth', align: 'right', verticalAlign: 'top', y: -10,
+              style: { color: '#e8e5ce', fontSize: '9px' }
+            }
+          }]
+        }]
+      }
+    }]
+  },
+
+  credits: { enabled: false }
+});
+</script>
+</body>
+</html>

@@ -150,27 +150,17 @@ Highcharts.chart('chart', {
 
   responsive: {
     rules: [{
-      condition: { maxWidth: 600 },
+      condition: { maxWidth: 480 },
       chartOptions: {
-        chart: {
-          height: 380,
-          margin: [40, 12, 50, 12]
-        },
-        title: {
-          style: { fontSize: '13px' }
-        },
         tooltip: {
           enabled: true,
           outside: true,
           useHTML: true,
           headerFormat: '',
-          pointFormat: '<div style="max-width:200px;white-space:normal;font-size:11px;line-height:1.4;padding:4px 6px"><span style="color:{point.color}">●</span> {point.name}</div>',
+          pointFormat: '<div style="max-width:220px;white-space:normal;font-size:11px;line-height:1.5;padding:4px 8px"><span style="color:{point.color}">●</span> {point.name}</div>',
           backgroundColor: '#1a1a2e',
           borderColor: '#444',
           style: { color: '#e8e5ce' }
-        },
-        legend: {
-          enabled: true
         },
         series: [{
           marker: { radius: 9 },
@@ -178,29 +168,6 @@ Highcharts.chart('chart', {
         }, {
           marker: { radius: 9 },
           dataLabels: { enabled: false }
-        }],
-        xAxis: [{}, {
-          plotBands: [{
-            from: 0, to: 3,
-            color: 'rgba(251, 170, 150, 0.1)',
-            borderColor: '#ffb5a3',
-            label: {
-              text: 'Income', align: 'left', verticalAlign: 'top', y: -10,
-              style: { color: '#e8e5ce', fontSize: '9px' }
-            }
-          }, {
-            from: 3, to: 6,
-            color: 'rgba(34, 27, 59, 0.1)',
-            borderColor: '#292047'
-          }, {
-            from: 6, to: 9,
-            color: 'rgba(216, 57, 73, 0.1)',
-            borderColor: '#db4857',
-            label: {
-              text: 'Growth', align: 'right', verticalAlign: 'top', y: -10,
-              style: { color: '#e8e5ce', fontSize: '9px' }
-            }
-          }]
         }]
       }
     }]

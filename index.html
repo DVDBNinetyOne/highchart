@@ -4612,8 +4612,9 @@ function _attachDragListeners() {
         el._n1DragFn = (e) => _onPointDown(e, si, pi);
         el.addEventListener('mousedown', el._n1DragFn);
       }
-      // Data label
-      const lel = point.dataLabel?.element;
+      // Data label — useHTML:true renders as a positioned HTML div (dataLabel.div),
+      // not the SVG group (dataLabel.element). Clicks on the div never reach the g.
+      const lel = point.dataLabel?.div || point.dataLabel?.element;
       if (lel) {
         lel.style.cursor = 'move';
         lel._n1LabelFn = (e) => _onLabelDown(e, si, pi);
@@ -4633,7 +4634,7 @@ function _detachDragListeners() {
         el.style.cursor = '';
         if (el._n1DragFn) { el.removeEventListener('mousedown', el._n1DragFn); el._n1DragFn = null; }
       }
-      const lel = point.dataLabel?.element;
+      const lel = point.dataLabel?.div || point.dataLabel?.element;
       if (lel) {
         lel.style.cursor = '';
         if (lel._n1LabelFn) { lel.removeEventListener('mousedown', lel._n1LabelFn); lel._n1LabelFn = null; }

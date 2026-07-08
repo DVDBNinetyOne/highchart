@@ -4646,16 +4646,18 @@ function _onPointDown(e, si, pi) {
   e.preventDefault(); e.stopPropagation();
   const chart = window.chartInstance;
   const point = chart.series[si].points[pi];
-  // Cache everything at mousedown so _onDragMove does zero DOM reads
+  // Cache rect + dot position at mousedown — zero DOM reads during drag
   const rect  = chart.container.getBoundingClientRect();
   const dotPx = chart.plotLeft + chart.xAxis[0].toPixels(point.x, true);
   const dotPy = chart.plotTop  + chart.yAxis[0].toPixels(point.y, true);
+  // Grab offset: how far from dot center did the user click?
+  // Preserved throughout drag so the dot stays under the grab point.
+  const grabOffX = (e.clientX - rect.left) - dotPx;
+  const grabOffY = (e.clientY - rect.top)  - dotPy;
   _dragState = {
     isLabel: false, si, pi, point,
     startX: point.x, startY: point.y,
-    rect, dotPx, dotPy,
-    mouseStartX: e.clientX, mouseStartY: e.clientY,
-    chart,
+    rect, dotPx, dotPy, grabOffX, grabOffY, chart,
   };
   point.graphic.element.style.cursor = 'grabbing';
   document.addEventListener('mousemove', _onDragMove);
@@ -4695,12 +4697,14 @@ function _onDragMove(e) {
     return;
   }
 
-  // Use cached values from mousedown — no DOM reads per frame
-  const { chart, rect, dotPx, dotPy, mouseStartX, mouseStartY, point } = _dragState;
-  const dx = e.clientX - mouseStartX;
-  const dy = e.clientY - mouseStartY;
-  const newPx = Math.max(chart.plotLeft, Math.min(chart.plotLeft + chart.plotWidth,  dotPx + dx));
-  const newPy = Math.max(chart.plotTop,  Math.min(chart.plotTop  + chart.plotHeight, dotPy + dy));
+  // All values cached at mousedown — no DOM reads per frame
+  const { chart, rect, dotPx, dotPy, grabOffX, grabOffY, point } = _dragState;
+  // Convert cursor to container-local coords then subtract grab offset
+  // so the dot stays under the exact spot the user clicked
+  const targetPx = (e.clientX - rect.left) - grabOffX;
+  const targetPy = (e.clientY - rect.top)  - grabOffY;
+  const newPx = Math.max(chart.plotLeft, Math.min(chart.plotLeft + chart.plotWidth,  targetPx));
+  const newPy = Math.max(chart.plotTop,  Math.min(chart.plotTop  + chart.plotHeight, targetPy));
   const nx = Math.round(chart.xAxis[0].toValue(newPx) * 10) / 10;
   const ny = Math.round(chart.yAxis[0].toValue(newPy) * 10) / 10;
   _dragState.pendingX = nx;
@@ -4787,9 +4791,11 @@ function _serializeConfig(obj, depth) {
 }
 
 function copyConfig() {
-  const text = _lastRawConfig
-    ? _serializeConfig(_lastRawConfig)
-    : document.getElementById('config-output').innerText;
+  // Prefer textarea when the edit panel is open so "what you see is what you copy"
+  const ta = document.getElementById('config-edit-input');
+  const text = (ta && ta.style.display !== 'none' && ta.value.trim())
+    ? ta.value
+    : (_lastRawConfig ? _serializeConfig(_lastRawConfig) : document.getElementById('config-output').innerText);
   navigator.clipboard.writeText(text).then(() => {
     const t = document.getElementById('copy-toast');
     t.classList.add('show');

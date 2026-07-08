@@ -4774,7 +4774,13 @@ function _serializeConfig(obj, depth) {
   const i  = '  '.repeat(depth);
   const i1 = '  '.repeat(depth + 1);
   if (obj === null || obj === undefined) return 'null';
-  if (typeof obj === 'string')  return JSON.stringify(obj);
+  if (typeof obj === 'string') {
+    // Single-quoted output avoids backslash-escaping inner double quotes.
+    // Sitecore strips backslashes from field values, so "say \"hi\"" becomes
+    // invalid JS on the page. Single quotes sidestep this entirely.
+    const escaped = obj.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return "'" + escaped + "'";
+  }
   if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
   if (Array.isArray(obj)) {
     if (!obj.length) return '[]';

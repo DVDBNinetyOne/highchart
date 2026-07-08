@@ -4646,7 +4646,17 @@ function _onPointDown(e, si, pi) {
   e.preventDefault(); e.stopPropagation();
   const chart = window.chartInstance;
   const point = chart.series[si].points[pi];
-  _dragState = { isLabel: false, si, pi, point, startX: point.x, startY: point.y };
+  // Cache everything at mousedown so _onDragMove does zero DOM reads
+  const rect  = chart.container.getBoundingClientRect();
+  const dotPx = chart.plotLeft + chart.xAxis[0].toPixels(point.x, true);
+  const dotPy = chart.plotTop  + chart.yAxis[0].toPixels(point.y, true);
+  _dragState = {
+    isLabel: false, si, pi, point,
+    startX: point.x, startY: point.y,
+    rect, dotPx, dotPy,
+    mouseStartX: e.clientX, mouseStartY: e.clientY,
+    chart,
+  };
   point.graphic.element.style.cursor = 'grabbing';
   document.addEventListener('mousemove', _onDragMove);
   document.addEventListener('mouseup', _onDragUp, { once: true });
@@ -4685,18 +4695,17 @@ function _onDragMove(e) {
     return;
   }
 
-  const chart = window.chartInstance;
-  const rect  = chart.container.getBoundingClientRect();
-  const px = Math.max(chart.plotLeft, Math.min(chart.plotLeft + chart.plotWidth,  e.clientX - rect.left));
-  const py = Math.max(chart.plotTop,  Math.min(chart.plotTop  + chart.plotHeight, e.clientY - rect.top));
-  const nx = Math.round(chart.xAxis[0].toValue(px) * 10) / 10;
-  const ny = Math.round(chart.yAxis[0].toValue(py) * 10) / 10;
+  // Use cached values from mousedown — no DOM reads per frame
+  const { chart, rect, dotPx, dotPy, mouseStartX, mouseStartY, point } = _dragState;
+  const dx = e.clientX - mouseStartX;
+  const dy = e.clientY - mouseStartY;
+  const newPx = Math.max(chart.plotLeft, Math.min(chart.plotLeft + chart.plotWidth,  dotPx + dx));
+  const newPy = Math.max(chart.plotTop,  Math.min(chart.plotTop  + chart.plotHeight, dotPy + dy));
+  const nx = Math.round(chart.xAxis[0].toValue(newPx) * 10) / 10;
+  const ny = Math.round(chart.yAxis[0].toValue(newPy) * 10) / 10;
   _dragState.pendingX = nx;
   _dragState.pendingY = ny;
-  const { point } = _dragState;
-  const ox = chart.plotLeft + chart.xAxis[0].toPixels(point.x, true);
-  const oy = chart.plotTop  + chart.yAxis[0].toPixels(point.y, true);
-  point.graphic.attr({ translateX: px - ox, translateY: py - oy });
+  point.graphic.attr({ translateX: newPx - dotPx, translateY: newPy - dotPy });
   const badge = document.getElementById('drag-coords-badge');
   if (badge) { badge.style.display = 'inline'; badge.textContent = `x:${nx}  y:${ny}`; }
 }

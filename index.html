@@ -5147,25 +5147,31 @@ function applyAIConfig(cfg) {
 
   // Datetime CSV import — bypass state machine, build a raw config directly
   if (cfg.xAxisType === 'datetime' && cfg.series?.length) {
+    const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
+    const seriesColors = thm.chartSeriesColors || N1_PALETTE;
     const rawCfg = {
-      chart: { type: 'line', height: 500, backgroundColor: 'transparent' },
-      title:    { text: cfg.title    || '' },
-      subtitle: { text: cfg.subtitle || '' },
+      chart: { type: 'line', height: 500, backgroundColor: thm.chartBackground || 'transparent' },
+      title:    { text: cfg.title    || '', style: { color: thm.headingColor } },
+      subtitle: { text: cfg.subtitle || '', style: { color: thm.bodyColor } },
       xAxis: {
         type: 'datetime',
-        labels: { format: '{value:%Y}' },
-        tickInterval: 5 * 365.25 * 24 * 3600 * 1000
+        labels: { format: '{value:%Y}', style: { color: thm.bodyColor } },
+        tickInterval: 5 * 365.25 * 24 * 3600 * 1000,
+        lineColor: thm.bodyColor,
+        tickColor: thm.bodyColor
       },
       yAxis: {
-        title: { text: cfg.yTitle || '' },
+        title: { text: cfg.yTitle || '', style: { color: thm.bodyColor } },
+        labels: { style: { color: thm.bodyColor } },
         gridLineWidth: 1
       },
+      legend: { itemStyle: { color: thm.bodyColor } },
       plotOptions: {
         line: { marker: { enabled: false }, turboThreshold: 15000 }
       },
       series: cfg.series.map((s, i) => ({
         name: s.name,
-        color: N1_PALETTE[i % N1_PALETTE.length],
+        color: seriesColors[i % seriesColors.length],
         data: s.data
       }))
     };

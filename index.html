@@ -325,6 +325,26 @@ body {
 .btn-topbar-primary { background: #009d80; color: #fff; }
 .btn-topbar-primary:hover { background: #00b894; }
 
+.btn-save-explicit {
+  background: #009d80;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.btn-save-explicit:hover { background: #00b894; }
+.btn-save-explicit.dirty {
+  box-shadow: 0 0 0 2px rgba(252,170,40,0.55);
+}
+.btn-save-explicit.dirty::after {
+  content: '●';
+  color: #fcaa28;
+  font-size: 8px;
+  margin-left: 3px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
 /* legacy button classes kept for any JS refs */
 .nav-actions { display: flex; align-items: center; gap: 8px; }
 
@@ -2552,10 +2572,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copy config
       </button>
-      <button class="td-item" onclick="openImportWizard();closeTopbarDropdowns()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Import data
-      </button>
       <div class="td-sep"></div>
       <button class="td-item" onclick="downloadConfig();closeTopbarDropdowns()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -2564,18 +2580,19 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </div>
   </div>
 
-  <!-- Version chip + dropdown -->
+  <!-- Explicit Save button -->
+  <button class="btn-topbar btn-save-explicit" id="save-btn" onclick="saveCurrentVersion()" title="Save (Ctrl+S)">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    Save
+  </button>
+
+  <!-- Version chip + history dropdown -->
   <div class="topbar-dropdown-wrap">
-    <div class="version-chip" id="version-chip" onclick="toggleVersionDropdown()">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/></svg>
+    <div class="version-chip" id="version-chip" onclick="toggleVersionDropdown()" title="Version history">
       <span id="version-badge">v1</span>
       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div id="version-dropdown" class="topbar-dropdown" style="display:none">
-      <button class="td-item" id="save-btn" onclick="saveCurrentVersion();closeTopbarDropdowns()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        Save
-      </button>
       <button class="td-item" onclick="newVersion();closeTopbarDropdowns()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New version
@@ -2747,12 +2764,21 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         </div>
         <div class="data-toolbar">
           <span class="data-toolbar-hint" id="data-hint">Each column is a data series. The first column holds category labels.</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="openImportWizard()">⬆ Import</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="file" id="csv-upload-input" accept=".csv,.tsv,.txt" style="display:none" onchange="handleDirectCsvUpload(this)">
+            <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="document.getElementById('csv-upload-input').click()" title="Upload CSV or TSV file">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+              Upload CSV
+            </button>
+            <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="triggerPasteData()" title="Paste copied cells from Excel or Google Sheets (Ctrl+V)">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              Paste data
+            </button>
+            <div style="width:1px;height:18px;background:rgba(0,0,0,.12);margin:0 2px"></div>
             <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="addSeries()">+ Series</button>
           </div>
         </div>
-        <div class="spreadsheet-card">
+        <div class="spreadsheet-card" id="spreadsheet-card-wrap">
           <table id="data-grid"></table>
         </div>
       </div>
@@ -3412,6 +3438,8 @@ let wizardStep = 1;
 let wizardData = {};
 let showingExampleData = true;
 
+const SESSION_SCHEMA_VERSION = 3;
+
 /* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
@@ -3421,8 +3449,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const saved = localStorage.getItem('n1_last_session');
     if (saved) {
       const s = JSON.parse(saved);
-      const hasRealData = (s.series?.length > 0 && s.series.some(sr => sr.data?.length > 0))
-                       || (s.categories?.length > 0);
+      const hasRealData = s._sv === SESSION_SCHEMA_VERSION
+                       && ((s.series?.length > 0 && s.series.some(sr => sr.data?.length > 0))
+                          || (s.categories?.length > 0));
       if (hasRealData) {
         Object.assign(state, s);
         showingExampleData = false;
@@ -5012,7 +5041,7 @@ function copyConfig() {
    PERSISTENCE
 ═══════════════════════════════════════════ */
 function persist() {
-  try { localStorage.setItem('n1_last_session', JSON.stringify(state)); } catch(e) {}
+  try { localStorage.setItem('n1_last_session', JSON.stringify({...state, _sv: SESSION_SCHEMA_VERSION})); } catch(e) {}
   markDirty();
 }
 
@@ -5744,6 +5773,161 @@ function parseCSV(text) {
   });
   const filtered = series.filter(s => s.name && s.data.some(v => v !== null));
   return { categories, series: filtered };
+}
+
+// ── Direct CSV upload from the Data tab toolbar ──────────────────────────────
+function handleDirectCsvUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    let parsed;
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      // fallthrough to wizard for Excel
+      openImportWizard();
+      return;
+    }
+    // TSV or CSV
+    const isTsv = file.name.endsWith('.tsv') || (text.includes('\t') && !text.includes(','));
+    if (isTsv) {
+      parsed = parseTSV(text);
+    } else {
+      parsed = parseCSV(text);
+    }
+    if (!parsed || (!parsed.series?.length && !parsed.categories?.length)) {
+      alert('Could not parse the file. Try importing via the Import wizard for more options.');
+      return;
+    }
+    applyParsedData(parsed);
+  };
+  reader.readAsText(file);
+}
+
+// ── Paste from clipboard (Excel / Google Sheets TSV) ─────────────────────────
+function triggerPasteData() {
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(text => {
+      if (!text.trim()) { showPasteHint(); return; }
+      const parsed = parseTSV(text) || parseCSV(text);
+      if (!parsed || !parsed.series?.length) { showPasteHint(); return; }
+      applyParsedData(parsed);
+    }).catch(() => showPasteHint());
+  } else {
+    showPasteHint();
+  }
+}
+
+function showPasteHint() {
+  // Fallback: show a temporary overlay textarea for the user to paste into
+  const existing = document.getElementById('paste-overlay');
+  if (existing) { existing.querySelector('textarea').focus(); return; }
+  const overlay = document.createElement('div');
+  overlay.id = 'paste-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;width:520px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+      <div style="font-weight:600;font-size:14px;color:#222;margin-bottom:6px">Paste your data</div>
+      <div style="font-size:12px;color:#666;margin-bottom:12px">Copy cells from Excel or Google Sheets, then paste below (Ctrl+V / Cmd+V)</div>
+      <textarea id="paste-textarea" style="width:100%;height:160px;border:1.5px solid #009d80;border-radius:8px;padding:8px;font-size:12px;font-family:monospace;resize:vertical;outline:none" placeholder="Paste here…"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button onclick="document.getElementById('paste-overlay').remove()" style="padding:7px 16px;border-radius:7px;border:1px solid #ddd;background:#fff;cursor:pointer;font-size:12px">Cancel</button>
+        <button onclick="applyPasteOverlay()" style="padding:7px 16px;border-radius:7px;border:none;background:#009d80;color:#fff;cursor:pointer;font-size:12px;font-weight:600">Apply</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('textarea').focus();
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function applyPasteOverlay() {
+  const text = document.getElementById('paste-textarea')?.value || '';
+  document.getElementById('paste-overlay')?.remove();
+  if (!text.trim()) return;
+  const parsed = parseTSV(text) || parseCSV(text);
+  if (!parsed || !parsed.series?.length) {
+    alert('Could not parse pasted data. Make sure the first row contains headers and the first column contains labels.');
+    return;
+  }
+  applyParsedData(parsed);
+}
+
+// ── Parse tab-separated values (clipboard from Excel / Sheets) ────────────────
+function parseTSV(text) {
+  const lines = text.trim().split(/\r?\n/).map(l => l.split('\t').map(c => c.trim().replace(/^"|"$/g, '')));
+  if (lines.length < 2) return null;
+  const headers = lines[0];
+  if (headers.length < 2) return null;
+  const dataRows = lines.slice(1).filter(r => (r[0] || '').trim());
+
+  const dateRe = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+  const sample = dataRows.slice(0, 5).map(r => (r[0] || '').trim());
+  if (sample.length && sample.every(v => dateRe.test(v))) {
+    const series = headers.slice(1).map(h => ({ name: h.trim(), data: [] }));
+    dataRows.forEach(row => {
+      const parts = row[0].split('/').map(Number);
+      const ts = Date.UTC(parts[2], parts[0] - 1, parts[1]);
+      series.forEach((s, i) => {
+        const v = parseFloat(row[i + 1]);
+        if (!isNaN(v)) s.data.push([ts, v]);
+      });
+    });
+    const filtered = series.filter(s => s.name && s.data.length > 0);
+    return filtered.length ? { xAxisType: 'datetime', series: filtered } : null;
+  }
+
+  const categories = [];
+  const series = headers.slice(1).map(h => ({ name: h.trim(), data: [] }));
+  dataRows.forEach(row => {
+    categories.push((row[0] || '').trim());
+    series.forEach((s, i) => {
+      const v = parseFloat(row[i + 1]);
+      s.data.push(isNaN(v) ? null : v);
+    });
+  });
+  const filtered = series.filter(s => s.name && s.data.some(v => v !== null));
+  return filtered.length ? { categories, series: filtered } : null;
+}
+
+// ── Apply parsed CSV/TSV result directly without the full import wizard ───────
+function applyParsedData(parsed) {
+  if (parsed.xAxisType === 'datetime') {
+    const theme = N1_THEMES[selectedTheme] || N1_THEMES['N1 Granite'];
+    const colors = theme.chartSeriesColors || N1_PALETTE;
+    const cfg = {
+      xAxis: { type: 'datetime' },
+      series: parsed.series.map((s, i) => ({
+        name: s.name,
+        data: s.data,
+        color: colors[i % colors.length]
+      }))
+    };
+    if (theme.chartBackground && theme.chartBackground !== 'transparent') {
+      cfg.chart = { backgroundColor: theme.chartBackground };
+    }
+    applyAIConfig(cfg);
+  } else {
+    state.categories = parsed.categories || [];
+    parsed.series.forEach((s, i) => {
+      if (i < state.series.length) {
+        state.series[i].name = s.name;
+        state.series[i].data = s.data;
+      } else {
+        state.series.push({ name: s.name, data: s.data });
+      }
+    });
+    // Trim extra series
+    state.series = state.series.slice(0, parsed.series.length);
+    applyThemeColors();
+    renderDataGrid();
+    renderChart();
+    markDirty();
+  }
+  updateEmptyState();
+  if (document.getElementById('data-tab-content')?.style.display !== 'none') {
+    railSelect('data');
+  }
 }
 
 async function parseXLSXFile(file) {
@@ -6924,12 +7108,16 @@ function markDirty() {
   isDirty = true;
   const badge = document.getElementById('version-badge');
   if (badge) badge.dataset.dirty = '1';
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.classList.add('dirty');
 }
 
 function markClean() {
   isDirty = false;
   const badge = document.getElementById('version-badge');
   if (badge) delete badge.dataset.dirty;
+  const saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.classList.remove('dirty');
 }
 
 function flashBadge() {

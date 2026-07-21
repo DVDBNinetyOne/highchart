@@ -2712,7 +2712,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Import data
               </button>
-              <button class="empty-btn-secondary" onclick="switchTab('data')">
+              <button class="empty-btn-secondary" onclick="startBlankDataEntry()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
                 Add data manually
               </button>
@@ -3886,6 +3886,17 @@ function renderColourRows() {
   const container = document.getElementById('series-colour-rows');
   if (!container) return;
   const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
+  if (state.series.length === 0) {
+    container.innerHTML = `<div style="padding:16px 12px;color:#aaa;font-size:12px;text-align:center;line-height:1.6">
+      No series yet.<br>
+      <button onclick="startBlankDataEntry()" style="margin-top:8px;padding:5px 12px;border-radius:6px;border:1px solid #ddd;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;color:#333">Add data manually</button>
+      <span style="display:block;margin:6px 0;color:#ccc;font-size:10px">or</span>
+      <button onclick="openImportWizard()" style="padding:5px 12px;border-radius:6px;border:none;background:#009d80;color:#fff;font-size:11px;cursor:pointer;font-family:inherit">Import CSV</button>
+    </div>`;
+    const rpCount = document.getElementById('rp-series-count');
+    if (rpCount) rpCount.textContent = '0 series';
+    return;
+  }
   container.innerHTML = state.series.map((s, i) => {
     const themeCol = theme.chartSeriesColors[i % theme.chartSeriesColors.length];
     const isOverride = s.colorOverride;
@@ -6394,6 +6405,22 @@ function switchTab(tab) {
   document.getElementById('tab-preview').classList.toggle('active', !isData);
   document.getElementById('tab-data').classList.toggle('active', isData);
   if (isData) renderGrid();
+}
+
+function startBlankDataEntry() {
+  // Pre-seed one series with 3 blank rows so the grid is immediately usable
+  if (state.series.length === 0) {
+    const color = (N1_THEMES[selectedTheme]?.chartSeriesColors || N1_PALETTE)[0];
+    state.series = [{ name: 'Series 1', data: [null, null, null], color, colorOverride: false }];
+    state.categories = ['', '', ''];
+  }
+  switchTab('data');
+  updateEmptyState();
+  // Focus the first category cell after render
+  setTimeout(() => {
+    const first = document.querySelector('#data-grid tbody tr td:nth-child(2) input');
+    if (first) first.focus();
+  }, 50);
 }
 
 /* ═══════════════════════════════════════════

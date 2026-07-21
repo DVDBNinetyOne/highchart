@@ -406,6 +406,174 @@ body {
   flex-shrink: 0;
 }
 
+/* ─── Rail spacer pushes Library to bottom ─── */
+.rail-spacer { flex: 1; }
+
+/* ─── Topbar dropdown menus ─── */
+.topbar-dropdown-wrap { position: relative; }
+
+.version-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  border: 0.5px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: #ccc;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  height: 30px;
+  font-family: inherit;
+  user-select: none;
+}
+.version-chip:hover { background: rgba(255,255,255,.13); }
+.version-chip[data-dirty] #version-badge::after {
+  content: '•';
+  color: #fcaa28;
+  margin-left: 2px;
+  font-size: 13px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.topbar-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: #2a2040;
+  border: 0.5px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  min-width: 190px;
+  z-index: 500;
+  overflow: hidden;
+}
+
+.td-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 13px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,.75);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.td-item:hover { background: rgba(255,255,255,.08); color: #fff; }
+
+.td-sep {
+  height: 0.5px;
+  background: rgba(255,255,255,.1);
+  margin: 3px 0;
+}
+
+.td-label {
+  padding: 7px 13px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  color: rgba(255,255,255,.35);
+  text-transform: uppercase;
+}
+
+.td-hist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 13px;
+  font-size: 11px;
+  color: rgba(255,255,255,.6);
+  cursor: pointer;
+}
+.td-hist-row:hover { background: rgba(255,255,255,.06); }
+.td-hist-row small { font-size: 10px; color: rgba(255,255,255,.35); }
+
+.vh-empty {
+  padding: 8px 13px 12px;
+  font-size: 11px;
+  color: rgba(255,255,255,.3);
+  font-style: italic;
+}
+
+/* ─── Empty canvas state ─── */
+#empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  pointer-events: none;
+  z-index: 5;
+}
+#empty-state.hidden { display: none; }
+
+.empty-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  border: 1.5px dashed #c8c4b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.empty-icon-wrap svg { width: 24px; height: 24px; color: #aaa; stroke: currentColor; }
+
+.empty-heading {
+  font-size: 15px;
+  font-weight: 500;
+  color: #555;
+  text-align: center;
+}
+.empty-sub {
+  font-size: 12px;
+  color: #aaa;
+  text-align: center;
+  max-width: 260px;
+  line-height: 1.6;
+}
+.empty-actions {
+  display: flex;
+  gap: 8px;
+  pointer-events: all;
+}
+.empty-btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: #164848;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+.empty-btn-primary:hover { background: #0f3333; }
+.empty-btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  color: #555;
+  border: 0.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.empty-btn-secondary:hover { background: #f5f5f5; }
+
 /* ─── Flyout Panel ─── */
 #flyout {
   width: 196px;
@@ -2361,62 +2529,72 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 <!-- ─── Top Bar ─── -->
 <div id="topbar">
 
-  <!-- Left: wordmark only -->
   <div class="logo">
     <span class="logo-brand">Ninety One</span>
     <span class="logo-divider">|</span>
-    <span class="logo-product">Web Highchart Builder</span>
+    <span class="logo-product">Charts</span>
   </div>
 
-  <!-- Right: chart name · version · save history · actions -->
-  <div class="topbar-right">
-    <button class="btn-topbar btn-topbar-ghost btn-icon" onclick="clearChart()" title="Clear everything and start a new blank chart" style="color:#d83949;border-color:rgba(216,57,73,0.25)">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      New chart
-    </button>
-    <input class="doc-title-input" id="doc-title" value="Untitled chart" placeholder="Chart name"
-           onchange="onTitleChange()" title="Click to rename"/>
-    <span class="version-badge" id="version-badge">v1</span>
+  <input class="doc-title-input" id="doc-title" value="Untitled chart" placeholder="Chart name"
+         onchange="onTitleChange()" title="Click to rename"/>
 
-    <!-- Save / History -->
-    <div class="version-wrap" id="version-wrap">
-      <button class="btn-topbar btn-topbar-ghost btn-icon" id="save-btn" onclick="saveCurrentVersion()" title="Save changes to current version (Ctrl+S)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+  <div style="flex:1"></div>
+
+  <!-- Export dropdown -->
+  <div class="topbar-dropdown-wrap">
+    <button class="btn-topbar btn-topbar-ghost btn-icon" id="export-btn" onclick="toggleExportDropdown()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div id="export-dropdown" class="topbar-dropdown" style="display:none">
+      <button class="td-item" onclick="copyConfig();closeTopbarDropdowns()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy config
+      </button>
+      <button class="td-item" onclick="openImportWizard();closeTopbarDropdowns()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import data
+      </button>
+      <div class="td-sep"></div>
+      <button class="td-item" onclick="downloadConfig();closeTopbarDropdowns()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+    </div>
+  </div>
+
+  <!-- Version chip + dropdown -->
+  <div class="topbar-dropdown-wrap">
+    <div class="version-chip" id="version-chip" onclick="toggleVersionDropdown()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/></svg>
+      <span id="version-badge">v1</span>
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div id="version-dropdown" class="topbar-dropdown" style="display:none">
+      <button class="td-item" id="save-btn" onclick="saveCurrentVersion();closeTopbarDropdowns()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Save
       </button>
-      <button class="btn-topbar btn-topbar-ghost btn-icon" onclick="newVersion()" title="Create a new version from current state">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <button class="td-item" onclick="newVersion();closeTopbarDropdowns()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New version
       </button>
-      <button class="btn-topbar btn-topbar-ghost btn-icon" id="history-btn" onclick="toggleVersionHistory()" title="Version history">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/></svg>
-        History
+      <button class="td-item" onclick="clearChart();closeTopbarDropdowns()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4h6v2"/></svg>
+        New chart
       </button>
-      <!-- History dropdown -->
-      <div id="version-history-dropdown" class="version-history-dropdown">
-        <div class="vh-head">
-          <span>Version history</span>
-          <button class="vh-close" onclick="toggleVersionHistory()">×</button>
-        </div>
-        <div id="version-history-list" class="vh-list"></div>
-        <div class="vh-empty" id="vh-empty">No saved versions yet — hit Save to create one.</div>
-      </div>
+      <div class="td-sep"></div>
+      <div class="td-label">Version history</div>
+      <div id="version-history-list" class="vh-list"></div>
+      <div class="vh-empty" id="vh-empty">No saved versions yet.</div>
     </div>
-
-    <div class="topbar-sep"></div>
-
-    <button class="btn-topbar btn-topbar-ghost" onclick="openImportWizard()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Import
-    </button>
-    <button class="btn-topbar btn-topbar-ghost" onclick="downloadConfig()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download
-    </button>
-    <button class="btn-topbar btn-topbar-primary" onclick="copyConfig()">Copy config</button>
   </div>
 
 </div>
+
+<!-- kept so toggleVersionHistory() calls still work silently -->
+<div id="version-history-dropdown" style="display:none"></div>
 
 <!-- hidden theme-select kept so applyTheme() still works -->
 <select id="theme-select" style="display:none" onchange="applyTheme(this.value)"></select>
@@ -2430,10 +2608,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>
       Type
     </button>
-    <button class="rail-btn" id="rail-theme" onclick="railSelect('theme')" title="Theme">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>
-      Theme
-    </button>
     <div class="rail-sep"></div>
     <button class="rail-btn" id="rail-text" onclick="railSelect('text')" title="Labels &amp; text">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
@@ -2443,6 +2617,11 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="21" x2="21" y2="21"/><line x1="3" y1="3" x2="3" y2="21"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="13" cy="10" r="1.5" fill="currentColor"/><circle cx="18" cy="6" r="1.5" fill="currentColor"/></svg>
       Axes
     </button>
+    <button class="rail-btn" id="rail-theme" onclick="railSelect('theme')" title="Style &amp; theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+      Style
+    </button>
+    <div class="rail-spacer"></div>
     <div class="rail-sep"></div>
     <button class="rail-btn" id="rail-library" onclick="railSelect('library')" title="Chart library">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -2503,7 +2682,25 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <!-- Preview content -->
       <div id="preview-tab-content">
         <div class="preview-stage-wrap">
-        <div class="card" id="preview-card">
+        <div class="card" id="preview-card" style="position:relative">
+          <!-- Empty state — shown when no chart data -->
+          <div id="empty-state">
+            <div class="empty-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="empty-heading">Start with your data</div>
+            <div class="empty-sub">Import a CSV, paste a Highcharts config, or pick a chart type and add data in the Data tab.</div>
+            <div class="empty-actions">
+              <button class="empty-btn-primary" onclick="openImportWizard()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import data
+              </button>
+              <button class="empty-btn-secondary" onclick="switchTab('data')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                Add data manually
+              </button>
+            </div>
+          </div>
           <div id="colour-override-warning" class="colour-override-warning">
             <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
             ⚠ <strong>Custom colour override:</strong> one or more series has a manually set colour. This will override the Sitecore theme colour. Only do this if your design requires a specific colour.
@@ -4080,6 +4277,7 @@ function schedUpdate() {
 }
 
 function update() {
+  updateEmptyState();
   const s = state;
   const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
   const bg = theme.chartBackground || 'transparent';
@@ -5221,6 +5419,7 @@ function applyAIConfig(cfg) {
     if (!_configEditMode) enterConfigEdit();
     const ta = document.getElementById('config-edit-input');
     if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    updateEmptyState();
     return;
   }
 
@@ -6842,24 +7041,53 @@ function renderVersionHistoryList() {
 }
 
 function toggleVersionHistory(forceClose) {
-  const dd = document.getElementById('version-history-dropdown');
-  const btn = document.getElementById('history-btn');
-  if (!dd) return;
-  const open = forceClose === false ? false : !dd.classList.contains('open');
-  dd.classList.toggle('open', open);
-  if (btn) btn.classList.toggle('active', open);
-  if (open) {
+  toggleVersionDropdown();
+}
+
+function closeVHOutside(e) {}
+
+function closeTopbarDropdowns() {
+  document.getElementById('version-dropdown').style.display = 'none';
+  document.getElementById('export-dropdown').style.display = 'none';
+}
+
+function toggleVersionDropdown() {
+  const dd = document.getElementById('version-dropdown');
+  const isOpen = dd.style.display !== 'none';
+  closeTopbarDropdowns();
+  if (!isOpen) {
     renderVersionHistoryList();
-    setTimeout(() => document.addEventListener('click', closeVHOutside, {once: true}), 0);
+    dd.style.display = 'block';
+    setTimeout(() => document.addEventListener('click', function _close(e) {
+      if (!e.target.closest('#version-chip') && !e.target.closest('#version-dropdown')) {
+        closeTopbarDropdowns();
+      }
+      document.removeEventListener('click', _close);
+    }), 0);
   }
 }
 
-function closeVHOutside(e) {
-  const wrap = document.getElementById('version-wrap');
-  if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('version-history-dropdown')?.classList.remove('open');
-    document.getElementById('history-btn')?.classList.remove('active');
+function toggleExportDropdown() {
+  const dd = document.getElementById('export-dropdown');
+  const isOpen = dd.style.display !== 'none';
+  closeTopbarDropdowns();
+  if (!isOpen) {
+    dd.style.display = 'block';
+    setTimeout(() => document.addEventListener('click', function _close(e) {
+      if (!e.target.closest('#export-btn') && !e.target.closest('#export-dropdown')) {
+        closeTopbarDropdowns();
+      }
+      document.removeEventListener('click', _close);
+    }), 0);
   }
+}
+
+function updateEmptyState() {
+  const el = document.getElementById('empty-state');
+  if (!el) return;
+  const hasData = (state.series?.length > 0 && state.series.some(s => s.data?.length > 0))
+               || !!_lastRawConfig;
+  el.classList.toggle('hidden', hasData);
 }
 
 function onTitleChange() {

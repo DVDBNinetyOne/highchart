@@ -4895,23 +4895,58 @@ function renderWizardStep() {
     const bannerColor = src === 'pptx' ? '#009d80' : src === 'ai' ? '#1a5c9a' : src === 'paste' ? '#164848' : src === 'xlsx' ? '#1d6a3e' : src === 'csv' ? '#2a7a4b' : '#c07000';
     const bannerLabel = src === 'pptx' ? 'Exact data from PPTX' : src === 'ai' ? 'AI Vision result' : src === 'paste' ? 'Parsed from pasted config' : src === 'xlsx' ? 'Parsed from Excel file' : src === 'csv' ? 'Parsed from CSV file' : 'Example data (mock)';
 
+    const isDatetime = cfg.xAxisType === 'datetime';
+    const totalPoints = isDatetime ? (cfg.series?.[0]?.data?.length || 0) : (cfg.categories?.length || 0);
+    const summaryText = isDatetime
+      ? `Extracted ${cfg.series ? cfg.series.length : 0} series, ${totalPoints.toLocaleString()} data points (time series).`
+      : `Extracted ${cfg.series ? cfg.series.length : 0} series, ${totalPoints} categories.`;
+
+    let tableHtml;
+    if (isDatetime) {
+      const SAMPLE = 50;
+      const firstSeries = cfg.series?.[0]?.data || [];
+      const rows = firstSeries.slice(0, SAMPLE).map((pt, i) => {
+        const ts = Array.isArray(pt) ? pt[0] : pt;
+        const date = new Date(ts).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+        const cells = (cfg.series || []).map(s => {
+          const v = Array.isArray(s.data[i]) ? s.data[i][1] : s.data[i];
+          return `<td style="border:1px solid #e8e8e8;padding:6px 8px;text-align:right">${v != null ? v : ''}</td>`;
+        }).join('');
+        return `<tr><td style="border:1px solid #e8e8e8;padding:6px 8px">${date}</td>${cells}</tr>`;
+      }).join('');
+      const truncNote = firstSeries.length > SAMPLE ? `<div style="font-size:11px;color:#999;padding:6px 0">Showing first ${SAMPLE} of ${firstSeries.length.toLocaleString()} rows</div>` : '';
+      tableHtml = `
+        <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead><tr>
+              <th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px;text-align:left">Date</th>
+              ${(cfg.series||[]).map(s=>`<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px">${escHtml(s.name||'')}</th>`).join('')}
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>${truncNote}`;
+    } else {
+      tableHtml = `
+        <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead><tr>
+              <th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px;text-align:left">Category</th>
+              ${(cfg.series||[]).map(s=>`<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px">${escHtml(s.name||'')}</th>`).join('')}
+            </tr></thead>
+            <tbody>
+              ${(cfg.categories||[]).map((cat,i)=>`<tr>
+                <td style="border:1px solid #e8e8e8;padding:6px 8px">${escHtml(cat)}</td>
+                ${(cfg.series||[]).map(s=>`<td style="border:1px solid #e8e8e8;padding:6px 8px;text-align:right">${s.data&&s.data[i]!=null?s.data[i]:''}</td>`).join('')}
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
     body.innerHTML = `
       <div style="background:${bannerColor};color:#fff;border-radius:4px;padding:8px 14px;font-size:12px;font-weight:600;margin-bottom:16px">${bannerLabel}</div>
-      <div style="margin-bottom:12px;font-size:13px;color:#555">Extracted ${cfg.series ? cfg.series.length : 0} series, ${cfg.categories ? cfg.categories.length : 0} categories.${wizardData.csvFile ? ` <span style="color:#009d80;font-weight:600">+ ${wizardData.csvFile.name} will replace data values.</span>` : ''}</div>
-      <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
-        <table style="border-collapse:collapse;width:100%;font-size:12px">
-          <thead><tr>
-            <th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px;text-align:left">Category</th>
-            ${(cfg.series||[]).map(s=>`<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px">${escHtml(s.name||'')}</th>`).join('')}
-          </tr></thead>
-          <tbody>
-            ${(cfg.categories||[]).map((cat,i)=>`<tr>
-              <td style="border:1px solid #e8e8e8;padding:6px 8px">${escHtml(cat)}</td>
-              ${(cfg.series||[]).map(s=>`<td style="border:1px solid #e8e8e8;padding:6px 8px;text-align:right">${s.data&&s.data[i]!=null?s.data[i]:''}</td>`).join('')}
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
+      <div style="margin-bottom:12px;font-size:13px;color:#555">${summaryText}${wizardData.csvFile ? ` <span style="color:#009d80;font-weight:600">+ ${wizardData.csvFile.name} will replace data values.</span>` : ''}</div>
+      ${tableHtml}
     `;
   } else if (wizardStep === 3) {
     nextBtn.textContent = 'Apply to chart';

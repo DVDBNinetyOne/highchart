@@ -3224,10 +3224,14 @@ window.addEventListener('DOMContentLoaded', () => {
     const saved = localStorage.getItem('n1_last_session');
     if (saved) {
       const s = JSON.parse(saved);
-      Object.assign(state, s);
-      showingExampleData = false;
-      document.getElementById('example-banner').style.display = 'none';
-      syncSidebarToState();
+      const hasRealData = (s.series?.length > 0 && s.series.some(sr => sr.data?.length > 0))
+                       || (s.categories?.length > 0);
+      if (hasRealData) {
+        Object.assign(state, s);
+        showingExampleData = false;
+        document.getElementById('example-banner').style.display = 'none';
+        syncSidebarToState();
+      }
     }
   } catch(e) {}
 

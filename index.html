@@ -4460,10 +4460,10 @@ function renderColourRows() {
       return `
       <div class="series-colour-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-          <div class="series-name-label" style="margin-bottom:0">${escHtml(s.name || 'Series ' + (i+1))}</div>
+          <input class="series-name-input" value="${escHtml(s.name || '')}" placeholder="Series ${i+1}" onchange="renameRawSeries(${i},this.value)" style="flex:1;font-size:11px;font-weight:600;color:#333;border:none;border-bottom:1px solid #e0e0e0;background:transparent;padding:1px 2px;margin-right:8px;outline:none;min-width:0">
           ${isOverride
-            ? `<button onclick="clearRawSeriesColour(${i})" style="font-size:10px;color:#009d80;background:none;border:none;cursor:pointer;padding:0;font-family:inherit">✕ Clear override</button>`
-            : `<span style="font-size:10px;color:#888;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${themeCol};display:inline-block"></span>Theme colour</span>`
+            ? `<button onclick="clearRawSeriesColour(${i})" style="font-size:10px;color:#009d80;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;white-space:nowrap">✕ Clear</button>`
+            : `<span style="font-size:10px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:${themeCol};display:inline-block"></span>Theme</span>`
           }
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -4903,6 +4903,20 @@ function chartSvgIconSmall(type) {
 
 function selectChartType(type) {
   pickerPreviewType = null;
+
+  // Guard: pie/donut don't work with datetime [ts, value] series
+  if (_lastRawConfig && (type === 'pie' || type === 'donut')) {
+    const firstSeries = _lastRawConfig.series?.[0];
+    const firstPoint = firstSeries?.data?.[0];
+    const isDatetime = Array.isArray(firstPoint) && typeof firstPoint[0] === 'number' && firstPoint[0] > 1e11;
+    if (isDatetime) {
+      showToast('Pie and donut charts require categorical data, not time series.');
+      renderChartTypeBar();
+      updateChartTypeUI();
+      return;
+    }
+  }
+
   state.chartType = type;
   // For raw-config charts, propagate the new type into the stored config
   if (_lastRawConfig) {
@@ -4912,6 +4926,11 @@ function selectChartType(type) {
       if (!_lastRawConfig.plotOptions) _lastRawConfig.plotOptions = {};
       if (!_lastRawConfig.plotOptions.pie) _lastRawConfig.plotOptions.pie = {};
       _lastRawConfig.plotOptions.pie.innerSize = '50%';
+    } else {
+      // Clear donut innerSize if switching away from donut
+      if (_lastRawConfig.plotOptions?.pie?.innerSize) {
+        delete _lastRawConfig.plotOptions.pie.innerSize;
+      }
     }
   }
   renderChartTypeBar();
@@ -5673,6 +5692,19 @@ function _reapplyFromRawConfig() {
     }
     if (!cfg.tooltip) cfg.tooltip = {};
     cfg.tooltip.outside = true;
+    // Apply state-level series style overrides (line width, markers, dash style)
+    const chartType = cfg.chart?.type || 'line';
+    const isSeriesType = !['pie','sunburst','treemap','packedbubble'].includes(chartType);
+    if (isSeriesType) {
+      if (!cfg.plotOptions) cfg.plotOptions = {};
+      if (!cfg.plotOptions.series) cfg.plotOptions.series = {};
+      if (state.lineWidth != null)    cfg.plotOptions.series.lineWidth  = state.lineWidth;
+      if (state.dashStyle)            cfg.plotOptions.series.dashStyle   = state.dashStyle;
+      cfg.plotOptions.series.marker = {
+        enabled: !!state.markers,
+        radius:  state.markerRadius ?? 4
+      };
+    }
     cfg.credits = { enabled: false };
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
     if (!_configEditMode) enterConfigEdit();

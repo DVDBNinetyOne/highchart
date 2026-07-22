@@ -63,6 +63,21 @@ body {
   flex-shrink: 0;
 }
 
+.logo {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  flex-shrink: 0;
+  border-radius: 6px;
+  transition: opacity .15s;
+}
+.logo:hover { opacity: .75; }
+
 .logo-brand {
   font-size: 13px;
   font-weight: 700;
@@ -2549,11 +2564,11 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 <!-- ─── Top Bar ─── -->
 <div id="topbar">
 
-  <div class="logo">
+  <button class="logo" onclick="clearChart()" title="New chart">
     <span class="logo-brand">Ninety One</span>
     <span class="logo-divider">|</span>
     <span class="logo-product">Charts</span>
-  </div>
+  </button>
 
   <input class="doc-title-input" id="doc-title" value="Untitled chart" placeholder="Chart name"
          onchange="onTitleChange()" title="Click to rename"/>
@@ -5057,7 +5072,8 @@ function persist() {
 }
 
 function clearChart() {
-  if (!confirm('Start a new blank chart? This will clear the current chart.')) return;
+  const hasData = state.series.length > 0 || !!_lastRawConfig;
+  if (hasData && !confirm('Start a new blank chart? This will clear the current chart.')) return;
   try { localStorage.removeItem('n1_last_session'); } catch(e) {}
   // Reset to default theme
   selectedTheme = 'springbok-cream_ocean-teal';

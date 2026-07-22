@@ -3769,14 +3769,45 @@ function applyTheme(key) {
   if (!N1_THEMES[key]) return;
   selectedTheme = key;
   try { localStorage.setItem('n1_selected_theme', key); } catch(e) {}
-  // Clear per-series overrides so theme palette takes effect immediately
   state.series.forEach(sr => { sr.colorOverride = false; });
   overrideWarningDismissed = false;
   applyThemeCss(key);
   renderThemePills();
   renderColourRows();
   checkColourOverrides();
-  schedUpdate();
+
+  if (_lastRawConfig) {
+    // Chart was built from a raw config (datetime import or pasted config).
+    // Re-inject theme colors directly into the config and re-render.
+    const thm = N1_THEMES[selectedTheme];
+    const colors = thm.chartSeriesColors || N1_PALETTE;
+    const newCfg = JSON.parse(JSON.stringify(_lastRawConfig));
+    if (newCfg.chart) newCfg.chart.backgroundColor = thm.chartBackground || 'transparent';
+    const ts = { color: thm.bodyColor };
+    const hs = { color: thm.headingColor };
+    if (newCfg.title?.style)              newCfg.title.style = hs;
+    if (newCfg.subtitle?.style)           newCfg.subtitle.style = ts;
+    if (newCfg.xAxis?.labels?.style)      newCfg.xAxis.labels.style = ts;
+    if (newCfg.xAxis?.title?.style)       newCfg.xAxis.title.style = ts;
+    if (newCfg.yAxis?.labels?.style)      newCfg.yAxis.labels.style = ts;
+    if (newCfg.yAxis?.title?.style)       newCfg.yAxis.title.style = ts;
+    if (newCfg.legend?.itemStyle)         newCfg.legend.itemStyle = ts;
+    if (Array.isArray(newCfg.series)) {
+      newCfg.series.forEach((s, i) => { s.color = colors[i % colors.length]; });
+    }
+    _lastRawConfig = newCfg;
+    try {
+      if (chartInstance) chartInstance.destroy();
+      const renderCfg = JSON.parse(JSON.stringify(newCfg));
+      renderCfg.credits = { enabled: false };
+      chartInstance = window.chartInstance = Highcharts.chart('chart-container', renderCfg);
+    } catch(e) {}
+    const ta = document.getElementById('config-edit-input');
+    if (ta) ta.value = _serializeConfig(_lastRawConfig);
+  } else {
+    schedUpdate();
+  }
+
   renderThemeChips();
   renderFlyoutThemeChips();
 }
@@ -5936,19 +5967,17 @@ function applyParsedData(parsed) {
     applyAIConfig(cfg);
   } else {
     state.categories = parsed.categories || [];
-    parsed.series.forEach((s, i) => {
-      if (i < state.series.length) {
-        state.series[i].name = s.name;
-        state.series[i].data = s.data;
-      } else {
-        state.series.push({ name: s.name, data: s.data });
-      }
-    });
-    // Trim extra series
-    state.series = state.series.slice(0, parsed.series.length);
-    applyThemeColors();
-    renderDataGrid();
-    renderChart();
+    const themeColors = (N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal']).chartSeriesColors || N1_PALETTE;
+    state.series = parsed.series.map((s, i) => ({
+      name: s.name,
+      data: s.data,
+      color: themeColors[i % themeColors.length],
+      colorOverride: false
+    }));
+    syncSidebarToState();
+    renderColourRows();
+    renderGrid();
+    schedUpdate();
     markDirty();
   }
   updateEmptyState();

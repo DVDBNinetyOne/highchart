@@ -4904,6 +4904,16 @@ function chartSvgIconSmall(type) {
 function selectChartType(type) {
   pickerPreviewType = null;
   state.chartType = type;
+  // For raw-config charts, propagate the new type into the stored config
+  if (_lastRawConfig) {
+    if (!_lastRawConfig.chart) _lastRawConfig.chart = {};
+    _lastRawConfig.chart.type = type === 'donut' ? 'pie' : type;
+    if (type === 'donut') {
+      if (!_lastRawConfig.plotOptions) _lastRawConfig.plotOptions = {};
+      if (!_lastRawConfig.plotOptions.pie) _lastRawConfig.plotOptions.pie = {};
+      _lastRawConfig.plotOptions.pie.innerSize = '50%';
+    }
+  }
   renderChartTypeBar();
   updateChartTypeUI();
   schedUpdate(); persist();
@@ -5636,6 +5646,7 @@ function _reapplyFromRawConfig() {
     const axStyle = { color: thm.bodyColor };
     if (cfg.xAxis?.labels)   cfg.xAxis.labels.style   = axStyle;
     if (cfg.xAxis?.title)    cfg.xAxis.title.style    = axStyle;
+    if (cfg.xAxis)           cfg.xAxis.tickWidth      = 0;
     const ya = cfg.yAxis;
     if (ya) {
       const axes = Array.isArray(ya) ? ya : [ya];

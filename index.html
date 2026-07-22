@@ -5680,8 +5680,7 @@ function _reapplyFromRawConfig() {
       cfg.xAxis.lineColor = `rgba(${hexToRgb(thm.bodyColor)},0.3)`;
       if (state.xTickInterval != null)
         cfg.xAxis.tickInterval = state.xTickInterval * 365.25 * 24 * 3600 * 1000;
-      else
-        delete cfg.xAxis.tickInterval;
+      // else: leave cfg.xAxis.tickInterval from _lastRawConfig (auto-calculated on import)
     }
 
     // yAxis overrides (min, max, title, scale, gridlines, format, plotLines)

@@ -4944,7 +4944,7 @@ function update() {
       max: s.categories.length - 0.5,
       title: { text: s.xTitle || null, style: { color: textCol } },
       lineWidth: s.xLine ? 1 : 0,
-      tickWidth: s.xLine ? 1 : 0,
+      tickWidth: 0,
       lineColor: `rgba(${hexToRgb(textCol)},0.3)`,
     } : {
       type: isScatter ? 'category' : (s.xAxisType || 'category'),
@@ -4952,7 +4952,7 @@ function update() {
       title: { text: s.xTitle || null, style: { color: textCol } },
       labels: { rotation: s.xRotation, style: { color: textCol } },
       lineWidth: s.xLine ? 1 : 0,
-      tickWidth: s.xLine ? 1 : 0,
+      tickWidth: 0,
       lineColor: `rgba(${hexToRgb(textCol)},0.3)`,
     },
     yAxis: isPie ? undefined : [

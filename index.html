@@ -3489,6 +3489,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <input class="field-input" id="sb-ymax" placeholder="Auto" type="number" oninput="onField('yMax',this.value)">
         </div>
         <div class="field-row">
+          <label>Tick interval</label>
+          <input class="field-input" id="sb-ytick" placeholder="Auto" type="number" oninput="onField('yTickInterval',this.value)">
+        </div>
+        <div class="field-row">
           <label>Grid lines</label>
           <button class="toggle-pill on" id="toggle-gridlines" onclick="toggleSetting('gridLines')"></button>
         </div>
@@ -3911,6 +3915,7 @@ let state = {
   yTitle: '',
   yMin: null,
   yMax: null,
+  yTickInterval: null,
   gridLines: true,
   yFormat: '',
   legend: true,
@@ -4052,7 +4057,7 @@ function toggleAccordion(id) {
    SETTINGS — field handlers
 ═══════════════════════════════════════════ */
 function onField(key, val) {
-  if (key === 'yMin' || key === 'yMax') val = val === '' ? null : parseFloat(val);
+  if (key === 'yMin' || key === 'yMax' || key === 'yTickInterval') val = val === '' ? null : parseFloat(val);
   if (key === 'chartHeight') val = parseInt(val) || 450;
   state[key] = val;
   schedUpdate();
@@ -4363,6 +4368,7 @@ function syncSidebarToState() {
   if (g('sb-y-title'))    g('sb-y-title').value = s.yTitle || '';
   if (g('sb-ymin'))       g('sb-ymin').value = s.yMin ?? '';
   if (g('sb-ymax'))       g('sb-ymax').value = s.yMax ?? '';
+  if (g('sb-ytick'))      g('sb-ytick').value = s.yTickInterval ?? '';
   if (g('sb-y-format'))   g('sb-y-format').value = s.yFormat || '';
   if (g('sb-val-suffix')) g('sb-val-suffix').value = s.valSuffix || '';
   if (g('sb-height'))     g('sb-height').value = s.chartHeight || 450;
@@ -5064,6 +5070,7 @@ function update() {
         title: { text: s.yTitle || null, style: { color: textCol } },
         min: s.yMin,
         max: s.yMax,
+        tickInterval: s.yTickInterval || undefined,
         type: s.yScale === 'logarithmic' ? 'logarithmic' : 'linear',
         gridLineColor: s.gridLines ? gridCol : 'transparent',
         labels: { format: s.yFormat || undefined, style: { color: textCol } },
@@ -5674,37 +5681,92 @@ function _reapplyFromRawConfig() {
         if (a.title)  a.title.style  = axStyle;
       });
     }
-    // Apply state-level y-axis overrides (min, max, title)
+    // Chart height: prefer state override
+    if (state.chartHeight) {
+      cfg.chart.height = state.chartHeight;
+      if (el) el.style.height = state.chartHeight + 'px';
+    }
+    // Zoom / animation
+    if (state.zoom)              cfg.chart.zoomType  = state.zoom;
+    if (state.animationDuration != null) cfg.chart.animation = state.animationDuration > 0
+      ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
+
+    // xAxis overrides
+    if (cfg.xAxis && !Array.isArray(cfg.xAxis)) {
+      if (state.xTitle != null)    cfg.xAxis.title     = { ...(cfg.xAxis.title || {}), text: state.xTitle || null, style: axStyle };
+      if (state.xRotation != null) { if (!cfg.xAxis.labels) cfg.xAxis.labels = {}; cfg.xAxis.labels.rotation = state.xRotation; cfg.xAxis.labels.style = axStyle; }
+      cfg.xAxis.lineWidth = state.xLine ? 1 : 0;
+      cfg.xAxis.lineColor = `rgba(${hexToRgb(thm.bodyColor)},0.3)`;
+    }
+
+    // yAxis overrides (min, max, title, scale, gridlines, format, plotLines)
+    const gridCol = `rgba(${hexToRgb(thm.bodyColor)},0.12)`;
     const yaOverride = Array.isArray(cfg.yAxis) ? cfg.yAxis[0] : cfg.yAxis;
     if (yaOverride) {
-      if (state.yMin !== null && state.yMin !== undefined) yaOverride.min = state.yMin;
-      if (state.yMax !== null && state.yMax !== undefined) yaOverride.max = state.yMax;
-      if (state.yTitle) yaOverride.title = { ...(yaOverride.title || {}), text: state.yTitle };
+      if (state.yMin          != null) yaOverride.min          = state.yMin;
+      if (state.yMax          != null) yaOverride.max          = state.yMax;
+      if (state.yTickInterval != null) yaOverride.tickInterval = state.yTickInterval;
+      else                             delete yaOverride.tickInterval;
+      if (state.yTitle != null)  yaOverride.title = { ...(yaOverride.title || {}), text: state.yTitle || null, style: axStyle };
+      yaOverride.type = state.yScale === 'logarithmic' ? 'logarithmic' : 'linear';
+      yaOverride.gridLineColor = state.gridLines ? gridCol : 'transparent';
+      if (state.yFormat)         yaOverride.labels = { ...(yaOverride.labels || {}), format: state.yFormat, style: axStyle };
+      if (state.yPlotLines?.length) {
+        yaOverride.plotLines = state.yPlotLines.map(pl => ({
+          value: pl.value, color: pl.color || '#d83949', width: 1.5, dashStyle: 'Dash', zIndex: 5,
+          label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
+        }));
+      }
     }
-    // Apply state-level legend/tooltip overrides so sidebar controls work
+
+    // Legend
     if (!state.legend) {
       cfg.legend = { enabled: false };
     } else if (state.legendPos) {
-      const posMap = { bottom: { align:'center', verticalAlign:'bottom' }, top: { align:'center', verticalAlign:'top' }, right: { align:'right', verticalAlign:'middle' } };
-      cfg.legend = { ...(posMap[state.legendPos] || {}), enabled: true, itemStyle: { color: thm.bodyColor, fontWeight: 'normal' } };
+      const posMap = { bottom: { align:'center', verticalAlign:'bottom' }, top: { align:'center', verticalAlign:'top' }, right: { align:'right', verticalAlign:'middle', layout:'vertical' } };
+      cfg.legend = { ...(cfg.legend || {}), ...(posMap[state.legendPos] || {}), enabled: true, itemStyle: { color: thm.bodyColor, fontWeight: 'normal' } };
     } else if (cfg.legend) {
       cfg.legend.itemStyle = { color: thm.bodyColor, fontWeight: 'normal' };
     }
+
+    // Tooltip
     if (!cfg.tooltip) cfg.tooltip = {};
-    cfg.tooltip.outside = true;
-    // Apply state-level series style overrides (line width, markers, dash style)
+    cfg.tooltip.outside  = true;
+    cfg.tooltip.enabled  = state.tooltip !== false;
+    if (state.tooltipMode)              cfg.tooltip.shared        = state.tooltipMode === 'shared';
+    if (state.ttPrefix != null)         cfg.tooltip.valuePrefix   = state.ttPrefix || undefined;
+    if (state.ttSuffix != null)         cfg.tooltip.valueSuffix   = state.ttSuffix || undefined;
+    if (state.decimals  != null)        cfg.tooltip.valueDecimals = state.decimals;
+
+    // plotOptions overrides (series style, column/bar shape)
     const chartType = cfg.chart?.type || 'line';
     const isSeriesType = !['pie','sunburst','treemap','packedbubble'].includes(chartType);
+    if (!cfg.plotOptions) cfg.plotOptions = {};
     if (isSeriesType) {
-      if (!cfg.plotOptions) cfg.plotOptions = {};
       if (!cfg.plotOptions.series) cfg.plotOptions.series = {};
-      if (state.lineWidth != null)    cfg.plotOptions.series.lineWidth  = state.lineWidth;
-      if (state.dashStyle)            cfg.plotOptions.series.dashStyle   = state.dashStyle;
-      cfg.plotOptions.series.marker = {
-        enabled: !!state.markers,
-        radius:  state.markerRadius ?? 4
-      };
+      if (state.lineWidth   != null) cfg.plotOptions.series.lineWidth   = state.lineWidth;
+      if (state.dashStyle)           cfg.plotOptions.series.dashStyle    = state.dashStyle;
+      cfg.plotOptions.series.marker       = { enabled: !!state.markers, radius: state.markerRadius ?? 4 };
+      cfg.plotOptions.series.connectNulls = !!state.connectNulls;
+      if (state.stepLine)            cfg.plotOptions.series.step        = state.stepLine;
+      if (state.stacking)            cfg.plotOptions.series.stacking    = state.stacking;
+      if (state.seriesOpacity < 1)   cfg.plotOptions.series.opacity     = state.seriesOpacity;
+      if (state.dataLabels)          cfg.plotOptions.series.dataLabels  = { enabled: true };
     }
+    if (['column','bar'].includes(chartType)) {
+      const shapeKey = chartType;
+      if (!cfg.plotOptions[shapeKey]) cfg.plotOptions[shapeKey] = {};
+      cfg.plotOptions[shapeKey].pointPadding = state.pointPadding ?? 0.1;
+      cfg.plotOptions[shapeKey].borderRadius = state.borderRadius  || 0;
+      cfg.plotOptions[shapeKey].borderWidth  = 0;
+    }
+    if (['area','areaspline'].includes(chartType) && state.fillOpacity != null) {
+      if (!cfg.plotOptions.area) cfg.plotOptions.area = {};
+      cfg.plotOptions.area.fillOpacity = state.fillOpacity;
+      if (!cfg.plotOptions.areaspline) cfg.plotOptions.areaspline = {};
+      cfg.plotOptions.areaspline.fillOpacity = state.fillOpacity;
+    }
+
     cfg.credits = { enabled: false };
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
     if (!_configEditMode) enterConfigEdit();

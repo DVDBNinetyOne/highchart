@@ -3650,9 +3650,8 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </div>
     <div id="import-steps-indicator" style="padding:12px 24px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #e8e8e8;font-size:12px;color:#888">
       <span id="step-ind-1" style="color:#009d80;font-weight:700">1. Upload</span>
-      <span>›</span><span id="step-ind-2">2. Review</span>
-      <span>›</span><span id="step-ind-3">3. Data</span>
-      <span>›</span><span id="step-ind-4">4. Apply</span>
+      <span id="step-sep-2">›</span><span id="step-ind-2">2. Review & apply</span>
+      <span id="step-sep-3" style="display:none">›</span><span id="step-ind-3" style="display:none">3. Adjust data</span>
     </div>
     <div id="import-wizard-body" style="padding:24px"></div>
     <div style="padding:12px 24px;border-top:1px solid #e8e8e8;display:flex;align-items:center;justify-content:space-between">
@@ -5610,7 +5609,14 @@ function closeImportWizard() {
 }
 
 function updateStepIndicators() {
-  for (let i = 1; i <= 4; i++) {
+  // Show step 3 only for AI/PPTX flows that need an optional data-replace step
+  const needsStep3 = wizardData.source === 'pptx' || wizardData.source === 'ai';
+  const s3 = document.getElementById('step-ind-3');
+  const sep3 = document.getElementById('step-sep-3');
+  if (s3) s3.style.display = needsStep3 ? '' : 'none';
+  if (sep3) sep3.style.display = needsStep3 ? '' : 'none';
+
+  for (let i = 1; i <= 3; i++) {
     const el = document.getElementById('step-ind-' + i);
     if (el) {
       el.style.color = i === wizardStep ? '#009d80' : '#aaa';
@@ -5712,7 +5718,8 @@ function renderWizardStep() {
 
     body.innerHTML = `
       <div style="background:${bannerColor};color:#fff;border-radius:4px;padding:8px 14px;font-size:12px;font-weight:600;margin-bottom:16px">${bannerLabel}</div>
-      <div style="margin-bottom:12px;font-size:13px;color:#555">${summaryText}${wizardData.csvFile ? ` <span style="color:#009d80;font-weight:600">+ ${wizardData.csvFile.name} will replace data values.</span>` : ''}</div>
+      <div style="margin-bottom:4px;font-size:13px;color:#555">${summaryText}${wizardData.csvFile ? ` <span style="color:#009d80;font-weight:600">+ ${wizardData.csvFile.name} will replace data values.</span>` : ''}</div>
+      <div style="margin-bottom:12px;font-size:12px;color:#999">Check your data looks right, then click Apply. You can edit values in the Data tab afterwards.</div>
       ${tableHtml}
     `;
   } else if (wizardStep === 3) {
@@ -5921,9 +5928,10 @@ async function applyAndFinish() {
       : parseCSV(await wizardData.csvFile.text());
     if (dataFile.xAxisType === 'datetime') {
       applyAIConfig(dataFile);
-      wizardStep = 4;
-      renderWizardStep();
+      dismissBanner();
       closeImportWizard();
+      switchTab('preview');
+      showToast('Time series data applied');
       return;
     }
     if (dataFile.categories) cfg.categories = dataFile.categories;
@@ -5936,9 +5944,10 @@ async function applyAndFinish() {
   }
 
   applyAIConfig(cfg);
-  wizardStep = 4;
-  renderWizardStep();
   dismissBanner();
+  closeImportWizard();
+  switchTab('data');
+  showToast('Data applied — check and edit your values below');
 }
 
 /* ═══════════════════════════════════════════

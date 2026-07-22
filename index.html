@@ -2741,9 +2741,18 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 /* ═══════════════════════════════════════════
    PART 5 — CONFIG OUTPUT TOGGLES
 ═══════════════════════════════════════════ */
-.config-mode-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #eee; background: #fafaf8; flex-shrink: 0; }
-.config-mode-label { font-size: 10px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: .06em; margin-right: 4px; }
-.config-mode-toggle { display: flex; gap: 0; background: #f0ece4; border-radius: 6px; padding: 2px; }
+/* config-mode-bar removed */
+.config-url-row { padding: 8px 12px 10px; border-top: 1px solid #eee; flex-shrink: 0; }
+.config-url-label { font-size: 11px; color: #888; display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+.config-url-optional { font-weight: 400; color: #bbb; }
+.config-url-input { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-family: monospace; color: #222; outline: none; transition: border-color .15s; }
+.config-url-input:focus { border-color: #009d80; }
+.config-url-input.has-url { border-color: #009d80; background: #f0faf7; }
+
+/* Config expand overlay */
+#config-card.expanded { position: fixed; inset: 20px; z-index: 5000; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column; max-height: none; }
+#config-card.expanded .config-card-body { flex: 1; min-height: 0; }
+#config-expand-btn.active { background: #009d80; color: #fff; border-color: #009d80; }
 .config-mode-btn {
   padding: 4px 12px; border-radius: 5px; border: none; background: transparent;
   font-size: 11px; font-weight: 500; color: #888; cursor: pointer; font-family: inherit; transition: all .15s;
@@ -3093,11 +3102,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <button class="canvas-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
           <button class="canvas-tab" id="tab-data" onclick="switchTab('data')">Data</button>
         </div>
-        <!-- Theme preview badge (Part 7) -->
-        <button class="theme-preview-badge" id="theme-preview-badge" onclick="railSelect('type');openTypePicker()" title="Change preview theme">
-          <span class="theme-preview-dot" id="theme-preview-dot" style="background:#009d80"></span>
-          <span id="theme-preview-label">Springbok Cream</span>
-        </button>
         <!-- Edit mode toggle (Part 10) -->
         <button class="edit-mode-pill" id="edit-mode-pill" onclick="toggleEditMode()" title="Toggle direct edit mode">
           ✏️ Edit
@@ -3155,18 +3159,13 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <div class="config-card-head">
             <span class="config-card-label" id="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions">
+              <button class="copy-btn-small" id="config-expand-btn" onclick="toggleConfigExpand()" style="position:static" title="Expand">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                Expand
+              </button>
               <button class="copy-btn-small" id="config-edit-btn" onclick="toggleConfigEdit()" style="position:static">Edit</button>
               <button class="copy-btn-small" onclick="copyConfig()" style="position:static">Copy</button>
             </div>
-          </div>
-          <!-- Config mode toggle (Part 5) -->
-          <div class="config-mode-bar">
-            <span class="config-mode-label">Output</span>
-            <div class="config-mode-toggle">
-              <button class="config-mode-btn active" id="cfg-mode-inline" onclick="setConfigMode('inline')">Include data</button>
-              <button class="config-mode-btn" id="cfg-mode-url" onclick="setConfigMode('url')">Link to file</button>
-            </div>
-            <span class="config-mode-hint" id="cfg-mode-hint">Everything included — paste into Sitecore directly.</span>
           </div>
           <div class="config-card-body">
             <div class="pre-wrap" style="margin:0">
@@ -3178,6 +3177,16 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <span id="config-apply-msg" style="font-size:11px;color:#888;flex:1"></span>
             <button class="copy-btn-small" onclick="cancelConfigEdit()" style="position:static;background:#fff;color:#888;border-color:#ddd">Cancel</button>
             <button class="copy-btn-small" onclick="applyConfigEdit()" style="position:static;background:#009d80;color:#fff;border-color:#009d80;white-space:nowrap">Apply</button>
+          </div>
+          <!-- CSV URL override: when filled, config uses data.csvURL instead of inline series -->
+          <div class="config-url-row">
+            <label class="config-url-label">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              CSV URL <span class="config-url-optional">(optional — replaces inline data in config)</span>
+            </label>
+            <input class="config-url-input" id="config-csv-url" type="url"
+              placeholder="/-/media/documents/highcharts/mydata.csv"
+              oninput="onConfigCsvUrlInput(this.value)">
           </div>
           <!-- Sitecore helper (Part 6) -->
           <div class="sitecore-helper">
@@ -8254,20 +8263,30 @@ function exportGridCsv() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PART 5 — CONFIG OUTPUT MODE
+   PART 5 — CONFIG CSV URL + EXPAND
 ═══════════════════════════════════════════════════════════════ */
-let _configOutputMode = 'inline';
+function onConfigCsvUrlInput(val) {
+  state.csvUrl = val.trim();
+  const input = document.getElementById('config-csv-url');
+  if (input) input.classList.toggle('has-url', !!state.csvUrl);
+  schedUpdate();
+  markDirty();
+}
 
-function setConfigMode(mode) {
-  _configOutputMode = mode;
-  document.getElementById('cfg-mode-inline')?.classList.toggle('active', mode === 'inline');
-  document.getElementById('cfg-mode-url')?.classList.toggle('active', mode === 'url');
-  const hint = document.getElementById('cfg-mode-hint');
-  if (hint) hint.textContent = mode === 'inline'
-    ? 'Everything included — paste into Sitecore directly.'
-    : 'Upload your CSV to Sitecore media first, then paste the media path into the URL field above.';
-  try { localStorage.setItem('n1_config_mode', mode); } catch(e) {}
-  update();
+function toggleConfigExpand() {
+  const card = document.getElementById('config-card');
+  const btn  = document.getElementById('config-expand-btn');
+  if (!card) return;
+  const isExpanded = card.classList.toggle('expanded');
+  btn?.classList.toggle('active', isExpanded);
+  if (btn) btn.innerHTML = isExpanded
+    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg> Collapse`
+    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg> Expand`;
+  // Close on Escape
+  if (isExpanded) {
+    const close = e => { if (e.key === 'Escape') { toggleConfigExpand(); document.removeEventListener('keydown', close); } };
+    document.addEventListener('keydown', close);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════

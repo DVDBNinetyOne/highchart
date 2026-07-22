@@ -3460,6 +3460,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <button class="toggle-pill on" id="toggle-xline" onclick="toggleSetting('xLine')"></button>
         </div>
         <div class="field-row">
+          <label>Tick interval (yrs)</label>
+          <input class="field-input" id="sb-xtick" placeholder="Auto" type="number" min="1" oninput="onField('xTickInterval',this.value)">
+        </div>
+        <div class="field-row">
           <label>Axis type</label>
           <div class="seg-group">
             <button class="seg-btn active" data-xtype="category" onclick="setXAxisType('category')">Category</button>
@@ -3910,6 +3914,7 @@ let state = {
   dataLabels: false,
   valSuffix: '',
   xTitle: '',
+  xTickInterval: null,
   xRotation: 0,
   xLine: true,
   yTitle: '',
@@ -4057,7 +4062,7 @@ function toggleAccordion(id) {
    SETTINGS — field handlers
 ═══════════════════════════════════════════ */
 function onField(key, val) {
-  if (key === 'yMin' || key === 'yMax' || key === 'yTickInterval') val = val === '' ? null : parseFloat(val);
+  if (key === 'yMin' || key === 'yMax' || key === 'yTickInterval' || key === 'xTickInterval') val = val === '' ? null : parseFloat(val);
   if (key === 'chartHeight') val = parseInt(val) || 450;
   state[key] = val;
   schedUpdate();
@@ -4337,6 +4342,7 @@ function syncSidebarToState() {
   if (g('sb-ymin'))       g('sb-ymin').value = s.yMin ?? '';
   if (g('sb-ymax'))       g('sb-ymax').value = s.yMax ?? '';
   if (g('sb-ytick'))      g('sb-ytick').value = s.yTickInterval ?? '';
+  if (g('sb-xtick'))      g('sb-xtick').value = s.xTickInterval ?? '';
   if (g('sb-y-format'))   g('sb-y-format').value = s.yFormat || '';
   if (g('sb-val-suffix')) g('sb-val-suffix').value = s.valSuffix || '';
   if (g('sb-height'))     g('sb-height').value = s.chartHeight || 450;
@@ -5032,6 +5038,7 @@ function update() {
       lineWidth: s.xLine ? 1 : 0,
       tickWidth: 0,
       lineColor: `rgba(${hexToRgb(textCol)},0.3)`,
+      tickInterval: s.xTickInterval ? s.xTickInterval * 365.25 * 24 * 3600 * 1000 : undefined,
     },
     yAxis: isPie ? undefined : [
       {
@@ -5671,6 +5678,10 @@ function _reapplyFromRawConfig() {
       if (state.xRotation != null) { if (!cfg.xAxis.labels) cfg.xAxis.labels = {}; cfg.xAxis.labels.rotation = state.xRotation; cfg.xAxis.labels.style = axStyle; }
       cfg.xAxis.lineWidth = state.xLine ? 1 : 0;
       cfg.xAxis.lineColor = `rgba(${hexToRgb(thm.bodyColor)},0.3)`;
+      if (state.xTickInterval != null)
+        cfg.xAxis.tickInterval = state.xTickInterval * 365.25 * 24 * 3600 * 1000;
+      else
+        delete cfg.xAxis.tickInterval;
     }
 
     // yAxis overrides (min, max, title, scale, gridlines, format, plotLines)
@@ -6216,8 +6227,11 @@ function applyAIConfig(cfg) {
         const lastTs  = pts?.length ? (Array.isArray(pts[pts.length-1]) ? pts[pts.length-1][0] : pts[pts.length-1]) : null;
         const spanYrs = (firstTs && lastTs) ? (lastTs - firstTs) / oneYear : 0;
         const xa = { type: 'datetime' };
-        if (spanYrs > 3) { xa.labels = { format: '{value:%Y}' }; xa.tickInterval = oneYear; }
-        else if (spanYrs > 1) { xa.labels = { format: '{value:%b %Y}' }; xa.tickInterval = Math.round(oneYear / 2); }
+        if (spanYrs > 30)      { xa.labels = { format: '{value:%Y}' }; xa.tickInterval = 10 * oneYear; }
+        else if (spanYrs > 12) { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =  5 * oneYear; }
+        else if (spanYrs > 5)  { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =  2 * oneYear; }
+        else if (spanYrs > 3)  { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =      oneYear; }
+        else if (spanYrs > 1)  { xa.labels = { format: '{value:%b %Y}' }; xa.tickInterval = Math.round(oneYear / 2); }
         return xa;
       })(),
       yAxis: {

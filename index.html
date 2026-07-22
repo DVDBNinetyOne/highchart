@@ -4299,6 +4299,8 @@ function applyTheme(key) {
       });
     }
     if (renderCfg.legend) renderCfg.legend.itemStyle = { color: thm.bodyColor, fontWeight: 'normal' };
+    if (!renderCfg.tooltip) renderCfg.tooltip = {};
+    renderCfg.tooltip.outside = true;
     renderCfg.credits = { enabled: false };
     try {
       if (chartInstance) chartInstance.destroy();
@@ -4983,6 +4985,7 @@ function update() {
     },
     tooltip: {
       enabled: s.tooltip,
+      outside: true,
       shared: s.tooltipMode === 'shared',
       valuePrefix: s.ttPrefix || undefined,
       valueSuffix: s.ttSuffix || undefined,
@@ -6030,6 +6033,8 @@ function applyAIConfig(cfg) {
     renderCfg.yAxis.title.style  = { color: thm.bodyColor };
     renderCfg.yAxis.labels = { style: { color: thm.bodyColor } };
     renderCfg.legend = { itemStyle: { color: thm.bodyColor } };
+    if (!renderCfg.tooltip) renderCfg.tooltip = {};
+    renderCfg.tooltip.outside = true;
     renderCfg.credits = { enabled: false };
     if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
     const el = document.getElementById('chart-container');

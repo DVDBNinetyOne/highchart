@@ -6226,9 +6226,9 @@ function applyAIConfig(cfg) {
         const lastTs  = pts?.length ? (Array.isArray(pts[pts.length-1]) ? pts[pts.length-1][0] : pts[pts.length-1]) : null;
         const spanYrs = (firstTs && lastTs) ? (lastTs - firstTs) / oneYear : 0;
         const xa = { type: 'datetime' };
-        if (spanYrs > 30)      { xa.labels = { format: '{value:%Y}' }; xa.tickInterval = 10 * oneYear; }
-        else if (spanYrs > 12) { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =  5 * oneYear; }
-        else if (spanYrs > 5)  { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =  2 * oneYear; }
+        if (spanYrs > 60)      { xa.labels = { format: '{value:%Y}' }; xa.tickInterval = 10 * oneYear; }
+        else if (spanYrs > 25) { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =  5 * oneYear; }
+        else if (spanYrs > 8)  { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =  2 * oneYear; }
         else if (spanYrs > 3)  { xa.labels = { format: '{value:%Y}' }; xa.tickInterval =      oneYear; }
         else if (spanYrs > 1)  { xa.labels = { format: '{value:%b %Y}' }; xa.tickInterval = Math.round(oneYear / 2); }
         return xa;

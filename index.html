@@ -3461,7 +3461,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         </div>
         <div class="field-row">
           <label>Tick interval (yrs)</label>
-          <input class="field-input" id="sb-xtick" placeholder="Auto" type="number" min="1" oninput="onField('xTickInterval',this.value)">
+          <input class="field-input" id="sb-xtick" placeholder="Auto" type="number" step="0.25" min="0.25" oninput="onField('xTickInterval',this.value)">
         </div>
         <div class="field-row">
           <label>Axis type</label>
@@ -5678,9 +5678,14 @@ function _reapplyFromRawConfig() {
       if (state.xRotation != null) { if (!cfg.xAxis.labels) cfg.xAxis.labels = {}; cfg.xAxis.labels.rotation = state.xRotation; cfg.xAxis.labels.style = axStyle; }
       cfg.xAxis.lineWidth = state.xLine ? 1 : 0;
       cfg.xAxis.lineColor = `rgba(${hexToRgb(thm.bodyColor)},0.3)`;
-      if (state.xTickInterval != null)
-        cfg.xAxis.tickInterval = state.xTickInterval * 365.25 * 24 * 3600 * 1000;
-      // else: leave cfg.xAxis.tickInterval from _lastRawConfig (auto-calculated on import)
+      if (state.xTickInterval != null) {
+        const oneYear = 365.25 * 24 * 3600 * 1000;
+        cfg.xAxis.tickInterval = state.xTickInterval * oneYear;
+        // Update label format to match the interval granularity
+        if (!cfg.xAxis.labels) cfg.xAxis.labels = {};
+        cfg.xAxis.labels.format = state.xTickInterval >= 1 ? '{value:%Y}' : '{value:%b %Y}';
+      }
+      // else: leave cfg.xAxis.tickInterval and label format from _lastRawConfig (auto-calculated on import)
     }
 
     // yAxis overrides (min, max, title, scale, gridlines, format, plotLines)

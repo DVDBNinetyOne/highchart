@@ -2750,8 +2750,8 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 .config-url-input.has-url { border-color: #009d80; background: #f0faf7; }
 
 /* Config expand overlay */
-#config-card.expanded { position: fixed; inset: 20px; z-index: 5000; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column; max-height: none; }
-#config-card.expanded .config-card-body { flex: 1; min-height: 0; }
+#config-card.expanded { position: fixed; inset: 20px; z-index: 5000; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column; height: auto; max-height: none; overflow: visible; }
+#config-card.expanded .config-card-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 #config-expand-btn.active { background: #009d80; color: #fff; border-color: #009d80; }
 .config-mode-btn {
   padding: 4px 12px; border-radius: 5px; border: none; background: transparent;
@@ -3067,12 +3067,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <div id="chart-type-bar-wrap">
         <div id="chart-type-bar-header"><span id="chart-type-bar-title"></span></div>
         <div id="chart-type-bar"></div>
-        <!-- Theme in type modal (Part 7) -->
-        <div class="theme-in-modal">
-          <div class="tim-label">Preview Theme</div>
-          <div class="tim-desc">See how your chart looks on each Ninety One page background. Sitecore applies colours automatically.</div>
-          <div class="tim-pills" id="tim-pills"></div>
-        </div>
       </div>
     </div>
     <!-- Panel: Theme Picker -->
@@ -8353,11 +8347,14 @@ function renderRawDataPreview() {
   const numRows     = Math.min(firstSeries.length, MAX_ROWS);
 
   // Build spreadsheet-style header — same visual as renderGrid()
-  let html = '<thead><tr>';
+  const dateCellW = isDatetime ? 'width:140px;' : 'width:200px;';
+  let html = `<colgroup><col style="width:32px"><col style="${dateCellW}">`;
+  series.forEach(() => { html += '<col>'; });
+  html += '</colgroup><thead><tr>';
   html += '<th class="row-num-col"></th>';
-  html += `<th><div class="col-header-wrap"><div class="col-type-badge" style="background:#9c59b6">ABC</div><input class="col-name-input" value="${isDatetime ? 'Date' : 'Category'}" readonly></div></th>`;
+  html += `<th><div class="col-header-wrap"><div class="col-type-badge">ABC</div><input class="col-name-input" value="${isDatetime ? 'Date' : 'Category'}" readonly></div></th>`;
   series.forEach(s => {
-    html += `<th><div class="col-header-wrap"><div class="col-type-badge">123</div><input class="col-name-input" value="${escHtml(s.name || '')}" readonly></div></th>`;
+    html += `<th style="text-align:right"><div class="col-header-wrap" style="justify-content:flex-end"><div class="col-type-badge">123</div><input class="col-name-input" style="text-align:right" value="${escHtml(s.name || '')}" readonly></div></th>`;
   });
   html += '</tr></thead><tbody>';
 

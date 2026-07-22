@@ -3100,7 +3100,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <button class="canvas-tab" id="tab-data" onclick="switchTab('data')">Data</button>
         </div>
         <!-- Edit mode toggle (Part 10) -->
-        <button class="edit-mode-pill" id="edit-mode-pill" onclick="toggleEditMode()" title="Toggle direct edit mode">
+        <button class="edit-mode-pill" id="edit-mode-pill" onclick="toggleEditMode()" title="Toggle direct edit mode" style="display:none">
           ✏️ Edit
         </button>
         <div class="viewport-select-wrap">
@@ -5635,8 +5635,12 @@ function _reapplyFromRawConfig() {
     // Apply theme display colours (not stored in _lastRawConfig)
     if (!cfg.chart) cfg.chart = {};
     cfg.chart.backgroundColor = thm.pageBackground;
-    if (cfg.title)    cfg.title.style    = { color: thm.headingColor };
-    if (cfg.subtitle) cfg.subtitle.style = { color: thm.bodyColor };
+    if (!cfg.title)    cfg.title    = {};
+    if (!cfg.subtitle) cfg.subtitle = {};
+    cfg.title.style    = { color: thm.headingColor };
+    cfg.subtitle.style = { color: thm.bodyColor };
+    if (state.title    != null) cfg.title.text    = state.title    || null;
+    if (state.subtitle != null) cfg.subtitle.text = state.subtitle || null;
     const axStyle = { color: thm.bodyColor };
     if (cfg.xAxis) {
       cfg.xAxis.tickWidth = 0;

@@ -3234,6 +3234,11 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
                 Paste data
               </button>
               <div style="width:1px;height:18px;background:rgba(0,0,0,.12);margin:0 2px"></div>
+              <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="exportGridCsv()" title="Export data as CSV">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+              </button>
+              <div style="width:1px;height:18px;background:rgba(0,0,0,.12);margin:0 2px"></div>
               <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="addSeries()">+ Series</button>
             </div>
           </div>
@@ -3242,6 +3247,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:#f0faf8;border:1px solid #c2e8df;border-radius:6px;font-size:11px">
               <span style="color:#009d80;font-weight:600">Imported data</span>
               <span style="color:#888;flex:1">Read-only — re-import to change data</span>
+              <button onclick="exportGridCsv()" style="font-size:11px;border:1px solid #009d80;background:#fff;border-radius:5px;padding:2px 8px;cursor:pointer;color:#009d80;white-space:nowrap">↓ Export CSV</button>
               <button onclick="clearRawImport()" style="font-size:11px;border:1px solid #ddd;background:#fff;border-radius:5px;padding:2px 8px;cursor:pointer;color:#666;white-space:nowrap">Clear &amp; edit manually</button>
             </div>
           </div>
@@ -4929,6 +4935,12 @@ function schedUpdate() {
 }
 
 function update() {
+  // Raw-config charts (paste/import): sidebar state controls still work via _reapplyFromRawConfig
+  if (_lastRawConfig && state.series.length === 0) {
+    _reapplyFromRawConfig();
+    updateEmptyState();
+    return;
+  }
   updateEmptyState();
   const s = state;
   const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
@@ -5607,11 +5619,39 @@ function _onDragUp() {
 
 function _reapplyFromRawConfig() {
   if (!_lastRawConfig) return;
+  const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
   try {
     if (chartInstance) chartInstance.destroy();
     const el = document.getElementById('chart-container');
     const cfg = JSON.parse(JSON.stringify(_lastRawConfig));
     if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
+    // Apply theme display colours (not stored in _lastRawConfig)
+    if (!cfg.chart) cfg.chart = {};
+    cfg.chart.backgroundColor = thm.pageBackground;
+    if (cfg.title)    cfg.title.style    = { color: thm.headingColor };
+    if (cfg.subtitle) cfg.subtitle.style = { color: thm.bodyColor };
+    const axStyle = { color: thm.bodyColor };
+    if (cfg.xAxis?.labels)   cfg.xAxis.labels.style   = axStyle;
+    if (cfg.xAxis?.title)    cfg.xAxis.title.style    = axStyle;
+    const ya = cfg.yAxis;
+    if (ya) {
+      const axes = Array.isArray(ya) ? ya : [ya];
+      axes.forEach(a => {
+        if (a.labels) a.labels.style = axStyle;
+        if (a.title)  a.title.style  = axStyle;
+      });
+    }
+    // Apply state-level legend/tooltip overrides so sidebar controls work
+    if (!state.legend) {
+      cfg.legend = { enabled: false };
+    } else if (state.legendPos) {
+      const posMap = { bottom: { align:'center', verticalAlign:'bottom' }, top: { align:'center', verticalAlign:'top' }, right: { align:'right', verticalAlign:'middle' } };
+      cfg.legend = { ...(posMap[state.legendPos] || {}), enabled: true, itemStyle: { color: thm.bodyColor, fontWeight: 'normal' } };
+    } else if (cfg.legend) {
+      cfg.legend.itemStyle = { color: thm.bodyColor, fontWeight: 'normal' };
+    }
+    if (!cfg.tooltip) cfg.tooltip = {};
+    cfg.tooltip.outside = true;
     cfg.credits = { enabled: false };
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
     if (!_configEditMode) enterConfigEdit();
@@ -5650,12 +5690,27 @@ function _serializeConfig(obj, depth) {
   return String(obj);
 }
 
+function _cleanConfigForCopy(cfg) {
+  // Strip theme-assigned colours from series — Sitecore injects theme colours automatically.
+  // Only keep colour when the user explicitly overrode it (_colorOverride flag).
+  if (!cfg?.series) return cfg;
+  const out = JSON.parse(JSON.stringify(cfg));
+  out.series.forEach(s => {
+    if (!s._colorOverride) delete s.color;
+    delete s._colorOverride;
+  });
+  return out;
+}
+
 function copyConfig() {
-  // Prefer textarea when the edit panel is open so "what you see is what you copy"
+  // Build clean config: no theme-injected colours, no internal _ keys
+  const srcCfg = _lastRawConfig ? _cleanConfigForCopy(_lastRawConfig) : null;
   const ta = document.getElementById('config-edit-input');
-  const text = (ta && ta.style.display !== 'none' && ta.value.trim())
-    ? ta.value
-    : (_lastRawConfig ? _serializeConfig(_lastRawConfig) : document.getElementById('config-output').innerText);
+  const text = srcCfg
+    ? _serializeConfig(srcCfg)
+    : (ta && ta.style.display !== 'none' && ta.value.trim())
+      ? ta.value
+      : document.getElementById('config-output').innerText;
   navigator.clipboard.writeText(text).then(() => {
     const t = document.getElementById('copy-toast');
     t.classList.add('show');
@@ -8370,16 +8425,45 @@ function testCsvUrl() {
 }
 
 function exportGridCsv() {
+  const chartName = (document.getElementById('chart-name-display')?.textContent || 'chart').replace(/\s+/g, '-').toLowerCase();
+
+  // Raw-config path (datetime / pasted config)
+  if (_lastRawConfig?.series?.length) {
+    const series = _lastRawConfig.series;
+    const isDatetime = _lastRawConfig.xAxis?.type === 'datetime' || Array.isArray(series[0]?.data?.[0]);
+    const headers = [isDatetime ? 'Date' : 'Category', ...series.map(s => s.name || 'Series')];
+    let rows = [];
+    if (isDatetime) {
+      // Collect all unique timestamps across series, sorted
+      const tsSet = new Set();
+      series.forEach(s => s.data.forEach(pt => tsSet.add(Array.isArray(pt) ? pt[0] : pt)));
+      const tsSorted = [...tsSet].sort((a, b) => a - b);
+      rows = tsSorted.map(ts => {
+        const d = new Date(ts);
+        const dateStr = d.toISOString().slice(0, 10); // YYYY-MM-DD for Highcharts csvURL
+        const vals = series.map(s => {
+          const pt = s.data.find(p => (Array.isArray(p) ? p[0] : p) === ts);
+          return pt !== undefined ? (Array.isArray(pt) ? pt[1] : pt) : '';
+        });
+        return [dateStr, ...vals];
+      });
+    } else {
+      const cats = _lastRawConfig.xAxis?.categories || series[0]?.data?.map((_, i) => i) || [];
+      rows = cats.map((cat, i) => [cat, ...series.map(s => s.data[i] !== null && s.data[i] !== undefined ? s.data[i] : '')]);
+    }
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${chartName}-data.csv`; a.click();
+    return;
+  }
+
+  // State-path (editable grid)
   if (!state.categories.length && !state.series.length) { showToast('No data to export'); return; }
   const headers = ['Category', ...state.series.map(s => s.name)];
   const rows = state.categories.map((cat, i) => [cat, ...state.series.map(s => s.data[i] !== null && s.data[i] !== undefined ? s.data[i] : '')]);
   const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const chartName = (document.getElementById('chart-name-display')?.textContent || 'chart').replace(/\s+/g, '-').toLowerCase();
   const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${chartName}-data.csv`;
-  a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${chartName}-data.csv`; a.click();
 }
 
 /* ═══════════════════════════════════════════════════════════════

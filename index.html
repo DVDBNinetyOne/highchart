@@ -4277,7 +4277,10 @@ function applyTheme(key) {
     const colors = thm.chartSeriesColors || N1_PALETTE;
     const newCfg = JSON.parse(JSON.stringify(_lastRawConfig));
     if (Array.isArray(newCfg.series)) {
-      newCfg.series.forEach((s, i) => { s.color = colors[i % colors.length]; });
+      newCfg.series.forEach((s, i) => {
+        // Preserve per-series colour overrides set by the user
+        s.color = s._colorOverride || colors[i % colors.length];
+      });
     }
     _lastRawConfig = newCfg;
 
@@ -4436,6 +4439,41 @@ function renderColourRows() {
   const container = document.getElementById('series-colour-rows');
   if (!container) return;
   const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
+
+  // Raw-config path: state.series empty but _lastRawConfig has series
+  if (state.series.length === 0 && _lastRawConfig?.series?.length) {
+    const rawSeries = _lastRawConfig.series;
+    const themeColors = theme.chartSeriesColors || N1_PALETTE;
+    container.innerHTML = rawSeries.map((s, i) => {
+      const themeCol = themeColors[i % themeColors.length];
+      const isOverride = !!s._colorOverride;
+      const previewCol = isOverride ? s._colorOverride : themeCol;
+      return `
+      <div class="series-colour-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="series-name-label" style="margin-bottom:0">${escHtml(s.name || 'Series ' + (i+1))}</div>
+          ${isOverride
+            ? `<button onclick="clearRawSeriesColour(${i})" style="font-size:10px;color:#009d80;background:none;border:none;cursor:pointer;padding:0;font-family:inherit">✕ Clear override</button>`
+            : `<span style="font-size:10px;color:#888;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${themeCol};display:inline-block"></span>Theme colour</span>`
+          }
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="colour-swatches">
+            ${N1_PALETTE.map(c => `<div class="colour-swatch${isOverride&&s._colorOverride===c?' selected':''}" style="background:${c}" onclick="setRawSeriesColour(${i},'${c}')" title="${c}"></div>`).join('')}
+          </div>
+          <input class="hex-input" value="${isOverride?s._colorOverride:''}" maxlength="7" placeholder="${themeCol}" onchange="setRawSeriesColour(${i},this.value)">
+        </div>
+      </div>`;
+    }).join('');
+    const rpCount = document.getElementById('rp-series-count');
+    if (rpCount) rpCount.textContent = `${rawSeries.length} series`;
+    container.querySelectorAll('.series-colour-section').forEach((sec, i) => {
+      sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
+      sec.addEventListener('mouseleave', () => clearChartHighlight());
+    });
+    return;
+  }
+
   if (state.series.length === 0) {
     const swatches = (theme.chartSeriesColors || N1_PALETTE).slice(0, 6).map(c =>
       `<div style="width:22px;height:22px;border-radius:4px;background:${c};flex-shrink:0" title="${c}"></div>`
@@ -4498,6 +4536,26 @@ function clearSeriesColour(i) {
   renderColourRows();
   checkColourOverrides();
   schedUpdate(); persist();
+}
+
+function setRawSeriesColour(i, colour) {
+  if (!colour || colour.length < 4) return;
+  if (!_lastRawConfig?.series?.[i]) return;
+  _lastRawConfig.series[i]._colorOverride = colour;
+  _lastRawConfig.series[i].color = colour;
+  renderColourRows();
+  _reapplyFromRawConfig();
+}
+
+function clearRawSeriesColour(i) {
+  if (!_lastRawConfig?.series?.[i]) return;
+  delete _lastRawConfig.series[i]._colorOverride;
+  // Reset to theme colour
+  const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
+  const themeColors = theme.chartSeriesColors || N1_PALETTE;
+  _lastRawConfig.series[i].color = themeColors[i % themeColors.length];
+  renderColourRows();
+  _reapplyFromRawConfig();
 }
 
 /* ═══════════════════════════════════════════
@@ -5367,6 +5425,8 @@ function applyConfigEdit() {
     const bar = document.getElementById('drag-mode-bar');
     if (bar) bar.style.display = isXY ? 'flex' : 'none';
     if (_dragMode) { _dragMode = false; _updateDragBtn(); }
+    renderColourRows();
+    updateEmptyState();
   } catch(e) {
     msg.textContent = '⚠ Highcharts error: ' + e.message;
     msg.style.color = '#d83949';
@@ -6045,6 +6105,7 @@ function applyAIConfig(cfg) {
     if (!_configEditMode) enterConfigEdit();
     const ta = document.getElementById('config-edit-input');
     if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    renderColourRows();
     updateEmptyState();
     return;
   }

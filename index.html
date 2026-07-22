@@ -3243,13 +3243,13 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
               <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="addSeries()">+ Series</button>
             </div>
           </div>
-          <!-- Raw config data preview — shown when a datetime/raw import is active -->
-          <div id="raw-data-preview" style="display:none;padding:12px 16px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <div style="font-size:11px;font-weight:600;color:#555">Imported data preview <span style="font-weight:400;color:#aaa">(read-only — re-import to change)</span></div>
-              <button onclick="clearRawImport()" style="font-size:11px;border:1px solid #ddd;background:#fff;border-radius:5px;padding:3px 8px;cursor:pointer;color:#888">Clear & edit manually</button>
+          <!-- Notice bar shown when a datetime/raw import is active (grid always shows below) -->
+          <div id="raw-import-notice" style="display:none;padding:0 16px 8px">
+            <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;background:#f0faf8;border:1px solid #c2e8df;border-radius:6px;font-size:11px">
+              <span style="color:#009d80;font-weight:600">Imported data</span>
+              <span style="color:#888;flex:1">Read-only — re-import to change data</span>
+              <button onclick="clearRawImport()" style="font-size:11px;border:1px solid #ddd;background:#fff;border-radius:5px;padding:2px 8px;cursor:pointer;color:#666;white-space:nowrap">Clear &amp; edit manually</button>
             </div>
-            <div id="raw-data-table" style="overflow:auto;max-height:340px;border:1px solid #e8e8e8;border-radius:6px"></div>
           </div>
           <div class="spreadsheet-card" id="spreadsheet-card-wrap">
             <table id="data-grid"></table>
@@ -3704,7 +3704,7 @@ const N1_THEMES = {
     primaryColor: '#e8e5ce', pageBackground: '#e8e5ce', contentBackground: '#eeebda',
     headingColor: '#009d80', bodyColor: '#164848', accentColor: '#009d80',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#009d80','#7ab5b5','#fbaa96','#fcaa28','#4f6266'],
+    chartSeriesColors: ['#009d80','#164848','#7ab5b5','#fbaa96','#fcaa28','#4f6266'],
     previewBg: '#e8e5ce', previewText: '#164848',
   },
   'springbok-cream_pinotage-burgundy': {
@@ -3712,7 +3712,7 @@ const N1_THEMES = {
     primaryColor: '#e8e5ce', pageBackground: '#e8e5ce', contentBackground: '#eeebda',
     headingColor: '#571b39', bodyColor: '#164848', accentColor: '#571b39',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#571b39','#009d80','#7ab5b5','#fbaa96','#4f6266'],
+    chartSeriesColors: ['#571b39','#164848','#009d80','#7ab5b5','#fbaa96','#4f6266'],
     previewBg: '#e8e5ce', previewText: '#164848',
   },
   'springbok-cream_protea-red': {
@@ -3720,7 +3720,7 @@ const N1_THEMES = {
     primaryColor: '#e8e5ce', pageBackground: '#e8e5ce', contentBackground: '#eeebda',
     headingColor: '#d83949', bodyColor: '#164848', accentColor: '#d83949',
     chartBackground: 'transparent',
-    chartSeriesColors: ['#164848','#d83949','#009d80','#7ab5b5','#fbaa96','#4f6266'],
+    chartSeriesColors: ['#d83949','#164848','#009d80','#7ab5b5','#fbaa96','#4f6266'],
     previewBg: '#e8e5ce', previewText: '#164848',
   },
   // ── Agulhas Indigo primary (#221b3b) ──
@@ -4276,28 +4276,38 @@ function applyTheme(key) {
 
   if (_lastRawConfig) {
     // Chart was built from a raw config (datetime import or pasted config).
-    // Re-inject theme colors directly into the config and re-render.
+    // Update _lastRawConfig with ONLY series colors (these belong in the output config).
+    // All display-only properties (background, text colors) go into a separate renderCfg
+    // so they never pollute the config the user copies into Sitecore.
     const thm = N1_THEMES[selectedTheme];
     const colors = thm.chartSeriesColors || N1_PALETTE;
     const newCfg = JSON.parse(JSON.stringify(_lastRawConfig));
-    if (newCfg.chart) newCfg.chart.backgroundColor = thm.chartBackground || 'transparent';
-    const ts = { color: thm.bodyColor };
-    const hs = { color: thm.headingColor };
-    if (newCfg.title?.style)              newCfg.title.style = hs;
-    if (newCfg.subtitle?.style)           newCfg.subtitle.style = ts;
-    if (newCfg.xAxis?.labels?.style)      newCfg.xAxis.labels.style = ts;
-    if (newCfg.xAxis?.title?.style)       newCfg.xAxis.title.style = ts;
-    if (newCfg.yAxis?.labels?.style)      newCfg.yAxis.labels.style = ts;
-    if (newCfg.yAxis?.title?.style)       newCfg.yAxis.title.style = ts;
-    if (newCfg.legend?.itemStyle)         newCfg.legend.itemStyle = ts;
     if (Array.isArray(newCfg.series)) {
       newCfg.series.forEach((s, i) => { s.color = colors[i % colors.length]; });
     }
     _lastRawConfig = newCfg;
+
+    // Build render-only config with theme display colors (not stored, not output)
+    const renderCfg = JSON.parse(JSON.stringify(newCfg));
+    if (!renderCfg.chart) renderCfg.chart = {};
+    renderCfg.chart.backgroundColor = thm.pageBackground;
+    if (renderCfg.title)    renderCfg.title.style    = { color: thm.headingColor };
+    if (renderCfg.subtitle) renderCfg.subtitle.style = { color: thm.bodyColor };
+    const axisTextStyle = { color: thm.bodyColor };
+    if (renderCfg.xAxis?.labels)     renderCfg.xAxis.labels.style     = axisTextStyle;
+    if (renderCfg.xAxis?.title)      renderCfg.xAxis.title.style      = axisTextStyle;
+    const ya = renderCfg.yAxis;
+    if (ya) {
+      const axes = Array.isArray(ya) ? ya : [ya];
+      axes.forEach(a => {
+        if (a.labels) a.labels.style = axisTextStyle;
+        if (a.title)  a.title.style  = axisTextStyle;
+      });
+    }
+    if (renderCfg.legend) renderCfg.legend.itemStyle = { color: thm.bodyColor, fontWeight: 'normal' };
+    renderCfg.credits = { enabled: false };
     try {
       if (chartInstance) chartInstance.destroy();
-      const renderCfg = JSON.parse(JSON.stringify(newCfg));
-      renderCfg.credits = { enabled: false };
       chartInstance = window.chartInstance = Highcharts.chart('chart-container', renderCfg);
     } catch(e) {}
     const ta = document.getElementById('config-edit-input');
@@ -4868,7 +4878,7 @@ function update() {
   updateEmptyState();
   const s = state;
   const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
-  const bg = theme.chartBackground || 'transparent';
+  const bg = theme.pageBackground;
   const textCol = theme.bodyColor;
   const headCol = theme.headingColor;
   const gridCol = `rgba(${hexToRgb(theme.bodyColor)},0.12)`;
@@ -5689,7 +5699,8 @@ function renderWizardStep() {
     const bannerColor = src === 'pptx' ? '#009d80' : src === 'ai' ? '#1a5c9a' : src === 'paste' ? '#164848' : src === 'xlsx' ? '#1d6a3e' : src === 'csv' ? '#2a7a4b' : '#c07000';
     const bannerLabel = src === 'pptx' ? 'Exact data from PPTX' : src === 'ai' ? 'AI Vision result' : src === 'paste' ? 'Parsed from pasted config' : src === 'xlsx' ? 'Parsed from Excel file' : src === 'csv' ? 'Parsed from CSV file' : 'Example data (mock)';
 
-    const isDatetime = cfg.xAxisType === 'datetime';
+    const isDatetime = cfg.xAxisType === 'datetime'
+                    || Array.isArray(cfg.series?.[0]?.data?.[0]);
     const totalPoints = isDatetime ? (cfg.series?.[0]?.data?.length || 0) : (cfg.categories?.length || 0);
     const summaryText = isDatetime
       ? `Extracted ${cfg.series ? cfg.series.length : 0} series, ${totalPoints.toLocaleString()} data points (time series).`
@@ -5988,41 +5999,48 @@ function applyAIConfig(cfg) {
   if (!cfg) return;
 
   // Datetime CSV import — bypass state machine, build a raw config directly
-  if (cfg.xAxisType === 'datetime' && cfg.series?.length) {
+  if ((cfg.xAxisType === 'datetime' || Array.isArray(cfg.series?.[0]?.data?.[0])) && cfg.series?.length) {
     const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
     const seriesColors = thm.chartSeriesColors || N1_PALETTE;
-    const rawCfg = {
-      chart: { type: 'line', height: 500, backgroundColor: thm.chartBackground || 'transparent' },
-      title:    { text: cfg.title    || '', style: { color: thm.headingColor } },
-      subtitle: { text: cfg.subtitle || '', style: { color: thm.bodyColor } },
+    // _lastRawConfig: clean output config — no theme display colours (Sitecore injects those)
+    const cleanCfg = {
+      chart: { type: 'line', height: 500 },
+      title:    { text: cfg.title    || '' },
+      subtitle: { text: cfg.subtitle || '' },
       xAxis: {
         type: 'datetime',
-        labels: { format: '{value:%Y}', style: { color: thm.bodyColor } },
+        labels: { format: '{value:%Y}' },
         tickInterval: 5 * 365.25 * 24 * 3600 * 1000,
-        lineColor: thm.bodyColor,
-        tickColor: thm.bodyColor
       },
       yAxis: {
-        title: { text: cfg.yTitle || '', style: { color: thm.bodyColor } },
-        labels: { style: { color: thm.bodyColor } },
-        gridLineWidth: 1
+        title: { text: cfg.yTitle || '' },
+        gridLineWidth: 1,
       },
-      legend: { itemStyle: { color: thm.bodyColor } },
       plotOptions: {
         line: { marker: { enabled: false }, turboThreshold: 15000 }
       },
       series: cfg.series.map((s, i) => ({
         name: s.name,
         color: seriesColors[i % seriesColors.length],
-        data: s.data
-      }))
+        data: s.data,
+      })),
     };
-    _lastRawConfig = JSON.parse(JSON.stringify(rawCfg));
-    rawCfg.credits = { enabled: false };
+    _lastRawConfig = JSON.parse(JSON.stringify(cleanCfg));
+    // renderCfg: display-only version with theme preview colours
+    const renderCfg = JSON.parse(JSON.stringify(cleanCfg));
+    renderCfg.chart.backgroundColor = thm.pageBackground;
+    renderCfg.title.style    = { color: thm.headingColor };
+    renderCfg.subtitle.style = { color: thm.bodyColor };
+    renderCfg.xAxis.labels.style = { color: thm.bodyColor };
+    renderCfg.xAxis.lineColor = renderCfg.xAxis.tickColor = thm.bodyColor;
+    renderCfg.yAxis.title.style  = { color: thm.bodyColor };
+    renderCfg.yAxis.labels = { style: { color: thm.bodyColor } };
+    renderCfg.legend = { itemStyle: { color: thm.bodyColor } };
+    renderCfg.credits = { enabled: false };
     if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
     const el = document.getElementById('chart-container');
     if (el) el.style.height = '500px';
-    chartInstance = window.chartInstance = Highcharts.chart('chart-container', rawCfg);
+    chartInstance = window.chartInstance = Highcharts.chart('chart-container', renderCfg);
     const bar = document.getElementById('drag-mode-bar');
     if (bar) bar.style.display = 'none';
     if (!_configEditMode) enterConfigEdit();
@@ -6324,14 +6342,26 @@ function parseCSV(text) {
   const headers = lines[0];
   const dataRows = lines.slice(1).filter(r => (r[0] || '').trim());
 
-  // Detect M/D/YYYY or MM/DD/YYYY date column → produce datetime [ts, value] pairs
-  const dateRe = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+  // Detect date-formatted first column → produce datetime [ts, value] pairs
+  // Supports: M/D/YYYY, MM/DD/YYYY, YYYY-MM-DD, D Mon YYYY, Mon D YYYY
+  const usDateRe  = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
+  const isoDateRe = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/;
+  const txtDateRe = /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$|^[A-Za-z]{3}\s+\d{1,2}\s+\d{4}$/;
   const sample = dataRows.slice(0, 5).map(r => (r[0] || '').trim());
-  if (sample.length && sample.every(v => dateRe.test(v))) {
+  const isUsDate  = sample.length && sample.every(v => usDateRe.test(v));
+  const isIsoDate = sample.length && sample.every(v => isoDateRe.test(v));
+  const isTxtDate = sample.length && sample.every(v => txtDateRe.test(v));
+  if (isUsDate || isIsoDate || isTxtDate) {
     const series = headers.slice(1).map(h => ({ name: h.trim(), data: [] }));
     dataRows.forEach(row => {
-      const parts = row[0].split('/').map(Number); // [m, d, y]
-      const ts = Date.UTC(parts[2], parts[0] - 1, parts[1]);
+      let ts;
+      if (isUsDate) {
+        const parts = row[0].split('/').map(Number); // [m, d, y]
+        ts = Date.UTC(parts[2], parts[0] - 1, parts[1]);
+      } else {
+        ts = new Date(row[0]).getTime();
+      }
+      if (isNaN(ts)) return;
       series.forEach((s, i) => {
         const v = parseFloat(row[i + 1]);
         if (!isNaN(v)) s.data.push([ts, v]);
@@ -8296,59 +8326,67 @@ function exportGridCsv() {
    RAW DATA PREVIEW (datetime / raw config imports)
 ═══════════════════════════════════════════════════════════════ */
 function renderRawDataPreview() {
-  const wrap = document.getElementById('raw-data-preview');
-  const tableEl = document.getElementById('raw-data-table');
+  const notice   = document.getElementById('raw-import-notice');
   const gridWrap = document.getElementById('spreadsheet-card-wrap');
-  const toolbar = document.querySelector('.data-toolbar');
+  const toolbar  = document.querySelector('.data-toolbar');
+  const table    = document.getElementById('data-grid');
 
   if (!_lastRawConfig || !_lastRawConfig.series?.length) {
-    if (wrap) wrap.style.display = 'none';
+    if (notice)   notice.style.display   = 'none';
     if (gridWrap) gridWrap.style.display = '';
-    if (toolbar) toolbar.style.display = '';
+    if (toolbar)  toolbar.style.display  = '';
     return;
   }
 
-  // Hide the editable grid and toolbar — show the read-only preview instead
-  if (gridWrap) gridWrap.style.display = 'none';
-  if (toolbar) toolbar.style.display = 'none';
-  if (wrap) wrap.style.display = 'block';
+  // Show notice + main spreadsheet grid; hide the editable toolbar buttons
+  if (notice)   notice.style.display   = '';
+  if (gridWrap) gridWrap.style.display = '';
+  if (toolbar)  toolbar.style.display  = 'none';
 
-  const series = _lastRawConfig.series;
-  const isDatetime = _lastRawConfig.xAxis?.type === 'datetime';
-  const MAX_ROWS = 200;
+  if (!table) return;
 
-  // Build headers
-  let headers = isDatetime ? '<th style="background:#fafafa;padding:6px 10px;border:1px solid #e8e8e8;text-align:left;font-size:12px;position:sticky;top:0">Date</th>'
-                           : '<th style="background:#fafafa;padding:6px 10px;border:1px solid #e8e8e8;text-align:left;font-size:12px;position:sticky;top:0">Category</th>';
-  series.forEach(s => {
-    headers += `<th style="background:#fafafa;padding:6px 10px;border:1px solid #e8e8e8;font-size:12px;position:sticky;top:0">${escHtml(s.name || '')}</th>`;
-  });
-
-  // Build rows
+  const series     = _lastRawConfig.series;
+  const isDatetime = _lastRawConfig.xAxis?.type === 'datetime'
+                  || Array.isArray(series[0]?.data?.[0]);
   const firstSeries = series[0]?.data || [];
-  const numRows = Math.min(firstSeries.length, MAX_ROWS);
-  let rows = '';
+  const MAX_ROWS    = 200;
+  const numRows     = Math.min(firstSeries.length, MAX_ROWS);
+
+  // Build spreadsheet-style header — same visual as renderGrid()
+  let html = '<thead><tr>';
+  html += '<th class="row-num-col"></th>';
+  html += `<th><div class="col-header-wrap"><div class="col-type-badge" style="background:#9c59b6">ABC</div><input class="col-name-input" value="${isDatetime ? 'Date' : 'Category'}" readonly></div></th>`;
+  series.forEach(s => {
+    html += `<th><div class="col-header-wrap"><div class="col-type-badge">123</div><input class="col-name-input" value="${escHtml(s.name || '')}" readonly></div></th>`;
+  });
+  html += '</tr></thead><tbody>';
+
   for (let r = 0; r < numRows; r++) {
     const pt = firstSeries[r];
     let label;
     if (isDatetime) {
-      const ts = Array.isArray(pt) ? pt[0] : (typeof pt === 'object' && pt !== null ? pt.x : pt);
-      label = ts ? new Date(ts).toLocaleDateString('en-GB', {year:'numeric', month:'short', day:'numeric'}) : r;
+      const ts = Array.isArray(pt) ? pt[0] : (pt?.x ?? r);
+      label = ts ? new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : String(r + 1);
     } else {
-      label = (_lastRawConfig.xAxis?.categories || [])[r] ?? r + 1;
+      label = (_lastRawConfig.xAxis?.categories || [])[r] ?? String(r + 1);
     }
 
-    const cells = series.map(s => {
+    html += `<tr>`;
+    html += `<td class="row-num-col"><span>${r + 1}</span></td>`;
+    html += `<td><input value="${escHtml(String(label))}" readonly style="cursor:default;color:#555"></td>`;
+    series.forEach(s => {
       const d = s.data[r];
       const v = Array.isArray(d) ? d[1] : (typeof d === 'object' && d !== null ? d.y : d);
-      return `<td style="border:1px solid #e8e8e8;padding:5px 10px;text-align:right;font-size:12px">${v != null ? v : ''}</td>`;
-    }).join('');
-    rows += `<tr><td style="border:1px solid #e8e8e8;padding:5px 10px;font-size:12px;color:#555">${label}</td>${cells}</tr>`;
+      html += `<td><input type="text" value="${v != null ? v : ''}" readonly style="text-align:right;cursor:default"></td>`;
+    });
+    html += `</tr>`;
   }
-  const truncNote = firstSeries.length > MAX_ROWS
-    ? `<div style="font-size:11px;color:#aaa;padding:6px 10px">Showing first ${MAX_ROWS} of ${firstSeries.length.toLocaleString()} rows</div>` : '';
 
-  if (tableEl) tableEl.innerHTML = `<table style="border-collapse:collapse;width:100%"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>${truncNote}`;
+  if (firstSeries.length > MAX_ROWS) {
+    html += `<tr><td colspan="${series.length + 2}" class="add-row-cell" style="cursor:default;pointer-events:none;color:#aaa">Showing first ${MAX_ROWS} of ${firstSeries.length.toLocaleString()} rows</td></tr>`;
+  }
+  html += '</tbody>';
+  table.innerHTML = html;
 }
 
 function clearRawImport() {

@@ -3044,10 +3044,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="21" x2="21" y2="21"/><line x1="3" y1="3" x2="3" y2="21"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="13" cy="10" r="1.5" fill="currentColor"/><circle cx="18" cy="6" r="1.5" fill="currentColor"/></svg>
       Axes
     </button>
-    <button class="rail-btn" id="rail-theme" onclick="railSelect('theme')" title="Style &amp; theme">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg>
-      Style
-    </button>
     <div class="rail-spacer"></div>
     <div class="rail-sep"></div>
     <button class="rail-btn" id="rail-library" onclick="railSelect('library')" title="Chart library">
@@ -3082,11 +3078,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <button class="lib-save-btn" onclick="saveCurrentChart()">Save</button>
       </div>
       <div id="flyout-library-content"></div>
-    </div>
-    <!-- Panel: Theme Picker -->
-    <div id="flyout-panel-theme" class="flyout-panel" style="display:none">
-      <div class="flyout-theme-hint">Colours applied by Sitecore</div>
-      <div id="flyout-theme-chips"></div>
     </div>
   </div>
 
@@ -3967,10 +3958,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (ca) cmsAvailability = JSON.parse(ca);
   } catch(e) {}
 
-  try {
-    const savedTheme = localStorage.getItem('n1_selected_theme');
-    if (savedTheme && N1_THEMES[savedTheme]) selectedTheme = savedTheme;
-  } catch(e) {}
+  // Theme is always Springbok Cream + Ocean Teal on fresh load; follows saved chart when loading one
 
   // Ensure loaded series have colorOverride flag
   state.series.forEach(sr => { if (sr.colorOverride === undefined) sr.colorOverride = false; });
@@ -4263,7 +4251,6 @@ function applyThemeCss(key) {
 function applyTheme(key) {
   if (!N1_THEMES[key]) return;
   selectedTheme = key;
-  try { localStorage.setItem('n1_selected_theme', key); } catch(e) {}
   state.series.forEach(sr => { sr.colorOverride = false; });
   overrideWarningDismissed = false;
   applyThemeCss(key);
@@ -7561,11 +7548,6 @@ function railSelect(panel) {
     hideAll();
     if (typePanel)  typePanel.style.display  = 'flex';
     if (flyoutTitle) flyoutTitle.textContent = 'Chart type';
-  } else if (panel === 'theme') {
-    hideAll();
-    if (themePanel) themePanel.style.display = 'flex';
-    if (flyoutTitle) flyoutTitle.textContent = 'Theme';
-    renderFlyoutThemeChips();
   } else if (panel === 'library') {
     hideAll();
     if (libPanel)   libPanel.style.display   = 'flex';

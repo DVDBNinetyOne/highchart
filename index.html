@@ -4026,7 +4026,7 @@ function switchTab(tab) {
   document.getElementById('data-tab-content').style.display = isPreview ? 'none' : 'flex';
   document.getElementById('tab-preview').classList.toggle('active', isPreview);
   document.getElementById('tab-data').classList.toggle('active', !isPreview);
-  if (!isPreview) renderGrid();
+  if (!isPreview) { renderGrid(); renderRawDataPreview(); }
 }
 
 /* ═══════════════════════════════════════════

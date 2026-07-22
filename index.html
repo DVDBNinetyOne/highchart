@@ -3243,6 +3243,14 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
               <button class="btn-topbar btn-topbar-ghost" style="height:28px;font-size:11px" onclick="addSeries()">+ Series</button>
             </div>
           </div>
+          <!-- Raw config data preview — shown when a datetime/raw import is active -->
+          <div id="raw-data-preview" style="display:none;padding:12px 16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:11px;font-weight:600;color:#555">Imported data preview <span style="font-weight:400;color:#aaa">(read-only — re-import to change)</span></div>
+              <button onclick="clearRawImport()" style="font-size:11px;border:1px solid #ddd;background:#fff;border-radius:5px;padding:3px 8px;cursor:pointer;color:#888">Clear & edit manually</button>
+            </div>
+            <div id="raw-data-table" style="overflow:auto;max-height:340px;border:1px solid #e8e8e8;border-radius:6px"></div>
+          </div>
           <div class="spreadsheet-card" id="spreadsheet-card-wrap">
             <table id="data-grid"></table>
           </div>
@@ -5712,21 +5720,31 @@ function renderWizardStep() {
           </table>
         </div>${truncNote}`;
     } else {
+      // Use categories if present, otherwise fall back to row numbers
+      const cats = cfg.categories || [];
+      const rowCount = cats.length || Math.max(...(cfg.series||[]).map(s => s.data?.length || 0), 0);
+      const PREVIEW_ROWS = 50;
+      const rowsToShow = Math.min(rowCount, PREVIEW_ROWS);
+      let bodyHtml = '';
+      for (let i = 0; i < rowsToShow; i++) {
+        const catCell = cats[i] !== undefined ? escHtml(cats[i]) : (i + 1);
+        const dataCells = (cfg.series||[]).map(s => {
+          const v = s.data && s.data[i] !== null && s.data[i] !== undefined ? s.data[i] : '';
+          return `<td style="border:1px solid #e8e8e8;padding:6px 8px;text-align:right">${v}</td>`;
+        }).join('');
+        bodyHtml += `<tr><td style="border:1px solid #e8e8e8;padding:6px 8px">${catCell}</td>${dataCells}</tr>`;
+      }
+      const truncNote = rowCount > PREVIEW_ROWS ? `<div style="font-size:11px;color:#999;padding:4px 0">Showing first ${PREVIEW_ROWS} of ${rowCount} rows</div>` : '';
       tableHtml = `
         <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
           <table style="border-collapse:collapse;width:100%;font-size:12px">
             <thead><tr>
-              <th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px;text-align:left">Category</th>
+              <th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px;text-align:left">${cats.length ? 'Category' : '#'}</th>
               ${(cfg.series||[]).map(s=>`<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 8px">${escHtml(s.name||'')}</th>`).join('')}
             </tr></thead>
-            <tbody>
-              ${(cfg.categories||[]).map((cat,i)=>`<tr>
-                <td style="border:1px solid #e8e8e8;padding:6px 8px">${escHtml(cat)}</td>
-                ${(cfg.series||[]).map(s=>`<td style="border:1px solid #e8e8e8;padding:6px 8px;text-align:right">${s.data&&s.data[i]!=null?s.data[i]:''}</td>`).join('')}
-              </tr>`).join('')}
-            </tbody>
+            <tbody>${bodyHtml}</tbody>
           </table>
-        </div>`;
+        </div>${truncNote}`;
     }
 
     body.innerHTML = `
@@ -5944,7 +5962,7 @@ async function applyAndFinish() {
       dismissBanner();
       closeImportWizard();
       switchTab('preview');
-      showToast('Time series data applied');
+      showToast('Time series data applied — click Data tab to preview values');
       return;
     }
     if (dataFile.categories) cfg.categories = dataFile.categories;
@@ -6953,7 +6971,10 @@ function switchTab(tab) {
   document.getElementById('data-tab-content').style.display = isData ? 'block' : 'none';
   document.getElementById('tab-preview').classList.toggle('active', !isData);
   document.getElementById('tab-data').classList.toggle('active', isData);
-  if (isData) renderGrid();
+  if (isData) {
+    renderRawDataPreview();
+    if (!_lastRawConfig) renderGrid();
+  }
 }
 
 function startBlankDataEntry() {
@@ -8269,6 +8290,76 @@ function exportGridCsv() {
   a.href = URL.createObjectURL(blob);
   a.download = `${chartName}-data.csv`;
   a.click();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RAW DATA PREVIEW (datetime / raw config imports)
+═══════════════════════════════════════════════════════════════ */
+function renderRawDataPreview() {
+  const wrap = document.getElementById('raw-data-preview');
+  const tableEl = document.getElementById('raw-data-table');
+  const gridWrap = document.getElementById('spreadsheet-card-wrap');
+  const toolbar = document.querySelector('.data-toolbar');
+
+  if (!_lastRawConfig || !_lastRawConfig.series?.length) {
+    if (wrap) wrap.style.display = 'none';
+    if (gridWrap) gridWrap.style.display = '';
+    if (toolbar) toolbar.style.display = '';
+    return;
+  }
+
+  // Hide the editable grid and toolbar — show the read-only preview instead
+  if (gridWrap) gridWrap.style.display = 'none';
+  if (toolbar) toolbar.style.display = 'none';
+  if (wrap) wrap.style.display = 'block';
+
+  const series = _lastRawConfig.series;
+  const isDatetime = _lastRawConfig.xAxis?.type === 'datetime';
+  const MAX_ROWS = 200;
+
+  // Build headers
+  let headers = isDatetime ? '<th style="background:#fafafa;padding:6px 10px;border:1px solid #e8e8e8;text-align:left;font-size:12px;position:sticky;top:0">Date</th>'
+                           : '<th style="background:#fafafa;padding:6px 10px;border:1px solid #e8e8e8;text-align:left;font-size:12px;position:sticky;top:0">Category</th>';
+  series.forEach(s => {
+    headers += `<th style="background:#fafafa;padding:6px 10px;border:1px solid #e8e8e8;font-size:12px;position:sticky;top:0">${escHtml(s.name || '')}</th>`;
+  });
+
+  // Build rows
+  const firstSeries = series[0]?.data || [];
+  const numRows = Math.min(firstSeries.length, MAX_ROWS);
+  let rows = '';
+  for (let r = 0; r < numRows; r++) {
+    const pt = firstSeries[r];
+    let label;
+    if (isDatetime) {
+      const ts = Array.isArray(pt) ? pt[0] : (typeof pt === 'object' && pt !== null ? pt.x : pt);
+      label = ts ? new Date(ts).toLocaleDateString('en-GB', {year:'numeric', month:'short', day:'numeric'}) : r;
+    } else {
+      label = (_lastRawConfig.xAxis?.categories || [])[r] ?? r + 1;
+    }
+
+    const cells = series.map(s => {
+      const d = s.data[r];
+      const v = Array.isArray(d) ? d[1] : (typeof d === 'object' && d !== null ? d.y : d);
+      return `<td style="border:1px solid #e8e8e8;padding:5px 10px;text-align:right;font-size:12px">${v != null ? v : ''}</td>`;
+    }).join('');
+    rows += `<tr><td style="border:1px solid #e8e8e8;padding:5px 10px;font-size:12px;color:#555">${label}</td>${cells}</tr>`;
+  }
+  const truncNote = firstSeries.length > MAX_ROWS
+    ? `<div style="font-size:11px;color:#aaa;padding:6px 10px">Showing first ${MAX_ROWS} of ${firstSeries.length.toLocaleString()} rows</div>` : '';
+
+  if (tableEl) tableEl.innerHTML = `<table style="border-collapse:collapse;width:100%"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>${truncNote}`;
+}
+
+function clearRawImport() {
+  if (!confirm('This will clear the imported chart and let you start fresh with the editable grid. Continue?')) return;
+  _lastRawConfig = null;
+  state.series = []; state.categories = [];
+  renderRawDataPreview();
+  renderColourRows();
+  renderGrid();
+  schedUpdate();
+  updateEmptyState();
 }
 
 /* ═══════════════════════════════════════════════════════════════

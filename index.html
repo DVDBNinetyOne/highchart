@@ -4283,48 +4283,16 @@ function applyTheme(key) {
   checkColourOverrides();
 
   if (_lastRawConfig) {
-    // Chart was built from a raw config (datetime import or pasted config).
-    // Update _lastRawConfig with ONLY series colors (these belong in the output config).
-    // All display-only properties (background, text colors) go into a separate renderCfg
-    // so they never pollute the config the user copies into Sitecore.
+    // Update series colours in _lastRawConfig (these belong in the output config)
     const thm = N1_THEMES[selectedTheme];
     const colors = thm.chartSeriesColors || N1_PALETTE;
-    const newCfg = JSON.parse(JSON.stringify(_lastRawConfig));
-    if (Array.isArray(newCfg.series)) {
-      newCfg.series.forEach((s, i) => {
-        // Preserve per-series colour overrides set by the user
+    if (Array.isArray(_lastRawConfig.series)) {
+      _lastRawConfig.series.forEach((s, i) => {
         s.color = s._colorOverride || colors[i % colors.length];
       });
     }
-    _lastRawConfig = newCfg;
-
-    // Build render-only config with theme display colors (not stored, not output)
-    const renderCfg = JSON.parse(JSON.stringify(newCfg));
-    if (!renderCfg.chart) renderCfg.chart = {};
-    renderCfg.chart.backgroundColor = thm.pageBackground;
-    if (renderCfg.title)    renderCfg.title.style    = { color: thm.headingColor };
-    if (renderCfg.subtitle) renderCfg.subtitle.style = { color: thm.bodyColor };
-    const axisTextStyle = { color: thm.bodyColor };
-    if (renderCfg.xAxis?.labels)     renderCfg.xAxis.labels.style     = axisTextStyle;
-    if (renderCfg.xAxis?.title)      renderCfg.xAxis.title.style      = axisTextStyle;
-    const ya = renderCfg.yAxis;
-    if (ya) {
-      const axes = Array.isArray(ya) ? ya : [ya];
-      axes.forEach(a => {
-        if (a.labels) a.labels.style = axisTextStyle;
-        if (a.title)  a.title.style  = axisTextStyle;
-      });
-    }
-    if (renderCfg.legend) renderCfg.legend.itemStyle = { color: thm.bodyColor, fontWeight: 'normal' };
-    if (!renderCfg.tooltip) renderCfg.tooltip = {};
-    renderCfg.tooltip.outside = true;
-    renderCfg.credits = { enabled: false };
-    try {
-      if (chartInstance) chartInstance.destroy();
-      chartInstance = window.chartInstance = Highcharts.chart('chart-container', renderCfg);
-    } catch(e) {}
-    const ta = document.getElementById('config-edit-input');
-    if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    // Re-render via the single source of truth so all state overrides apply
+    _reapplyFromRawConfig();
   } else {
     schedUpdate();
   }
@@ -5670,15 +5638,17 @@ function _reapplyFromRawConfig() {
     if (cfg.title)    cfg.title.style    = { color: thm.headingColor };
     if (cfg.subtitle) cfg.subtitle.style = { color: thm.bodyColor };
     const axStyle = { color: thm.bodyColor };
-    if (cfg.xAxis?.labels)   cfg.xAxis.labels.style   = axStyle;
-    if (cfg.xAxis?.title)    cfg.xAxis.title.style    = axStyle;
-    if (cfg.xAxis)           cfg.xAxis.tickWidth      = 0;
+    if (cfg.xAxis) {
+      cfg.xAxis.tickWidth = 0;
+      cfg.xAxis.labels = { ...(cfg.xAxis.labels || {}), style: axStyle };
+      if (cfg.xAxis.title) cfg.xAxis.title.style = axStyle;
+    }
     const ya = cfg.yAxis;
     if (ya) {
       const axes = Array.isArray(ya) ? ya : [ya];
       axes.forEach(a => {
-        if (a.labels) a.labels.style = axStyle;
-        if (a.title)  a.title.style  = axStyle;
+        a.labels = { ...(a.labels || {}), style: axStyle };
+        if (a.title) a.title.style = axStyle;
       });
     }
     // Chart height: prefer state override
@@ -5709,6 +5679,7 @@ function _reapplyFromRawConfig() {
       else                             delete yaOverride.tickInterval;
       if (state.yTitle != null)  yaOverride.title = { ...(yaOverride.title || {}), text: state.yTitle || null, style: axStyle };
       yaOverride.type = state.yScale === 'logarithmic' ? 'logarithmic' : 'linear';
+      yaOverride.gridLineWidth = state.gridLines ? 1 : 0;
       yaOverride.gridLineColor = state.gridLines ? gridCol : 'transparent';
       if (state.yFormat)         yaOverride.labels = { ...(yaOverride.labels || {}), format: state.yFormat, style: axStyle };
       if (state.yPlotLines?.length) {

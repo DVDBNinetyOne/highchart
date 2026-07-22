@@ -1499,6 +1499,9 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
   display: none;
   flex-direction: column;
   gap: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .data-toolbar {
@@ -5641,6 +5644,13 @@ function _reapplyFromRawConfig() {
         if (a.title)  a.title.style  = axStyle;
       });
     }
+    // Apply state-level y-axis overrides (min, max, title)
+    const yaOverride = Array.isArray(cfg.yAxis) ? cfg.yAxis[0] : cfg.yAxis;
+    if (yaOverride) {
+      if (state.yMin !== null && state.yMin !== undefined) yaOverride.min = state.yMin;
+      if (state.yMax !== null && state.yMax !== undefined) yaOverride.max = state.yMax;
+      if (state.yTitle) yaOverride.title = { ...(yaOverride.title || {}), text: state.yTitle };
+    }
     // Apply state-level legend/tooltip overrides so sidebar controls work
     if (!state.legend) {
       cfg.legend = { enabled: false };
@@ -6119,11 +6129,17 @@ function applyAIConfig(cfg) {
       chart: { type: 'line', height: 500 },
       title:    { text: cfg.title    || '' },
       subtitle: { text: cfg.subtitle || '' },
-      xAxis: {
-        type: 'datetime',
-        labels: { format: '{value:%Y}' },
-        tickInterval: 5 * 365.25 * 24 * 3600 * 1000,
-      },
+      xAxis: (() => {
+        const oneYear = 365.25 * 24 * 3600 * 1000;
+        const pts = cfg.series?.[0]?.data;
+        const firstTs = pts?.length ? (Array.isArray(pts[0]) ? pts[0][0] : pts[0]) : null;
+        const lastTs  = pts?.length ? (Array.isArray(pts[pts.length-1]) ? pts[pts.length-1][0] : pts[pts.length-1]) : null;
+        const spanYrs = (firstTs && lastTs) ? (lastTs - firstTs) / oneYear : 0;
+        const xa = { type: 'datetime' };
+        if (spanYrs > 3) { xa.labels = { format: '{value:%Y}' }; xa.tickInterval = oneYear; }
+        else if (spanYrs > 1) { xa.labels = { format: '{value:%b %Y}' }; xa.tickInterval = Math.round(oneYear / 2); }
+        return xa;
+      })(),
       yAxis: {
         title: { text: cfg.yTitle || '' },
         gridLineWidth: 1,

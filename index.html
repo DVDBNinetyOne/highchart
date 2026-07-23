@@ -3160,7 +3160,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                 Expand
               </button>
-              <button class="copy-btn-small" id="config-edit-btn" onclick="toggleConfigEdit()" style="position:static">Edit</button>
+              <button class="copy-btn-small" id="config-edit-btn" onclick="toggleConfigEdit()" style="position:static;display:none">Edit</button>
               <button class="copy-btn-small" onclick="copyConfig()" style="position:static">Copy</button>
             </div>
           </div>
@@ -5365,26 +5365,9 @@ function initConfigResize() {
 
 let _configEditMode = false;
 
-function toggleConfigEdit() {
-  _configEditMode ? cancelConfigEdit() : enterConfigEdit();
-}
+function toggleConfigEdit() { /* edit mode disabled */ }
 
-function enterConfigEdit() {
-  _configEditMode = true;
-  const pre   = document.getElementById('config-output');
-  const ta    = document.getElementById('config-edit-input');
-  const bar   = document.getElementById('config-apply-bar');
-  const btn   = document.getElementById('config-edit-btn');
-  const lbl   = document.getElementById('config-card-label');
-  ta.value = (_lastRawConfig ? _serializeConfig(_lastRawConfig) : pre.innerText);
-  pre.style.display = 'none';
-  ta.style.display  = 'block';
-  bar.style.display = 'flex';
-  btn.textContent   = 'View';
-  lbl.textContent   = 'Edit config';
-  document.getElementById('config-apply-msg').textContent = '';
-  ta.focus();
-}
+function enterConfigEdit() { /* edit mode disabled — config panel is read-only */ }
 
 function cancelConfigEdit() {
   _configEditMode = false;

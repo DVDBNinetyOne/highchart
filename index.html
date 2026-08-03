@@ -4030,6 +4030,18 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// ── In-grid paste: Ctrl+V on the spreadsheet triggers the paste flow ──────────
+document.addEventListener('paste', e => {
+  const wrap = document.getElementById('spreadsheet-card-wrap');
+  if (!wrap || !wrap.contains(document.activeElement)) return;
+  const text = e.clipboardData?.getData('text') || '';
+  // Only intercept multi-cell pastes (tab-delimited with multiple rows)
+  if (!text.includes('\t') || text.trim().split(/\r?\n/).length < 2) return;
+  e.preventDefault();
+  const parsed = parseTSV(text) || parseCSV(text);
+  if (parsed && parsed.series?.length) applyParsedData(parsed);
+});
+
 /* ═══════════════════════════════════════════
    TABS
 ═══════════════════════════════════════════ */
@@ -6659,7 +6671,10 @@ function showPasteHint() {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  overlay.querySelector('textarea').focus();
+  const ta = overlay.querySelector('textarea');
+  ta.focus();
+  // Auto-apply when the user pastes into the textarea
+  ta.addEventListener('paste', () => setTimeout(applyPasteOverlay, 80));
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
@@ -6679,9 +6694,36 @@ function applyPasteOverlay() {
 function parseTSV(text) {
   const lines = text.trim().split(/\r?\n/).map(l => l.split('\t').map(c => c.trim().replace(/^"|"$/g, '')));
   if (lines.length < 2) return null;
-  const headers = lines[0];
-  if (headers.length < 2) return null;
-  const dataRows = lines.slice(1).filter(r => (r[0] || '').trim());
+
+  let rows = lines;
+  let extractedTitle = null;
+
+  // Title-row detection: first row has exactly 1 non-empty cell → chart title, not a header
+  const r0NonEmpty = lines[0].filter(c => c !== '');
+  if (r0NonEmpty.length === 1 && lines.length > 2) {
+    extractedTitle = r0NonEmpty[0];
+    rows = lines.slice(1);
+  }
+  if (rows.length < 1) return null;
+
+  // Determine whether rows[0] is a column-header row or a data row.
+  // It's a data row when ALL of its non-first cells look numeric (including "0.3%", "-5.2%").
+  const isNumericLike = s => s !== '' && !isNaN(parseFloat(s.replace('%', '')));
+  const row0DataCols = rows[0].slice(1).filter(c => c !== '');
+  const row0IsData = row0DataCols.length > 0 && row0DataCols.every(isNumericLike);
+
+  let headers, dataRows;
+  if (row0IsData) {
+    // No explicit header row — use an implicit empty series name
+    const numCols = rows[0].length - 1;
+    headers = [''].concat(Array.from({ length: numCols }, () => ''));
+    dataRows = rows.filter(r => (r[0] || '').trim());
+  } else {
+    headers = rows[0];
+    if (headers.length < 2) return null;
+    dataRows = rows.slice(1).filter(r => (r[0] || '').trim());
+  }
+  if (dataRows.length === 0) return null;
 
   const dateRe = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
   const sample = dataRows.slice(0, 5).map(r => (r[0] || '').trim());
@@ -6691,12 +6733,12 @@ function parseTSV(text) {
       const parts = row[0].split('/').map(Number);
       const ts = Date.UTC(parts[2], parts[0] - 1, parts[1]);
       series.forEach((s, i) => {
-        const v = parseFloat(row[i + 1]);
+        const v = parseFloat((row[i + 1] || '').replace('%', ''));
         if (!isNaN(v)) s.data.push([ts, v]);
       });
     });
-    const filtered = series.filter(s => s.name && s.data.length > 0);
-    return filtered.length ? { xAxisType: 'datetime', series: filtered } : null;
+    const filtered = series.filter(s => s.data.length > 0);
+    return filtered.length ? { xAxisType: 'datetime', series: filtered, title: extractedTitle } : null;
   }
 
   const categories = [];
@@ -6704,12 +6746,13 @@ function parseTSV(text) {
   dataRows.forEach(row => {
     categories.push((row[0] || '').trim());
     series.forEach((s, i) => {
-      const v = parseFloat(row[i + 1]);
+      const v = parseFloat((row[i + 1] || '').replace('%', ''));
       s.data.push(isNaN(v) ? null : v);
     });
   });
-  const filtered = series.filter(s => s.name && s.data.some(v => v !== null));
-  return filtered.length ? { categories, series: filtered } : null;
+  // Allow series with no name (single-series pastes from title-row data)
+  const filtered = series.filter(s => s.data.some(v => v !== null));
+  return filtered.length ? { categories, series: filtered, title: extractedTitle } : null;
 }
 
 // ── Apply parsed CSV/TSV result directly without the full import wizard ───────
@@ -6725,6 +6768,7 @@ function applyParsedData(parsed) {
         color: colors[i % colors.length]
       }))
     };
+    if (parsed.title) cfg.title = { text: parsed.title };
     if (theme.chartBackground && theme.chartBackground !== 'transparent') {
       cfg.chart = { backgroundColor: theme.chartBackground };
     }
@@ -6738,16 +6782,16 @@ function applyParsedData(parsed) {
       color: themeColors[i % themeColors.length],
       colorOverride: false
     }));
+    if (parsed.title != null) state.title = parsed.title;
     syncSidebarToState();
     renderColourRows();
     renderGrid();
     schedUpdate();
     markDirty();
+    switchTab('preview');
+    showToast('Data imported — switch to Data tab to review or edit');
   }
   updateEmptyState();
-  if (document.getElementById('data-tab-content')?.style.display !== 'none') {
-    railSelect('data');
-  }
 }
 
 async function parseXLSXFile(file) {

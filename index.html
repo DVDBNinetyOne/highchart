@@ -3400,10 +3400,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
     <!-- Accordion: Labels -->
     <div class="accordion-section">
-      <button class="accordion-header" onclick="toggleAccordion('labels')">
+      <button class="accordion-header open" onclick="toggleAccordion('labels')">
         Labels <span class="chevron">▾</span>
       </button>
-      <div class="accordion-body" id="acc-body-labels">
+      <div class="accordion-body open" id="acc-body-labels">
         <div class="field-row">
           <label>Chart title</label>
           <input class="field-input" id="sb-title" placeholder="e.g. Fund performance" oninput="onField('title',this.value)">
@@ -3428,11 +3428,15 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div class="field-row">
           <label>Value format</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setValFmt('')">None</button>
-            <button class="seg-btn" onclick="setValFmt('%')">%</button>
-            <button class="seg-btn" onclick="setValFmt('$')">$</button>
+            <button class="seg-btn active" id="valfmt-none" onclick="setValFmt('')">None</button>
+            <button class="seg-btn" id="valfmt-pct" onclick="setValFmt('%')">%</button>
+            <button class="seg-btn" id="valfmt-dollar" onclick="setValFmt('$')">$</button>
           </div>
-          <input class="field-input" id="sb-val-suffix" placeholder="Custom suffix" style="width:80px;flex:none" oninput="onField('valSuffix',this.value)">
+          <input class="field-input" id="sb-val-suffix" placeholder="Custom" style="width:64px;flex:none" oninput="onField('valSuffix',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Grid lines</label>
+          <button class="toggle-pill" id="toggle-gridlines" onclick="toggleSetting('gridLines')"></button>
         </div>
       </div>
     </div>
@@ -3495,10 +3499,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div class="field-row">
           <label>Tick interval</label>
           <input class="field-input" id="sb-ytick" placeholder="Auto" type="number" oninput="onField('yTickInterval',this.value)">
-        </div>
-        <div class="field-row">
-          <label>Grid lines</label>
-          <button class="toggle-pill on" id="toggle-gridlines" onclick="toggleSetting('gridLines')"></button>
         </div>
         <div class="field-row">
           <label>Value format</label>
@@ -4234,7 +4234,16 @@ function onFillOpacity(v) {
 function setValFmt(v) {
   state.valSuffix = v;
   document.getElementById('sb-val-suffix').value = '';
+  _syncValFmtButtons(v);
   schedUpdate(); persist();
+}
+
+function _syncValFmtButtons(v) {
+  const map = { '': 'valfmt-none', '%': 'valfmt-pct', '$': 'valfmt-dollar' };
+  ['valfmt-none','valfmt-pct','valfmt-dollar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', map[v] === id);
+  });
 }
 
 function setXRot(r) {
@@ -4357,6 +4366,7 @@ function syncSidebarToState() {
   if (g('sb-xtick'))      g('sb-xtick').value = s.xTickInterval ?? '';
   if (g('sb-y-format'))   g('sb-y-format').value = s.yFormat || '';
   if (g('sb-val-suffix')) g('sb-val-suffix').value = s.valSuffix || '';
+  _syncValFmtButtons(s.valSuffix || '');
   if (g('sb-height'))     g('sb-height').value = s.chartHeight || 450;
   if (g('sb-csv-url'))    g('sb-csv-url').value = s.csvUrl || '';
   if (g('sb-tt-prefix'))  g('sb-tt-prefix').value = s.ttPrefix || '';
@@ -5736,7 +5746,7 @@ function _reapplyFromRawConfig() {
       if (state.stepLine)            cfg.plotOptions.series.step        = state.stepLine;
       if (state.stacking)            cfg.plotOptions.series.stacking    = state.stacking;
       if (state.seriesOpacity < 1)   cfg.plotOptions.series.opacity     = state.seriesOpacity;
-      if (state.dataLabels)          cfg.plotOptions.series.dataLabels  = { enabled: true };
+      if (state.dataLabels)          cfg.plotOptions.series.dataLabels  = { enabled: true, format: state.valSuffix ? `{y}${state.valSuffix}` : '{y}' };
     }
     if (['column','bar'].includes(chartType)) {
       const shapeKey = chartType;

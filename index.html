@@ -5859,6 +5859,8 @@ function _reapplyFromRawConfig() {
     if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
     // Apply theme display colours (not stored in _lastRawConfig)
     if (!cfg.chart) cfg.chart = {};
+    // Inject theme palette so series without explicit colours use theme colours
+    cfg.colors = thm.chartSeriesColors || N1_PALETTE;
     cfg.chart.backgroundColor = thm.pageBackground;
     if (!cfg.title)    cfg.title    = {};
     if (!cfg.subtitle) cfg.subtitle = {};

@@ -444,6 +444,137 @@ body {
 /* ─── Rail spacer pushes Library to bottom ─── */
 .rail-spacer { flex: 1; }
 
+/* ─── AI Chat panel ─── */
+#flyout-panel-ai {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.ai-setup-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 14px;
+  flex: 1;
+}
+.ai-setup-label {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+}
+.ai-key-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: monospace;
+  color: #333;
+  outline: none;
+}
+.ai-key-input:focus { border-color: #009d80; }
+.ai-key-save-btn {
+  padding: 8px 14px;
+  background: #009d80;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ai-key-save-btn:hover { background: #007d66; }
+.ai-chat-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.ai-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ai-msg {
+  max-width: 88%;
+  padding: 8px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ai-msg.user {
+  align-self: flex-end;
+  background: #009d80;
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.ai-msg.assistant {
+  align-self: flex-start;
+  background: #f0f0f0;
+  color: #333;
+  border-bottom-left-radius: 3px;
+}
+.ai-msg.error { background: #fee; color: #c00; }
+.ai-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 10px 10px 12px;
+  border-top: 1px solid #eee;
+  flex-shrink: 0;
+}
+.ai-text-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  resize: none;
+  line-height: 1.4;
+  max-height: 80px;
+  overflow-y: auto;
+}
+.ai-text-input:focus { border-color: #009d80; }
+.ai-send-btn {
+  padding: 7px 13px;
+  background: #009d80;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  align-self: flex-end;
+  flex-shrink: 0;
+}
+.ai-send-btn:hover { background: #007d66; }
+.ai-send-btn:disabled { background: #aaa; cursor: default; }
+.ai-key-hint {
+  font-size: 10px;
+  color: #aaa;
+  padding: 0 12px 8px;
+  cursor: pointer;
+}
+.ai-key-hint:hover { color: #009d80; }
+.ai-thinking {
+  align-self: flex-start;
+  font-size: 11px;
+  color: #aaa;
+  padding: 4px 6px;
+  animation: ai-blink 1s ease-in-out infinite;
+}
+@keyframes ai-blink { 0%,100%{opacity:.3} 50%{opacity:1} }
+
 /* ─── Topbar dropdown menus ─── */
 .topbar-dropdown-wrap { position: relative; }
 
@@ -3053,6 +3184,11 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     </button>
     <div class="rail-spacer"></div>
     <div class="rail-sep"></div>
+    <button class="rail-btn" id="rail-ai" onclick="railSelect('ai')" title="Ask AI">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9.5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5c0 1.5-1.5 2.5-2.5 3.5"/><circle cx="12" cy="17" r=".8" fill="currentColor" stroke="none"/></svg>
+      Ask AI
+    </button>
+    <div class="rail-sep"></div>
     <button class="rail-btn" id="rail-library" onclick="railSelect('library')" title="Chart library">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Library
@@ -3077,6 +3213,32 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
       <div style="padding:8px 10px 4px;font-size:11px;color:#aaa;flex-shrink:0">Preview how your chart looks on each Ninety One page. Sitecore applies colours automatically.</div>
       <div id="flyout-theme-chips" style="overflow-y:auto;flex:1;padding:0 6px 12px"></div>
     </div>
+    <!-- Panel: AI Chat -->
+    <div id="flyout-panel-ai" class="flyout-panel">
+      <!-- Setup view (shown when no key) -->
+      <div id="ai-setup-view" class="ai-setup-wrap">
+        <div class="ai-setup-label">
+          <strong>Connect to Claude AI</strong><br><br>
+          Enter your Anthropic API key to enable AI-powered chart editing. Describe any change in plain English — the AI will update your chart instantly.<br><br>
+          Get a key at <span style="color:#009d80">console.anthropic.com</span>
+        </div>
+        <input type="password" id="ai-key-input" class="ai-key-input" placeholder="sk-ant-api03-…" />
+        <button class="ai-key-save-btn" onclick="aiSaveKey()">Connect</button>
+        <div style="font-size:10px;color:#aaa;line-height:1.5">Your key is stored only in your browser (localStorage) and never sent anywhere except directly to api.anthropic.com.</div>
+      </div>
+      <!-- Chat view (shown when key is set) -->
+      <div id="ai-chat-view" class="ai-chat-wrap" style="display:none">
+        <div id="ai-messages" class="ai-messages">
+          <div class="ai-msg assistant">Hi! Describe what you'd like to change — I'll update the chart for you.<br><br>Examples:<br>• "Make it a bar chart"<br>• "Add a subtitle: Q1 2025"<br>• "Remove the legend"<br>• "Change y-axis to start at 0"</div>
+        </div>
+        <div class="ai-key-hint" onclick="aiForgetKey()">🔑 Change API key</div>
+        <div class="ai-input-row">
+          <textarea id="ai-input" class="ai-text-input" rows="1" placeholder="Describe your change…" onkeydown="aiInputKeydown(event)"></textarea>
+          <button id="ai-send-btn" class="ai-send-btn" onclick="aiSend()">Send</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Panel: Library -->
     <div id="flyout-panel-library" class="flyout-panel" style="display:none">
       <div class="lib-save-bar">
@@ -8008,12 +8170,14 @@ function railSelect(panel) {
   const typePanel  = document.getElementById('flyout-panel-type');
   const themePanel = document.getElementById('flyout-panel-theme');
   const libPanel   = document.getElementById('flyout-panel-library');
+  const aiPanel    = document.getElementById('flyout-panel-ai');
   const flyoutTitle = document.getElementById('flyout-title');
 
   const hideAll = () => {
     if (typePanel)  typePanel.style.display  = 'none';
     if (themePanel) themePanel.style.display = 'none';
     if (libPanel)   libPanel.style.display   = 'none';
+    if (aiPanel)    aiPanel.style.display    = 'none';
   };
 
   if (panel === 'type') {
@@ -8030,6 +8194,11 @@ function railSelect(panel) {
     if (libPanel)   libPanel.style.display   = 'flex';
     if (flyoutTitle) flyoutTitle.textContent = 'Library';
     renderLibrary();
+  } else if (panel === 'ai') {
+    hideAll();
+    if (aiPanel)    aiPanel.style.display    = 'flex';
+    if (flyoutTitle) flyoutTitle.textContent = 'Ask AI';
+    aiInitPanel();
   }
   // text / axes are right-panel scroll shortcuts — don't switch flyout
   if (panel === 'text') {
@@ -9116,6 +9285,198 @@ window.selectChartType = function(type) {
 
 // Expose openTypePicker globally
 window.openTypePicker = openTypePicker;
+
+/* ═══════════════════════════════════════════════════════════════
+   AI CHAT — Claude-powered chart editing
+═══════════════════════════════════════════════════════════════ */
+
+const AI_MODEL = 'claude-sonnet-4-5';
+const AI_MAX_TOKENS = 4096;
+
+const AI_SYSTEM = `You are an expert Highcharts 11 configuration assistant embedded in the Ninety One Chart Builder.
+
+The user will describe a change they want to make to their chart. You will be given the current Highcharts config object and the user's request. Return ONLY a valid Highcharts config object as a JavaScript object literal (not JSON — use single quotes, no trailing commas are required but allowed). Do not include any explanation or markdown — just the raw config object starting with { and ending with }.
+
+Rules:
+- Keep all existing config that the user did not ask to change.
+- Chart type options: line, spline, area, areaspline, column, bar, pie, scatter, bubble.
+- For pie/donut charts, series data must be [{name, y}, ...] format.
+- Never hardcode series colours — omit color/colors properties entirely so the Sitecore theme applies.
+- Keep credits: { enabled: false }.
+- For axis titles, use title: { text: '...' }. An empty string hides the title.
+- Data labels format: use plotOptions.series.dataLabels.format with {y} or {point.percentage:.1f}%.
+- If the user asks for percentage labels use format: '{point.percentage:.1f}%' and enable dataLabels.
+- gridLineWidth: 0 hides grid lines, 1 shows them.
+- legend.enabled controls legend visibility.
+- subtitle.text adds a subtitle below the title.
+- For stacked charts: plotOptions.series.stacking = 'normal' or 'percent'.
+- Keep the existing series data unchanged unless the user explicitly asks to change it.
+- Return only the config object — no variable assignment, no explanation, no markdown fences.`;
+
+let _aiMessages = [];
+
+function aiGetKey() {
+  try { return localStorage.getItem('n1_ai_key') || ''; } catch(e) { return ''; }
+}
+
+function aiSaveKey() {
+  const input = document.getElementById('ai-key-input');
+  const key = (input?.value || '').trim();
+  if (!key.startsWith('sk-ant-')) {
+    showToast('Key should start with sk-ant-…');
+    return;
+  }
+  try { localStorage.setItem('n1_ai_key', key); } catch(e) {}
+  aiInitPanel();
+}
+
+function aiForgetKey() {
+  try { localStorage.removeItem('n1_ai_key'); } catch(e) {}
+  aiInitPanel();
+}
+
+function aiInitPanel() {
+  const key = aiGetKey();
+  const setupView = document.getElementById('ai-setup-view');
+  const chatView  = document.getElementById('ai-chat-view');
+  if (!setupView || !chatView) return;
+  if (key) {
+    setupView.style.display = 'none';
+    chatView.style.display  = 'flex';
+  } else {
+    setupView.style.display = 'flex';
+    chatView.style.display  = 'none';
+    const inp = document.getElementById('ai-key-input');
+    if (inp) inp.value = '';
+  }
+}
+
+function aiInputKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    aiSend();
+  }
+}
+
+function aiAddMessage(role, text, cls) {
+  _aiMessages.push({ role, content: text });
+  const container = document.getElementById('ai-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'ai-msg ' + (cls || role);
+  div.textContent = text;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function aiShowThinking() {
+  const container = document.getElementById('ai-messages');
+  if (!container) return null;
+  const div = document.createElement('div');
+  div.className = 'ai-thinking';
+  div.textContent = 'Thinking…';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function aiCurrentConfig() {
+  if (_lastRawConfig) return _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
+  const pre = document.getElementById('config-output');
+  return pre ? pre.textContent : '';
+}
+
+async function aiSend() {
+  const input   = document.getElementById('ai-input');
+  const sendBtn = document.getElementById('ai-send-btn');
+  const userMsg = (input?.value || '').trim();
+  if (!userMsg) return;
+
+  const key = aiGetKey();
+  if (!key) { showToast('No API key — click "Change API key" to add one'); return; }
+
+  if (input)   input.value = '';
+  if (sendBtn) sendBtn.disabled = true;
+
+  aiAddMessage('user', userMsg);
+
+  const currentCfg = aiCurrentConfig();
+  const contextMsg = currentCfg
+    ? `Current chart config:\n\`\`\`\n${currentCfg}\n\`\`\`\n\nUser request: ${userMsg}`
+    : `No chart loaded yet.\n\nUser request: ${userMsg}`;
+
+  const thinkingEl = aiShowThinking();
+
+  try {
+    const body = {
+      model: AI_MODEL,
+      max_tokens: AI_MAX_TOKENS,
+      system: AI_SYSTEM,
+      messages: [
+        ..._aiMessages.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: contextMsg }
+      ]
+    };
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (thinkingEl) thinkingEl.remove();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.error?.message || `API error ${res.status}`;
+      aiAddMessage('assistant', `Error: ${msg}`, 'error');
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
+
+    const data = await res.json();
+    const rawText = data?.content?.[0]?.text || '';
+
+    // Extract the config object from the response
+    const cfgMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!cfgMatch) {
+      aiAddMessage('assistant', 'Could not find a chart config in the response. Try rephrasing.', 'error');
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
+
+    let cfg;
+    try {
+      cfg = (new Function('return (' + cfgMatch[0] + ')'))();
+    } catch(e) {
+      aiAddMessage('assistant', 'Config parse error: ' + e.message, 'error');
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
+
+    // Apply the config
+    applyAIConfig(cfg);
+
+    // Show a friendly confirmation
+    const summary = rawText.replace(/\{[\s\S]*\}/, '').trim();
+    const replyText = summary
+      ? summary.slice(0, 200)
+      : 'Done! Chart updated.';
+    aiAddMessage('assistant', replyText);
+
+  } catch(e) {
+    if (thinkingEl) thinkingEl.remove();
+    aiAddMessage('assistant', 'Network error: ' + e.message, 'error');
+  }
+
+  if (sendBtn) sendBtn.disabled = false;
+}
 </script>
 </body>
 </html>

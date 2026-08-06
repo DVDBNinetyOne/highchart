@@ -2906,13 +2906,18 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div class="welcome-option-label">Import CSV</div>
         <div class="welcome-option-desc">Upload or paste a CSV file. The chart will read data from a Sitecore media URL or inline.</div>
       </button>
+      <button class="welcome-option" onclick="welcomeAction('paste')">
+        <div class="welcome-option-icon">📋</div>
+        <div class="welcome-option-label">Paste from Excel</div>
+        <div class="welcome-option-desc">Copy cells from Excel or Google Sheets and paste directly — review the data before applying.</div>
+      </button>
       <button class="welcome-option" onclick="welcomeAction('manual')">
         <div class="welcome-option-icon">✏️</div>
         <div class="welcome-option-label">Enter data manually</div>
-        <div class="welcome-option-desc">Type or paste your data directly into a spreadsheet grid.</div>
+        <div class="welcome-option-desc">Type your data directly into a spreadsheet grid.</div>
       </button>
       <button class="welcome-option" onclick="welcomeAction('library')">
-        <div class="welcome-option-icon">📋</div>
+        <div class="welcome-option-icon">🗂️</div>
         <div class="welcome-option-label">Load saved chart</div>
         <div class="welcome-option-desc">Continue working on a chart you've saved previously.</div>
       </button>
@@ -4039,7 +4044,7 @@ document.addEventListener('paste', e => {
   if (!text.includes('\t') || text.trim().split(/\r?\n/).length < 2) return;
   e.preventDefault();
   const parsed = parseTSV(text) || parseCSV(text);
-  if (parsed && parsed.series?.length) applyParsedData(parsed);
+  if (parsed && parsed.series?.length) showPasteReview(parsed);
 });
 
 /* ═══════════════════════════════════════════
@@ -6656,7 +6661,7 @@ function triggerPasteData() {
       if (!text.trim()) { showPasteHint(); return; }
       const parsed = parseTSV(text) || parseCSV(text);
       if (!parsed || !parsed.series?.length) { showPasteHint(); return; }
-      applyParsedData(parsed);
+      showPasteReview(parsed);
     }).catch(() => showPasteHint());
   } else {
     showPasteHint();
@@ -6697,7 +6702,98 @@ function applyPasteOverlay() {
     alert('Could not parse pasted data. Make sure the first row contains headers and the first column contains labels.');
     return;
   }
-  applyParsedData(parsed);
+  showPasteReview(parsed);
+}
+
+// ── Paste review modal (shows parsed data before applying) ────────────────────
+function showPasteReview(parsed) {
+  document.getElementById('paste-overlay')?.remove();
+  document.getElementById('paste-review-overlay')?.remove();
+
+  const isDatetime = parsed.xAxisType === 'datetime';
+  const cats = parsed.categories || [];
+  const rowCount = isDatetime ? (parsed.series?.[0]?.data?.length || 0) : cats.length;
+  const seriesCount = parsed.series?.length || 0;
+  const PREVIEW = 50;
+  const summaryText = isDatetime
+    ? `Extracted ${seriesCount} series, ${rowCount.toLocaleString()} data points (time series).`
+    : `Extracted ${seriesCount} series, ${rowCount} rows.`;
+
+  // Build table header
+  const seriesHeaders = (parsed.series || []).map(s =>
+    `<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 10px;text-align:right;font-weight:600">${escHtml(s.name || 'Value')}</th>`
+  ).join('');
+
+  // Build table rows
+  let bodyHtml = '';
+  if (isDatetime) {
+    const firstData = parsed.series?.[0]?.data || [];
+    firstData.slice(0, PREVIEW).forEach((pt, i) => {
+      const ts = Array.isArray(pt) ? pt[0] : pt;
+      const date = new Date(ts).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
+      const cells = (parsed.series || []).map(s => {
+        const v = Array.isArray(s.data[i]) ? s.data[i][1] : s.data[i];
+        return `<td style="border:1px solid #e8e8e8;padding:6px 10px;text-align:right">${v != null ? v : ''}</td>`;
+      }).join('');
+      bodyHtml += `<tr><td style="border:1px solid #e8e8e8;padding:6px 10px">${date}</td>${cells}</tr>`;
+    });
+  } else {
+    const rowsToShow = Math.min(rowCount, PREVIEW);
+    for (let i = 0; i < rowsToShow; i++) {
+      const cat = cats[i] !== undefined ? escHtml(String(cats[i])) : (i + 1);
+      const cells = (parsed.series || []).map(s => {
+        const v = s.data?.[i] != null ? s.data[i] : '';
+        return `<td style="border:1px solid #e8e8e8;padding:6px 10px;text-align:right">${v}</td>`;
+      }).join('');
+      bodyHtml += `<tr><td style="border:1px solid #e8e8e8;padding:6px 10px">${cat}</td>${cells}</tr>`;
+    }
+  }
+  const truncNote = rowCount > PREVIEW
+    ? `<div style="font-size:11px;color:#888;margin-top:6px">Showing first ${PREVIEW} of ${rowCount.toLocaleString()} rows</div>` : '';
+  const catHeader = isDatetime
+    ? `<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 10px;text-align:left;font-weight:600">Date</th>`
+    : `<th style="background:#fafafa;border:1px solid #e8e8e8;padding:6px 10px;text-align:left;font-weight:600">Category</th>`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'paste-review-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:10px;width:640px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.28);overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee">
+        <div style="font-weight:700;font-size:15px;color:#1a1a2e">Import chart data</div>
+        <button onclick="document.getElementById('paste-review-overlay').remove()" style="background:none;border:none;font-size:18px;color:#999;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:10px 20px;border-bottom:1px solid #eee;font-size:12px;color:#777">
+        1. Paste &nbsp;›&nbsp; <strong style="color:#009d80">2. Review &amp; apply</strong>
+      </div>
+      <div style="padding:16px 20px;overflow-y:auto;flex:1;min-height:0">
+        <div style="background:#164848;color:#fff;border-radius:6px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:10px">Parsed from Excel paste</div>
+        <div style="font-size:12px;color:#444;margin-bottom:6px">${summaryText}${parsed.title ? ` Chart title: <strong style="color:#009d80">${escHtml(parsed.title)}</strong>.` : ''}</div>
+        <div style="font-size:12px;color:#888;margin-bottom:12px">Check your data looks right, then click Apply. You can edit values in the Data tab afterwards.</div>
+        <div style="overflow-x:auto;border:1px solid #e8e8e8;border-radius:6px;max-height:320px;overflow-y:auto">
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead><tr>${catHeader}${seriesHeaders}</tr></thead>
+            <tbody>${bodyHtml}</tbody>
+          </table>
+        </div>
+        ${truncNote}
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:14px 20px;border-top:1px solid #eee;background:#fafafa">
+        <button onclick="document.getElementById('paste-review-overlay').remove()" style="padding:8px 18px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer;font-size:13px">Back</button>
+        <button onclick="confirmPasteReview()" style="padding:8px 22px;border-radius:6px;border:none;background:#009d80;color:#fff;cursor:pointer;font-size:13px;font-weight:600">Apply to chart</button>
+      </div>
+    </div>`;
+  window._pendingPasteData = parsed;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function confirmPasteReview() {
+  document.getElementById('paste-review-overlay')?.remove();
+  if (window._pendingPasteData) {
+    applyParsedData(window._pendingPasteData);
+    window._pendingPasteData = null;
+  }
 }
 
 // ── Parse tab-separated values (clipboard from Excel / Sheets) ────────────────
@@ -8271,6 +8367,7 @@ function hideWelcomeModal() {
 function welcomeAction(action) {
   hideWelcomeModal();
   if (action === 'import')   { openImportWizard(); }
+  if (action === 'paste')    { triggerPasteData(); }
   if (action === 'manual')   { startBlankDataEntry(); }
   if (action === 'library')  { openChartBrowser(); }
   if (action === 'scratch')  {

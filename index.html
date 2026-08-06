@@ -2906,15 +2906,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div class="welcome-option-label">Import CSV</div>
         <div class="welcome-option-desc">Upload or paste a CSV file. The chart will read data from a Sitecore media URL or inline.</div>
       </button>
-      <button class="welcome-option" onclick="welcomeAction('paste')">
-        <div class="welcome-option-icon">📋</div>
-        <div class="welcome-option-label">Paste from Excel</div>
-        <div class="welcome-option-desc">Copy cells from Excel or Google Sheets and paste directly — review the data before applying.</div>
-      </button>
       <button class="welcome-option" onclick="welcomeAction('manual')">
         <div class="welcome-option-icon">✏️</div>
         <div class="welcome-option-label">Enter data manually</div>
-        <div class="welcome-option-desc">Type your data directly into a spreadsheet grid.</div>
+        <div class="welcome-option-desc">Type or paste your data directly into a spreadsheet grid.</div>
       </button>
       <button class="welcome-option" onclick="welcomeAction('library')">
         <div class="welcome-option-icon">🗂️</div>
@@ -5772,6 +5767,9 @@ function _reapplyFromRawConfig() {
     if (!_configEditMode) enterConfigEdit();
     const ta = document.getElementById('config-edit-input');
     if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    // Keep config-output panel in sync with clean output (includes csvURL if set)
+    const pre = document.getElementById('config-output');
+    if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
     if (_dragMode) setTimeout(_attachDragListeners, 50);
   } catch(e) {
     console.error('_reapplyFromRawConfig:', e);
@@ -5834,6 +5832,12 @@ function _cleanConfigForCopy(cfg) {
   // Apply title/subtitle from sidebar
   if (state.title != null)    { if (!out.title)    out.title    = {}; out.title.text    = state.title; }
   if (state.subtitle != null) { if (!out.subtitle) out.subtitle = {}; out.subtitle.text = state.subtitle; }
+
+  // If a Sitecore CSV URL is set, replace inline series with a data.csvURL reference
+  if (state.csvUrl) {
+    out.data = { csvURL: state.csvUrl, enablePolling: false };
+    delete out.series;
+  }
 
   // Strip any theme-injected display styles (colours, backgrounds)
   if (out.title?.style)    delete out.title.style;
@@ -8835,7 +8839,13 @@ function onConfigCsvUrlInput(val) {
   state.csvUrl = val.trim();
   const input = document.getElementById('config-csv-url');
   if (input) input.classList.toggle('has-url', !!state.csvUrl);
-  schedUpdate();
+  // Immediately refresh the config panel for raw-config charts (no re-render needed)
+  if (_lastRawConfig) {
+    const pre = document.getElementById('config-output');
+    if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
+  } else {
+    schedUpdate();
+  }
   markDirty();
 }
 

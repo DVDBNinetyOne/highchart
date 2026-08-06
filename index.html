@@ -5806,14 +5806,47 @@ function _serializeConfig(obj, depth) {
 }
 
 function _cleanConfigForCopy(cfg) {
-  // Strip theme-assigned colours from series — Sitecore injects theme colours automatically.
-  // Only keep colour when the user explicitly overrode it (_colorOverride flag).
+  // Build a clean Sitecore-ready config from the raw config + current sidebar state.
+  // Sitecore injects theme colours — strip ALL series colours.
+  // Apply sidebar overrides so the copied config matches what the preview shows.
   if (!cfg?.series) return cfg;
   const out = JSON.parse(JSON.stringify(cfg));
+
+  // Strip all series colours (Sitecore applies theme palette automatically)
   out.series.forEach(s => {
-    if (!s._colorOverride) delete s.color;
+    delete s.color;
     delete s._colorOverride;
   });
+
+  // Apply current sidebar state to yAxis
+  const ya = Array.isArray(out.yAxis) ? out.yAxis[0] : out.yAxis;
+  if (ya) {
+    ya.gridLineWidth = state.gridLines ? 1 : 0;
+    if (!ya.gridLineWidth) delete ya.gridLineColor;
+    if (state.yMin != null) ya.min = state.yMin; else delete ya.min;
+    if (state.yMax != null) ya.max = state.yMax; else delete ya.max;
+    if (state.yTickInterval != null) ya.tickInterval = state.yTickInterval; else delete ya.tickInterval;
+    if (state.yFormat || state.valSuffix) {
+      ya.labels = { ...(ya.labels || {}), format: state.yFormat || `{value}${state.valSuffix}` };
+    }
+  }
+
+  // Apply title/subtitle from sidebar
+  if (state.title != null)    { if (!out.title)    out.title    = {}; out.title.text    = state.title; }
+  if (state.subtitle != null) { if (!out.subtitle) out.subtitle = {}; out.subtitle.text = state.subtitle; }
+
+  // Strip any theme-injected display styles (colours, backgrounds)
+  if (out.title?.style)    delete out.title.style;
+  if (out.subtitle?.style) delete out.subtitle.style;
+  if (out.chart?.backgroundColor) delete out.chart.backgroundColor;
+  ;[out.xAxis, ...(Array.isArray(out.yAxis) ? out.yAxis : [out.yAxis])].forEach(ax => {
+    if (!ax) return;
+    if (ax.labels?.style) delete ax.labels.style;
+    if (ax.title?.style)  delete ax.title.style;
+    delete ax.lineColor; delete ax.tickColor;
+  });
+  if (out.legend?.itemStyle) delete out.legend.itemStyle;
+
   return out;
 }
 
@@ -6250,7 +6283,7 @@ function applyAIConfig(cfg) {
       })(),
       yAxis: {
         title: { text: cfg.yTitle || '' },
-        gridLineWidth: 1,
+        gridLineWidth: state.gridLines ? 1 : 0,
       },
       plotOptions: {
         line: { marker: { enabled: false }, turboThreshold: 15000 }

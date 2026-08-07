@@ -3308,6 +3308,9 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <span id="drag-coords-badge" style="font-size:10px;font-family:monospace;color:#009d80;background:#f0faf8;border:1px solid #c0e8e0;border-radius:4px;padding:2px 8px;display:none"></span>
             <button id="drag-mode-btn" onclick="toggleDragMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #009d80;color:#009d80;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">Drag points</button>
           </div>
+          <div id="color-point-bar" style="display:none;position:absolute;bottom:8px;left:8px;z-index:10;gap:6px;align-items:center">
+            <button id="color-point-btn" onclick="toggleColorPointMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #571b39;color:#571b39;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">🎨 Colour points</button>
+          </div>
         </div>
         <!-- Drag handle to resize config panel -->
         <div class="config-resize-handle" id="config-resize-handle" title="Drag to resize">
@@ -5682,6 +5685,119 @@ function applyConfigEdit() {
 }
 
 /* ═══════════════════════════════════════════
+   COLOUR POINTS MODE
+═══════════════════════════════════════════ */
+let _colorPointMode = false;
+
+function _updateColorPointBtn() {
+  const btn = document.getElementById('color-point-btn');
+  if (!btn) return;
+  btn.textContent      = _colorPointMode ? '✓ Colouring on' : '🎨 Colour points';
+  btn.style.background = _colorPointMode ? '#571b39' : '#fff';
+  btn.style.color      = _colorPointMode ? '#fff'    : '#571b39';
+  btn.style.borderColor = '#571b39';
+}
+
+function toggleColorPointMode() {
+  _colorPointMode = !_colorPointMode;
+  _updateColorPointBtn();
+  if (_colorPointMode) _attachColorPointListeners();
+  else { _detachColorPointListeners(); _closeColorPicker(); }
+}
+
+function _attachColorPointListeners() {
+  const chart = window.chartInstance;
+  if (!chart) return;
+  chart.series.forEach((series, si) => {
+    series.points.forEach((point, pi) => {
+      const el = point.graphic?.element;
+      if (!el) return;
+      el.style.cursor = 'crosshair';
+      el._n1ColorFn = (e) => { e.stopPropagation(); _openColorPicker(e, si, pi, point.color || point.options?.color); };
+      el.addEventListener('click', el._n1ColorFn);
+    });
+  });
+}
+
+function _detachColorPointListeners() {
+  const chart = window.chartInstance;
+  if (!chart) return;
+  chart.series.forEach(series => {
+    series.points.forEach(point => {
+      const el = point.graphic?.element;
+      if (!el) return;
+      el.style.cursor = '';
+      if (el._n1ColorFn) { el.removeEventListener('click', el._n1ColorFn); delete el._n1ColorFn; }
+    });
+  });
+}
+
+function _openColorPicker(e, si, pi, currentColor) {
+  _closeColorPicker();
+  const N1_SWATCHES = ['#009d80','#164848','#7ab5b5','#fbaa96','#fcaa28','#d83949','#571b39','#4f6266','#221b3b','#0a3323','#e8e5ce','#b2a896'];
+  const pop = document.createElement('div');
+  pop.id = 'color-point-pop';
+  pop.style.cssText = `position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px;width:200px;font-family:inherit`;
+  const rect = e.target.getBoundingClientRect();
+  let top = rect.bottom + 8, left = rect.left;
+  if (top + 180 > window.innerHeight) top = rect.top - 180;
+  if (left + 210 > window.innerWidth) left = window.innerWidth - 215;
+  pop.style.top  = top  + 'px';
+  pop.style.left = left + 'px';
+
+  const swatchHTML = N1_SWATCHES.map(c =>
+    `<span onclick="applyPointColor(${si},${pi},'${c}')" title="${c}" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${c};cursor:pointer;border:2px solid ${c === currentColor ? '#333' : 'transparent'};transition:transform .1s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform=''"></span>`
+  ).join('');
+
+  pop.innerHTML = `
+    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:8px">Point colour</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${swatchHTML}</div>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+      <input type="color" id="color-point-custom" value="${currentColor || '#009d80'}" style="width:32px;height:28px;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:1px">
+      <button onclick="applyPointColor(${si},${pi},document.getElementById('color-point-custom').value)" style="flex:1;padding:5px 8px;background:#009d80;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Apply custom</button>
+    </div>
+    <button onclick="resetPointColor(${si},${pi})" style="width:100%;padding:5px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">Reset to theme colour</button>`;
+  document.body.appendChild(pop);
+  setTimeout(() => document.addEventListener('click', _colorPickerOutside, { once: true }), 0);
+}
+
+function _colorPickerOutside(e) {
+  if (!document.getElementById('color-point-pop')?.contains(e.target)) _closeColorPicker();
+}
+
+function _closeColorPicker() {
+  document.getElementById('color-point-pop')?.remove();
+}
+
+function applyPointColor(si, pi, color) {
+  if (!_lastRawConfig?.series?.[si]) return;
+  const s = _lastRawConfig.series[si];
+  if (!Array.isArray(s.data)) return;
+  // Ensure data[pi] is an object so we can set color
+  if (typeof s.data[pi] !== 'object' || s.data[pi] === null) {
+    s.data[pi] = { y: s.data[pi] };
+  }
+  s.data[pi].color = color;
+  _closeColorPicker();
+  _reapplyFromRawConfig();
+  if (_colorPointMode) setTimeout(_attachColorPointListeners, 80);
+  refreshConfigPanel();
+  // Auto-enable Keep colours so the custom colour appears in the copy output
+  const keepChk = document.getElementById('config-keep-colors');
+  if (keepChk && !keepChk.checked) { keepChk.checked = true; refreshConfigPanel(); }
+}
+
+function resetPointColor(si, pi) {
+  if (!_lastRawConfig?.series?.[si]?.data?.[pi]) return;
+  const pt = _lastRawConfig.series[si].data[pi];
+  if (typeof pt === 'object') delete pt.color;
+  _closeColorPicker();
+  _reapplyFromRawConfig();
+  if (_colorPointMode) setTimeout(_attachColorPointListeners, 80);
+  refreshConfigPanel();
+}
+
+/* ═══════════════════════════════════════════
    DRAG POINTS MODE
 ═══════════════════════════════════════════ */
 let _dragMode = false;
@@ -5990,6 +6106,10 @@ function _reapplyFromRawConfig() {
     const pre = document.getElementById('config-output');
     if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
     if (_dragMode) setTimeout(_attachDragListeners, 50);
+    // Show colour-points button for any raw-config chart
+    const cpBar = document.getElementById('color-point-bar');
+    if (cpBar) cpBar.style.display = 'flex';
+    if (_colorPointMode) setTimeout(_attachColorPointListeners, 80);
   } catch(e) {
     console.error('_reapplyFromRawConfig:', e);
   }

@@ -3318,6 +3318,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <div class="config-card-head">
             <span class="config-card-label" id="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions">
+              <label title="When on, colours are included in the copied config. When off, Sitecore applies the theme palette automatically." style="display:flex;align-items:center;gap:4px;font-size:10px;color:#888;cursor:pointer;user-select:none;white-space:nowrap">
+                <input type="checkbox" id="config-keep-colors" onchange="refreshConfigPanel()" style="cursor:pointer;accent-color:#009d80">
+                Keep colours
+              </label>
               <button class="copy-btn-small" id="config-expand-btn" onclick="toggleConfigExpand()" style="position:static" title="Expand">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                 Expand
@@ -6018,18 +6022,34 @@ function _serializeConfig(obj, depth) {
   return String(obj);
 }
 
+function _keepColorsEnabled() {
+  return document.getElementById('config-keep-colors')?.checked || false;
+}
+
+function refreshConfigPanel() {
+  if (!_lastRawConfig) return;
+  const pre = document.getElementById('config-output');
+  if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
+  if (_configEditMode) {
+    const ta = document.getElementById('config-edit-input');
+    if (ta) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
+  }
+}
+
 function _cleanConfigForCopy(cfg) {
   // Build a clean Sitecore-ready config from the raw config + current sidebar state.
-  // Sitecore injects theme colours — strip ALL series colours.
-  // Apply sidebar overrides so the copied config matches what the preview shows.
+  // By default strips series-level colours so Sitecore applies its theme palette.
+  // When "Keep colours" is checked, all colours are preserved as-is.
   if (!cfg?.series) return cfg;
   const out = JSON.parse(JSON.stringify(cfg));
 
-  // Strip all series colours (Sitecore applies theme palette automatically)
-  out.series.forEach(s => {
-    delete s.color;
-    delete s._colorOverride;
-  });
+  if (!_keepColorsEnabled()) {
+    // Strip series-level colours only; per-point data colours are intentional overrides
+    out.series.forEach(s => {
+      delete s.color;
+      delete s._colorOverride;
+    });
+  }
 
   // Apply current sidebar state to yAxis
   const ya = Array.isArray(out.yAxis) ? out.yAxis[0] : out.yAxis;

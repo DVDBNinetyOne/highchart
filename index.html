@@ -4824,6 +4824,10 @@ function closeTypePicker(e) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('type-picker-overlay').classList.remove('open');
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentVersion(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    // Only intercept if a raw-config chart is loaded (undo history exists)
+    if (_rawConfigHistory.length) { e.preventDefault(); undoRawConfig(); }
+  }
 });
 
 let pickerPreviewType = null;
@@ -5705,30 +5709,37 @@ function toggleColorPointMode() {
   else { _detachColorPointListeners(); _closeColorPicker(); }
 }
 
+let _colorPointHCListeners = [];
+
 function _attachColorPointListeners() {
   const chart = window.chartInstance;
   if (!chart) return;
+  _detachColorPointListeners();
+  // Use Highcharts' native point click event — gives guaranteed correct point.index
   chart.series.forEach((series, si) => {
-    series.points.forEach((point, pi) => {
-      const el = point.graphic?.element;
-      if (!el) return;
-      el.style.cursor = 'crosshair';
-      el._n1ColorFn = (e) => { e.stopPropagation(); _openColorPicker(e, si, pi, point.color || point.options?.color); };
-      el.addEventListener('click', el._n1ColorFn);
-    });
+    const handler = function(e) {
+      const point = e.point || this;
+      const pi = point.index;
+      // currentColor: explicit per-point colour from raw config, or the rendered colour
+      const rawPoint = _lastRawConfig?.series?.[si]?.data?.[pi];
+      const currentColor = (typeof rawPoint === 'object' ? rawPoint?.color : null)
+        || point.options?.color || point.color;
+      _openColorPicker(e.originalEvent || e.browserEvent || e, si, pi, currentColor);
+    };
+    const remove = Highcharts.addEvent(series, 'click', handler);
+    _colorPointHCListeners.push(remove);
+    // cursor
+    series.points.forEach(p => { if (p.graphic?.element) p.graphic.element.style.cursor = 'crosshair'; });
   });
 }
 
 function _detachColorPointListeners() {
+  _colorPointHCListeners.forEach(remove => { try { remove(); } catch(e) {} });
+  _colorPointHCListeners = [];
   const chart = window.chartInstance;
   if (!chart) return;
   chart.series.forEach(series => {
-    series.points.forEach(point => {
-      const el = point.graphic?.element;
-      if (!el) return;
-      el.style.cursor = '';
-      if (el._n1ColorFn) { el.removeEventListener('click', el._n1ColorFn); delete el._n1ColorFn; }
-    });
+    series.points.forEach(p => { if (p.graphic?.element) p.graphic.element.style.cursor = ''; });
   });
 }
 
@@ -5738,10 +5749,12 @@ function _openColorPicker(e, si, pi, currentColor) {
   const pop = document.createElement('div');
   pop.id = 'color-point-pop';
   pop.style.cssText = `position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px;width:200px;font-family:inherit`;
-  const rect = e.target.getBoundingClientRect();
-  let top = rect.bottom + 8, left = rect.left;
-  if (top + 180 > window.innerHeight) top = rect.top - 180;
-  if (left + 210 > window.innerWidth) left = window.innerWidth - 215;
+  // Position near cursor — e may be a native MouseEvent or Highcharts event wrapper
+  const cx = e.clientX ?? e.chartX ?? 100;
+  const cy = e.clientY ?? e.chartY ?? 100;
+  let top = cy + 12, left = cx + 4;
+  if (top + 200 > window.innerHeight) top = cy - 200;
+  if (left + 215 > window.innerWidth) left = cx - 215;
   pop.style.top  = top  + 'px';
   pop.style.left = left + 'px';
 
@@ -5769,31 +5782,47 @@ function _closeColorPicker() {
   document.getElementById('color-point-pop')?.remove();
 }
 
+/* ── Undo history for raw-config changes ── */
+const _rawConfigHistory = [];
+const _RAW_HISTORY_MAX = 50;
+
+function _pushUndo() {
+  if (!_lastRawConfig) return;
+  _rawConfigHistory.push(JSON.stringify(_lastRawConfig));
+  if (_rawConfigHistory.length > _RAW_HISTORY_MAX) _rawConfigHistory.shift();
+}
+
+function undoRawConfig() {
+  if (!_rawConfigHistory.length) { showToast('Nothing to undo'); return; }
+  _lastRawConfig = JSON.parse(_rawConfigHistory.pop());
+  _reapplyFromRawConfig();
+  refreshConfigPanel();
+  showToast('Undone');
+}
+
 function applyPointColor(si, pi, color) {
   if (!_lastRawConfig?.series?.[si]) return;
   const s = _lastRawConfig.series[si];
   if (!Array.isArray(s.data)) return;
-  // Ensure data[pi] is an object so we can set color
+  _pushUndo();
   if (typeof s.data[pi] !== 'object' || s.data[pi] === null) {
     s.data[pi] = { y: s.data[pi] };
   }
   s.data[pi].color = color;
   _closeColorPicker();
   _reapplyFromRawConfig();
-  if (_colorPointMode) setTimeout(_attachColorPointListeners, 80);
   refreshConfigPanel();
-  // Auto-enable Keep colours so the custom colour appears in the copy output
   const keepChk = document.getElementById('config-keep-colors');
   if (keepChk && !keepChk.checked) { keepChk.checked = true; refreshConfigPanel(); }
 }
 
 function resetPointColor(si, pi) {
   if (!_lastRawConfig?.series?.[si]?.data?.[pi]) return;
+  _pushUndo();
   const pt = _lastRawConfig.series[si].data[pi];
   if (typeof pt === 'object') delete pt.color;
   _closeColorPicker();
   _reapplyFromRawConfig();
-  if (_colorPointMode) setTimeout(_attachColorPointListeners, 80);
   refreshConfigPanel();
 }
 

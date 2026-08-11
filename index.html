@@ -289,6 +289,9 @@ body {
 .viewport-icon { color: #888; flex-shrink: 0; }
 
 .viewport-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   font-family: inherit;
   font-weight: 500;
@@ -299,8 +302,6 @@ body {
   padding: 4px 8px;
   cursor: pointer;
   outline: none;
-  appearance: none;
-  -webkit-appearance: none;
   padding-right: 22px;
   background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -308,7 +309,43 @@ body {
   transition: border-color .12s;
 }
 .viewport-select:hover { border-color: #009d80; }
-.viewport-select:focus { border-color: #009d80; }
+.viewport-select:focus-visible { border-color: #009d80; box-shadow: 0 0 0 2px rgba(0,157,128,.15); }
+
+/* UI refresh — dropdown menu: opens 8px below trigger, 8px radius,
+   items 34px tall / 16px h-padding, checkmark on the selected item. */
+/* position:fixed (not absolute) — the menu must escape ancestors that clip
+   with overflow:hidden (e.g. .accordion-body) or lose stacking fights against
+   later siblings (e.g. #preview-card). left/top are computed from the
+   trigger's real screen position in JS each time it opens. */
+.n1-dropdown-menu {
+  display: none; position: fixed; min-width: 180px;
+  background: #fff; border-radius: 8px; padding: 4px 0; z-index: 9999;
+  box-shadow: 0 10px 30px -8px rgba(0,0,0,.28), 0 0 0 1px #e4e2db;
+  opacity: 0; transform: translateY(-4px) scale(0.98);
+  transition: opacity .16s cubic-bezier(.4,0,.2,1), transform .16s cubic-bezier(.4,0,.2,1);
+}
+.n1-dropdown-menu.open { display: block; opacity: 1; transform: translateY(0) scale(1); }
+.n1-dropdown-item {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  height: 34px; padding: 0 16px; border: none; background: none; text-align: left;
+  font-size: 12.5px; color: #1a1a1a; font-family: inherit; white-space: nowrap;
+  cursor: pointer; transition: background .1s linear;
+}
+.n1-dropdown-item:hover, .n1-dropdown-item.kbd-active { background: rgba(0,157,128,.1); }
+.n1-dropdown-check { width: 13px; height: 13px; opacity: 0; color: #009d80; flex-shrink: 0; margin-left: 12px; }
+.n1-dropdown-item.sel .n1-dropdown-check { opacity: 1; }
+.n1-dropdown-sep { height: 1px; background: #f0ede8; margin: 4px 0; }
+/* Left-aligned variant for sidebar fields (the toolbar one aligns right). */
+.n1-dropdown-menu.align-left { left: 0; right: auto; transform-origin: top left; }
+
+/* Trigger button for any native <select> we've replaced with a custom dropdown —
+   same visual language as .field-input so it sits invisibly among other fields. */
+.n1-select-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  width: 100%; text-align: left; cursor: pointer;
+}
+.n1-select-trigger svg { flex-shrink: 0; color: #999; transition: transform .16s cubic-bezier(.4,0,.2,1); }
+.n1-select-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
 
 .topbar-actions {
   display: flex;
@@ -997,6 +1034,10 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
+  /* min-height:0 is required — flex items default to min-height:auto and refuse
+     to shrink below their content, which would block the config panel below
+     from being dragged taller. */
+  min-height: 0;
   overflow-y: auto;
   padding: 20px;
   gap: 16px;
@@ -1075,6 +1116,10 @@ body {
   align-items: center;
   justify-content: center;
   position: relative;
+  /* Must outrank #preview-card's stacking context (a later sibling), or the
+     viewport dropdown menu — positioned inside this toolbar — paints behind
+     the chart instead of over it. */
+  z-index: 20;
   padding: 0 16px;
   height: 42px;
   background: #f0efe9;
@@ -1082,16 +1127,35 @@ body {
   flex-shrink: 0;
 }
 
+/* UI refresh — segmented control: track #f0ede8, sliding white pill (not a
+   colour swap), 200ms cubic-bezier(.4,0,.2,1) transform, per HIG spec. */
 .canvas-tabs {
   display: flex;
   align-items: center;
   gap: 2px;
-  background: #e4e2db;
+  background: #f0ede8;
   border-radius: 8px;
   padding: 3px;
+  position: relative;
 }
 
+.canvas-tabs-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 4px);
+  height: calc(100% - 6px);
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  transition: transform .2s cubic-bezier(.4,0,.2,1);
+  z-index: 0;
+}
+.canvas-tabs[data-active="data"] .canvas-tabs-thumb { transform: translateX(100%); }
+
 .canvas-tab {
+  position: relative;
+  z-index: 1;
   padding: 5px 18px;
   border-radius: 6px;
   border: none;
@@ -1101,15 +1165,13 @@ body {
   color: #888;
   cursor: pointer;
   font-family: inherit;
-  transition: background .12s, color .12s, box-shadow .12s;
+  transition: color .15s;
   letter-spacing: .01em;
 }
 .canvas-tab:hover:not(.active) { color: #444; }
 .canvas-tab.active {
-  background: #009d80;
-  color: #fff;
+  color: #164848;
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(0,157,128,.35);
 }
 
 /* Viewport sits on the right edge, absolute so tabs stay centred */
@@ -1881,6 +1943,27 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
   box-shadow: 0 0 0 2px rgba(0,157,128,0.12);
 }
 
+/* UI refresh — sliders: no browser default styling, teal fill track, white thumb */
+input[type=range] {
+  -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, #009d80 0%, #009d80 var(--fill, 50%), #e0ddd4 var(--fill, 50%), #e0ddd4 100%);
+  cursor: pointer; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2); cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.22,1,0.36,1);
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+input[type=range]::-moz-range-track { background: #e0ddd4; height: 4px; border-radius: 2px; }
+input[type=range]::-moz-range-progress { background: #009d80; height: 4px; border-radius: 2px; }
+input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%; background: #fff; border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2); cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.22,1,0.36,1);
+}
+input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
+
 .toggle-pill {
   display: inline-flex;
   width: 36px;
@@ -2598,6 +2681,20 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 .field-row { border-radius: 3px; transition: background 0.1s; cursor: default; }
 .field-row:hover { background: rgba(0,157,128,0.06); }
 
+/* UI refresh — group related fields instead of one flat list: a small
+   uppercase label sits above a light box, matching Apple's "group logically
+   related items" menu guidance. */
+.n1-group-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  color: #aaa; margin: 14px 0 6px 2px;
+}
+.n1-fieldgroup {
+  background: #fafaf8; border-radius: 8px; padding: 4px 12px 2px;
+}
+.n1-fieldgroup .field-row { margin-bottom: 0; padding: 8px 0; }
+.n1-fieldgroup .field-row:hover { background: none; }
+.n1-fieldgroup .field-row + .field-row { border-top: 1px solid #efece4; }
+
 /* ─── Chart highlight ring ─── */
 #chart-hl-ring {
   position: fixed;
@@ -2916,17 +3013,22 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
    PART 8 — SIDEBAR SECTION DISTINCTION
 ═══════════════════════════════════════════ */
 .accordion-section { border-bottom: 1px solid #e0ddd4; }
+/* UI refresh — white by default (matching the left rail / chart-type cards),
+   dark text always (not greyed-out when collapsed); the teal accent is
+   reserved for the open/active section, same "selected" language as the rest
+   of the app rather than a permanent muted state. */
 .accordion-header {
   min-height: 44px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between;
-  cursor: pointer; background: #f5f3ec; border: none; width: 100%; text-align: left;
-  font-family: inherit; font-size: 12px; color: #8a8a8a; font-weight: 400;
+  cursor: pointer; background: #fff; border: none; width: 100%; text-align: left;
+  font-family: inherit; font-size: 12px; color: #333; font-weight: 500;
   transition: background .12s; border-left: 3px solid transparent;
 }
-.accordion-header:hover { background: #edeae0; }
+.accordion-header:hover { background: #f5f3ec; }
 .accordion-header.open {
-  background: #fff; color: #164848; font-weight: 500;
+  background: #fff; color: #164848; font-weight: 600;
   border-left-color: #009d80;
 }
+.accordion-header.open:hover { background: #fff; }
 .accordion-header .chevron {
   font-size: 14px; transition: transform 150ms ease; display: inline-block; color: #aaa;
 }
@@ -2950,57 +3052,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 @keyframes toastOut { to { opacity:0; transform: translateY(8px); } }
 .toast.out { animation: toastOut .25s ease both; }
 
-/* ═══════════════════════════════════════════
-   PART 10 — EDIT MODE
-═══════════════════════════════════════════ */
-.edit-mode-bar {
-  display: flex; align-items: center; gap: 8px; padding: 4px 10px;
-  border-bottom: 1px solid #eee; background: #fafaf8; flex-shrink: 0; font-size: 11px; color: #888;
-}
-.edit-mode-toggle-wrap { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-.edit-mode-pill {
-  display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px;
-  border: 1px solid #ddd; background: #fff; font-size: 11px; font-weight: 500; color: #888;
-  cursor: pointer; font-family: inherit; transition: all .15s;
-}
-.edit-mode-pill.on { border-color: #009d80; color: #009d80; background: #e8f5f1; }
-.edit-overlay-container { position: absolute; inset: 0; pointer-events: none; z-index: 100; }
-.edit-overlay-container.active { pointer-events: auto; }
-.edit-handle {
-  position: absolute; cursor: text; border: 1.5px dashed transparent;
-  border-radius: 3px; transition: border-color .15s; box-sizing: border-box;
-}
-.edit-handle:hover { border-color: #009d80; }
-.edit-handle:hover::after {
-  content: '✏'; position: absolute; top: -10px; right: -10px;
-  font-size: 10px; background: #009d80; color: #fff; border-radius: 3px; padding: 0 3px; line-height: 16px;
-}
-.edit-inline-input {
-  position: absolute; background: rgba(255,255,255,.95); border: 2px solid #009d80;
-  border-radius: 4px; padding: 2px 6px; font-family: inherit; font-size: 14px; color: #1a1a1a;
-  outline: none; box-shadow: 0 2px 12px rgba(0,157,128,.2); z-index: 200; min-width: 80px;
-}
-.data-point-popover {
-  position: absolute; background: #fff; border: 1px solid #e8e4dc; border-radius: 8px;
-  padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 300; min-width: 180px; font-size: 12px;
-}
-.data-point-popover label { display: block; color: #888; font-size: 11px; margin-bottom: 3px; margin-top: 8px; }
-.data-point-popover label:first-child { margin-top: 0; }
-.data-point-popover input[type=number], .data-point-popover input[type=text] {
-  width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 5px;
-  padding: 5px 8px; font-size: 12px; font-family: inherit; outline: none;
-}
-.data-point-popover input:focus { border-color: #009d80; }
-.data-popover-swatches { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.data-popover-swatch {
-  width: 18px; height: 18px; border-radius: 4px; cursor: pointer; border: 2px solid transparent;
-  transition: border-color .1s; flex-shrink: 0;
-}
-.data-popover-swatch.selected, .data-popover-swatch:hover { border-color: #1a1a1a; }
-.data-popover-done {
-  width: 100%; margin-top: 10px; padding: 6px; border-radius: 5px; border: none;
-  background: #009d80; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
-}
 .theme-in-modal { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e8e4dc; }
 .tim-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
 .tim-desc { font-size: 11px; color: #aaa; margin-bottom: 12px; line-height: 1.5; }
@@ -3257,21 +3308,21 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 
       <!-- Canvas toolbar: always visible, above both tab panels -->
       <div class="canvas-toolbar">
-        <div class="canvas-tabs">
+        <div class="canvas-tabs" id="canvas-tabs" data-active="preview">
+          <div class="canvas-tabs-thumb"></div>
           <button class="canvas-tab active" id="tab-preview" onclick="switchTab('preview')">Preview</button>
           <button class="canvas-tab" id="tab-data" onclick="switchTab('data')">Data</button>
         </div>
-        <!-- Edit mode toggle (Part 10) -->
-        <button class="edit-mode-pill" id="edit-mode-pill" onclick="toggleEditMode()" title="Toggle direct edit mode" style="display:none">
-          ✏️ Edit
-        </button>
         <div class="viewport-select-wrap">
-          <svg class="viewport-icon" id="viewport-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
-          <select id="viewport-select" class="viewport-select" onchange="setViewport(this.value)">
-            <option value="desktop">Desktop — full width</option>
-            <option value="tablet">Tablet — 768px</option>
-            <option value="mobile">Mobile — 375px</option>
-          </select>
+          <button type="button" class="viewport-select" id="viewport-trigger" onclick="toggleViewportMenu()" onkeydown="viewportTriggerKey(event)">
+            <svg class="viewport-icon" id="viewport-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+            <span id="viewport-trigger-label">Desktop — full width</span>
+          </button>
+          <div class="n1-dropdown-menu" id="viewport-menu" role="menu">
+            <button class="n1-dropdown-item sel" data-size="desktop" role="menuitemradio" aria-checked="true" onclick="pickViewport('desktop')">Desktop — full width<svg class="n1-dropdown-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>
+            <button class="n1-dropdown-item" data-size="tablet" role="menuitemradio" aria-checked="false" onclick="pickViewport('tablet')">Tablet — 768px<svg class="n1-dropdown-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>
+            <button class="n1-dropdown-item" data-size="mobile" role="menuitemradio" aria-checked="false" onclick="pickViewport('mobile')">Mobile — 375px<svg class="n1-dropdown-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>
+          </div>
         </div>
       </div>
 
@@ -3301,15 +3352,15 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <button class="warn-close" onclick="dismissOverrideWarning()" title="Dismiss">×</button>
             ⚠ <strong>Custom colour override:</strong> one or more series has a manually set colour. This will override the Sitecore theme colour. Only do this if your design requires a specific colour.
           </div>
-          <!-- Edit overlay (Part 10) -->
-          <div id="edit-overlay-container" class="edit-overlay-container"></div>
+          <!-- Edit overlay (Part 10): anchor for the floating + icon and its popover -->
+          <div id="edit-overlay-container" style="position:absolute;inset:0;pointer-events:none;z-index:100"></div>
           <div id="chart-container"></div>
-          <div id="drag-mode-bar" style="display:none;position:absolute;bottom:8px;right:8px;z-index:10;display:none;gap:6px;align-items:center">
+          <div id="drag-mode-bar" style="display:none;position:absolute;bottom:8px;right:8px;z-index:10;gap:6px;align-items:center">
             <span id="drag-coords-badge" style="font-size:10px;font-family:monospace;color:#009d80;background:#f0faf8;border:1px solid #c0e8e0;border-radius:4px;padding:2px 8px;display:none"></span>
             <button id="drag-mode-btn" onclick="toggleDragMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #009d80;color:#009d80;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">Drag points</button>
           </div>
           <div id="color-point-bar" style="display:none;position:absolute;bottom:8px;left:8px;z-index:10;gap:6px;align-items:center">
-            <button id="color-point-btn" onclick="toggleColorPointMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #571b39;color:#571b39;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">🎨 Colour points</button>
+            <button id="color-point-btn" onclick="toggleColorPointMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #571b39;color:#571b39;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">✏️ Edit individual bars</button>
           </div>
         </div>
         <!-- Drag handle to resize config panel -->
@@ -3321,10 +3372,6 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
           <div class="config-card-head">
             <span class="config-card-label" id="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions">
-              <label title="When on, colours are included in the copied config. When off, Sitecore applies the theme palette automatically." style="display:flex;align-items:center;gap:4px;font-size:10px;color:#888;cursor:pointer;user-select:none;white-space:nowrap">
-                <input type="checkbox" id="config-keep-colors" onchange="refreshConfigPanel()" style="cursor:pointer;accent-color:#009d80">
-                Keep colours
-              </label>
               <button class="copy-btn-small" id="config-expand-btn" onclick="toggleConfigExpand()" style="position:static" title="Expand">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                 Expand
@@ -3491,7 +3538,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Colours -->
     <div class="accordion-section" id="acc-colours">
       <button class="accordion-header open" onclick="toggleAccordion('colours')">
-        Colours <span class="chevron">▾</span>
+        Colours <span class="chevron">▸</span>
       </button>
       <div class="accordion-body open" id="acc-body-colours">
         <div id="series-colour-rows"></div>
@@ -3501,7 +3548,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Lines & Markers -->
     <div class="accordion-section" id="acc-lines" style="display:none">
       <button class="accordion-header" onclick="toggleAccordion('lines')">
-        Lines &amp; markers <span class="chevron">▾</span>
+        Lines &amp; markers <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-lines">
         <div class="field-row" id="fr-thickness">
@@ -3528,7 +3575,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         </div>
         <div class="field-row" id="fr-opacity">
           <label>Opacity</label>
-          <input type="range" min="0.1" max="1" step="0.05" value="1" style="flex:1" id="series-opacity-slider" oninput="onSeriesOpacity(this.value)">
+          <input type="range" min="0.1" max="1" step="0.05" value="1" style="flex:1;--fill:100%" id="series-opacity-slider" oninput="onSeriesOpacity(this.value); _syncSliderFill(this)">
           <span id="opacity-val" style="font-size:11px;color:#888;min-width:28px;text-align:right">100%</span>
         </div>
         <div class="field-row" id="fr-dashstyle">
@@ -3541,15 +3588,17 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         </div>
         <div class="field-row" id="fill-row">
           <label>Fill strength</label>
-          <input type="range" min="0" max="1" step="0.05" value="0.3" style="flex:1" id="fill-opacity-slider" oninput="onFillOpacity(this.value)">
+          <input type="range" min="0" max="1" step="0.05" value="0.3" style="flex:1;--fill:30%" id="fill-opacity-slider" oninput="onFillOpacity(this.value); _syncSliderFill(this)">
         </div>
         <div class="field-row" id="fr-connectnulls">
           <label>Connect gaps</label>
           <button class="toggle-pill" id="toggle-connectnulls" onclick="toggleSetting('connectNulls')"></button>
         </div>
+        <div class="n1-group-label" id="anim-group-label">Animation</div>
+        <div class="n1-fieldgroup" id="anim-group">
         <div class="field-row" id="fr-transition">
           <label>Duration</label>
-          <input type="range" min="0" max="2000" step="50" value="800" style="flex:1" id="anim-duration-slider" oninput="setAnimation(+this.value)">
+          <input type="range" min="0" max="2000" step="50" value="800" style="flex:1;--fill:40%" id="anim-duration-slider" oninput="setAnimation(+this.value); _syncSliderFill(this)">
           <span id="anim-duration-val" style="font-size:11px;color:#888;min-width:36px;text-align:right">800ms</span>
         </div>
         <div class="field-row" id="easing-row">
@@ -3564,13 +3613,14 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
             <option value="easeOutElastic">Elastic</option>
           </select>
         </div>
+        </div>
       </div>
     </div>
 
     <!-- Accordion: Labels -->
     <div class="accordion-section">
       <button class="accordion-header open" onclick="toggleAccordion('labels')">
-        Labels <span class="chevron">▾</span>
+        Labels <span class="chevron">▸</span>
       </button>
       <div class="accordion-body open" id="acc-body-labels">
         <div class="field-row">
@@ -3588,10 +3638,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div class="field-row">
           <label>Decimal places</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setDecimals(null)">Auto</button>
-            <button class="seg-btn" onclick="setDecimals(0)">0</button>
-            <button class="seg-btn" onclick="setDecimals(1)">1</button>
-            <button class="seg-btn" onclick="setDecimals(2)">2</button>
+            <button class="seg-btn active" data-dec="auto" onclick="setDecimals(null)">Auto</button>
+            <button class="seg-btn" data-dec="0" onclick="setDecimals(0)">0</button>
+            <button class="seg-btn" data-dec="1" onclick="setDecimals(1)">1</button>
+            <button class="seg-btn" data-dec="2" onclick="setDecimals(2)">2</button>
           </div>
         </div>
         <div class="field-row">
@@ -3605,7 +3655,19 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         </div>
         <div class="field-row">
           <label>Grid lines</label>
-          <button class="toggle-pill" id="toggle-gridlines" onclick="toggleSetting('gridLines')"></button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="toggle-pill on" id="toggle-gridlines" onclick="toggleSetting('gridLines')"></button>
+            <button id="sb-gridline-color" onclick="openAxisColorPicker('gridLineColor','sb-gridline-color')" title="#cbc8c8"
+                    style="width:22px;height:22px;border-radius:3px;border:1px solid rgba(0,0,0,0.2);background:#cbc8c8;cursor:pointer;padding:0;flex:none"></button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Zero line</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="toggle-pill on" id="toggle-yzero" onclick="toggleSetting('yZeroLine')"></button>
+            <button id="sb-zeroline-color" onclick="openAxisColorPicker('yZeroLineColor','sb-zeroline-color')" title="#b2a896"
+                    style="width:22px;height:22px;border-radius:3px;border:1px solid rgba(0,0,0,0.2);background:#b2a896;cursor:pointer;padding:0;flex:none"></button>
+          </div>
         </div>
       </div>
     </div>
@@ -3613,7 +3675,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Horizontal axis -->
     <div class="accordion-section" id="acc-haxis">
       <button class="accordion-header" onclick="toggleAccordion('xaxis')">
-        Horizontal axis <span class="chevron">▾</span>
+        Horizontal axis <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-xaxis">
         <div class="field-row">
@@ -3623,14 +3685,18 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div class="field-row">
           <label>Label angle</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setXRot(0)">0°</button>
-            <button class="seg-btn" onclick="setXRot(-45)">−45°</button>
-            <button class="seg-btn" onclick="setXRot(-90)">−90°</button>
+            <button class="seg-btn active" data-xrot="0" onclick="setXRot(0)">0°</button>
+            <button class="seg-btn" data-xrot="-45" onclick="setXRot(-45)">−45°</button>
+            <button class="seg-btn" data-xrot="-90" onclick="setXRot(-90)">−90°</button>
           </div>
         </div>
         <div class="field-row">
-          <label>Show axis line</label>
-          <button class="toggle-pill on" id="toggle-xline" onclick="toggleSetting('xLine')"></button>
+          <label>Axis line</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="toggle-pill on" id="toggle-xline" onclick="toggleSetting('xLine')"></button>
+            <button id="sb-xline-color" onclick="openAxisColorPicker('xLineColor','sb-xline-color')" title="#cbc8c8"
+                    style="width:22px;height:22px;border-radius:3px;border:1px solid rgba(0,0,0,0.2);background:#cbc8c8;cursor:pointer;padding:0;flex:none"></button>
+          </div>
         </div>
         <div class="field-row">
           <label>Tick interval (yrs)</label>
@@ -3650,7 +3716,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Vertical axis -->
     <div class="accordion-section" id="acc-vaxis">
       <button class="accordion-header" onclick="toggleAccordion('yaxis')">
-        Vertical axis <span class="chevron">▾</span>
+        Vertical axis <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-yaxis">
         <div class="field-row">
@@ -3671,7 +3737,18 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         </div>
         <div class="field-row">
           <label>Value format</label>
-          <input class="field-input" id="sb-y-format" placeholder="{value}%" oninput="onField('yFormat',this.value)">
+          <div style="display:flex;flex-direction:column;gap:4px;flex:1">
+            <select id="sb-y-format-sel" class="field-input" onchange="setYFormatPreset(this.value)">
+              <option value="">Number</option>
+              <option value="{value}%" selected>Percentage</option>
+              <option value="{value:.1f}%">Percentage 1dp</option>
+              <option value="${value}">Currency $</option>
+              <option value="£{value}">Currency £</option>
+              <option value="€{value}">Currency €</option>
+              <option value="__custom__">Custom</option>
+            </select>
+            <input class="field-input" id="sb-y-format" placeholder="e.g. {value}%" style="display:none" oninput="setYFormatCustom(this.value)">
+          </div>
         </div>
         <div class="field-row">
           <label>Scale type</label>
@@ -3695,7 +3772,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Legend -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('legend')">
-        Legend <span class="chevron">▾</span>
+        Legend <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-legend">
         <div class="field-row">
@@ -3716,7 +3793,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Hover info box -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('tooltip')">
-        Hover info box <span class="chevron">▾</span>
+        Hover info box <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-tooltip">
         <div class="field-row">
@@ -3733,10 +3810,10 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
         <div class="field-row">
           <label>Decimal places</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setDecimals(null)">Auto</button>
-            <button class="seg-btn" onclick="setDecimals(0)">0</button>
-            <button class="seg-btn" onclick="setDecimals(1)">1</button>
-            <button class="seg-btn" onclick="setDecimals(2)">2</button>
+            <button class="seg-btn active" data-dec="auto" onclick="setDecimals(null)">Auto</button>
+            <button class="seg-btn" data-dec="0" onclick="setDecimals(0)">0</button>
+            <button class="seg-btn" data-dec="1" onclick="setDecimals(1)">1</button>
+            <button class="seg-btn" data-dec="2" onclick="setDecimals(2)">2</button>
           </div>
         </div>
         <div class="field-row">
@@ -3753,7 +3830,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Advanced -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('advanced')">
-        Advanced <span class="chevron">▾</span>
+        Advanced <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-advanced">
         <div class="field-row">
@@ -3811,7 +3888,7 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
     <!-- Accordion: Export -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('export')">
-        Export <span class="chevron">▾</span>
+        Export <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-export">
         <div style="display:flex;flex-direction:column;gap:6px">
@@ -4086,11 +4163,15 @@ let state = {
   xTickInterval: null,
   xRotation: 0,
   xLine: true,
+  xLineColor: '#cbc8c8',
   yTitle: '',
   yMin: null,
   yMax: null,
   yTickInterval: null,
-  gridLines: false,
+  gridLines: true,
+  gridLineColor: '#cbc8c8',
+  yZeroLine: true,
+  yZeroLineColor: '#b2a896',
   yFormat: '',
   legend: true,
   legendPos: 'bottom',
@@ -4251,12 +4332,92 @@ function onField(key, val) {
 }
 
 function toggleSetting(key) {
-  const mapping = { markers:'markers', dataLabels:'dataLabels', xLine:'xLine', gridLines:'gridLines', legend:'legend', tooltip:'tooltip' };
+  const mapping = { markers:'markers', dataLabels:'dataLabels', xLine:'xLine', gridLines:'gridLines', legend:'legend', tooltip:'tooltip', yZeroLine:'yZeroLine' };
+  const idMap   = { markers:'markers', dataLabels:'datalabels', xLine:'xline', gridLines:'gridlines', legend:'legend', tooltip:'tooltip', yZeroLine:'yzero' };
   state[mapping[key]] = !state[mapping[key]];
-  const el = document.getElementById('toggle-'+key.toLowerCase().replace('line','line').replace('gridlines','gridlines').replace('datalabels','datalabels'));
+  const el = document.getElementById('toggle-'+(idMap[key] || key.toLowerCase()));
   if (el) el.classList.toggle('on', state[mapping[key]]);
+  updateAxisColorVisibility();
   schedUpdate();
   persist();
+}
+
+function updateAxisColorVisibility() {
+  const gc = document.getElementById('sb-gridline-color');
+  const zc = document.getElementById('sb-zeroline-color');
+  const xc = document.getElementById('sb-xline-color');
+  if (gc) gc.style.display = state.gridLines ? '' : 'none';
+  if (zc) zc.style.display = state.yZeroLine ? '' : 'none';
+  if (xc) xc.style.display = state.xLine ? '' : 'none';
+}
+
+let _axisColorPickerCleanup = null;
+
+function openAxisColorPicker(stateKey, swatchId) {
+  _closeAxisColorPicker();
+  const N1_SWATCHES = ['#cbc8c8','#b2a896','#009d80','#164848','#7ab5b5','#fbaa96','#fcaa28','#d83949','#571b39','#4f6266','#221b3b','#0a3323'];
+  const anchor = document.getElementById(swatchId);
+  if (!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.id = '_axisColorPicker';
+  const currentColor = state[stateKey] || '#cbc8c8';
+  pop.style.cssText = `position:fixed;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.18);width:200px;`;
+  pop.style.left = Math.min(rect.left, window.innerWidth - 216) + 'px';
+  pop.style.top  = (rect.bottom + 6) + 'px';
+  pop.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:8px">
+      ${N1_SWATCHES.map(c => `<button onclick="applyAxisColor('${stateKey}','${swatchId}','${c}')" title="${c}"
+        style="width:24px;height:24px;border-radius:3px;border:2px solid ${c===currentColor?'#009d80':'rgba(0,0,0,0.15)'};background:${c};cursor:pointer;padding:0"></button>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:12px;color:#555">#</span>
+      <input id="_acpHex" value="${currentColor.replace('#','')}" maxlength="6"
+             style="flex:1;border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:12px;font-family:monospace">
+      <button onclick="applyAxisColor('${stateKey}','${swatchId}','#'+document.getElementById('_acpHex').value)"
+              style="background:#009d80;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px">✓</button>
+    </div>
+    <button onclick="_closeAxisColorPicker()" style="margin-top:8px;width:100%;background:#f5f5f5;border:1px solid #ccc;border-radius:4px;padding:4px;cursor:pointer;font-size:12px">Close</button>
+  `;
+  document.body.appendChild(pop);
+  const outside = e => { if (!pop.contains(e.target) && e.target.id !== swatchId) _closeAxisColorPicker(); };
+  setTimeout(() => document.addEventListener('mousedown', outside), 0);
+  _axisColorPickerCleanup = () => document.removeEventListener('mousedown', outside);
+}
+
+function _closeAxisColorPicker() {
+  const el = document.getElementById('_axisColorPicker');
+  if (el) el.remove();
+  if (_axisColorPickerCleanup) { _axisColorPickerCleanup(); _axisColorPickerCleanup = null; }
+}
+
+function applyAxisColor(stateKey, swatchId, color) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) return;
+  state[stateKey] = color;
+  const swatch = document.getElementById(swatchId);
+  if (swatch) { swatch.style.background = color; swatch.title = color; }
+  _closeAxisColorPicker();
+  schedUpdate();
+  persist();
+}
+
+// Builds a Highcharts dataLabels format string that actually respects the
+// "Decimal places" setting. Plain "{y}" prints the raw JS float (e.g.
+// 300.09999999999997) with no rounding at all, which is the bug. Note: the
+// `~` trim-trailing-zeros modifier is NOT supported by this Highcharts build
+// (11.2.0 prints it back literally) — don't reintroduce it here.
+function _dataLabelFormat(decimals, suffix) {
+  const spec = decimals != null ? decimals : 1;
+  return `{y:.${spec}f}${suffix || ''}`;
+}
+
+// Keeps a slider's --fill custom property matching its value, so the teal/grey
+// track split (set via CSS gradient) tracks the thumb instead of staying static.
+function _syncSliderFill(el) {
+  if (!el) return;
+  const min = parseFloat(el.min) || 0, max = parseFloat(el.max) || 100, val = parseFloat(el.value) || 0;
+  const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+  el.style.setProperty('--fill', pct + '%');
 }
 
 function setLineWidth(w) {
@@ -4268,7 +4429,7 @@ function setLineWidth(w) {
 function setAnimation(ms) {
   state.animationDuration = ms;
   const slider = document.getElementById('anim-duration-slider');
-  if (slider) slider.value = ms;
+  if (slider) { slider.value = ms; _syncSliderFill(slider); }
   const val = document.getElementById('anim-duration-val');
   if (val) val.textContent = ms === 0 ? 'None' : ms + 'ms';
   schedUpdate(); persist();
@@ -4407,6 +4568,38 @@ function setValFmt(v) {
   schedUpdate(); persist();
 }
 
+const _Y_FORMAT_PRESETS = ['', '{value}%', '{value:.1f}%', '${value}', '£{value}', '€{value}'];
+
+function setYFormatPreset(v) {
+  const customInput = document.getElementById('sb-y-format');
+  if (v === '__custom__') {
+    if (customInput) customInput.style.display = '';
+    return;
+  }
+  if (customInput) customInput.style.display = 'none';
+  state.yFormat = v;
+  schedUpdate(); persist();
+}
+
+function setYFormatCustom(v) {
+  state.yFormat = v;
+  schedUpdate(); persist();
+}
+
+function _syncYFormatSel(fmt) {
+  const sel = document.getElementById('sb-y-format-sel');
+  const input = document.getElementById('sb-y-format');
+  if (!sel) return;
+  if (_Y_FORMAT_PRESETS.includes(fmt)) {
+    sel.value = fmt;
+    if (input) { input.style.display = 'none'; input.value = ''; }
+  } else {
+    sel.value = '__custom__';
+    if (input) { input.style.display = ''; input.value = fmt || ''; }
+  }
+  if (typeof _syncEnhancedLabel === 'function') _syncEnhancedLabel('sb-y-format-sel');
+}
+
 function _syncValFmtButtons(v) {
   const map = { '': 'valfmt-none', '%': 'valfmt-pct', '$': 'valfmt-dollar' };
   ['valfmt-none','valfmt-pct','valfmt-dollar'].forEach(id => {
@@ -4417,6 +4610,7 @@ function _syncValFmtButtons(v) {
 
 function setXRot(r) {
   state.xRotation = r;
+  document.querySelectorAll('[data-xrot]').forEach(b => b.classList.toggle('active', +b.dataset.xrot === r));
   schedUpdate(); persist();
 }
 
@@ -4497,7 +4691,9 @@ function applyTheme(key) {
 }
 
 function checkColourOverrides() {
-  const hasOverride = state.series.some(sr => sr.colorOverride);
+  const hasStateOverride = state.series.some(sr => sr.colorOverride);
+  const hasManualOverride = Object.keys(_manualColorOverrides).length > 0;
+  const hasOverride = hasStateOverride || hasManualOverride;
   const warn = document.getElementById('colour-override-warning');
   if (!warn) return;
   if (hasOverride && !overrideWarningDismissed) {
@@ -4533,20 +4729,24 @@ function syncSidebarToState() {
   if (g('sb-ymax'))       g('sb-ymax').value = s.yMax ?? '';
   if (g('sb-ytick'))      g('sb-ytick').value = s.yTickInterval ?? '';
   if (g('sb-xtick'))      g('sb-xtick').value = s.xTickInterval ?? '';
-  if (g('sb-y-format'))   g('sb-y-format').value = s.yFormat || '';
+  _syncYFormatSel(s.yFormat || '');
   if (g('sb-val-suffix')) g('sb-val-suffix').value = s.valSuffix || '';
   _syncValFmtButtons(s.valSuffix || '');
   if (g('sb-height'))     g('sb-height').value = s.chartHeight || 450;
   if (g('sb-csv-url'))    g('sb-csv-url').value = s.csvUrl || '';
   if (g('sb-tt-prefix'))  g('sb-tt-prefix').value = s.ttPrefix || '';
   if (g('sb-tt-suffix'))  g('sb-tt-suffix').value = s.ttSuffix || '';
-  if (g('sb-easing'))     g('sb-easing').value = s.animationEasing || 'swing';
-  const toggles = ['markers','dataLabels','gridlines','legend','tooltip','xline'];
-  ['markers','dataLabels','gridLines','legend','tooltip','xLine'].forEach((k,i) => {
-    const el = g('toggle-'+['markers','datalabels','gridlines','legend','tooltip','xline'][i]);
+  if (g('sb-easing'))     { g('sb-easing').value = s.animationEasing || 'swing'; if (typeof _syncEnhancedLabel === 'function') _syncEnhancedLabel('sb-easing'); }
+  [['markers','markers'],['dataLabels','datalabels'],['gridLines','gridlines'],['legend','legend'],['tooltip','tooltip'],['xLine','xline'],['yZeroLine','yzero']].forEach(([k,id]) => {
+    const el = g('toggle-'+id);
     if (el) el.classList.toggle('on', !!s[k]);
   });
+  const _gc = g('sb-gridline-color'); if (_gc) { _gc.style.background = s.gridLineColor || '#cbc8c8'; _gc.title = s.gridLineColor || '#cbc8c8'; }
+  const _zc = g('sb-zeroline-color'); if (_zc) { _zc.style.background = s.yZeroLineColor || '#b2a896'; _zc.title = s.yZeroLineColor || '#b2a896'; }
+  const _xc = g('sb-xline-color');    if (_xc) { _xc.style.background = s.xLineColor || '#cbc8c8';    _xc.title = s.xLineColor || '#cbc8c8'; }
+  updateAxisColorVisibility();
   document.querySelectorAll('[data-lw]').forEach(b => b.classList.toggle('active', +b.dataset.lw === (s.lineWidth ?? 2)));
+  document.querySelectorAll('[data-dec]').forEach(b => b.classList.toggle('active', b.dataset.dec === (s.decimals == null ? 'auto' : String(s.decimals))));
   document.querySelectorAll('[data-mr]').forEach(b => b.classList.toggle('active', +b.dataset.mr === (s.markerRadius ?? 4)));
   document.querySelectorAll('[data-xtype]').forEach(b => b.classList.toggle('active', b.dataset.xtype === (s.xAxisType || 'category')));
   document.querySelectorAll('[data-pp]').forEach(b => b.classList.toggle('active', +b.dataset.pp === (s.pointPadding ?? 0.1)));
@@ -4556,16 +4756,16 @@ function syncSidebarToState() {
   document.querySelectorAll('[data-stack]').forEach(b => b.classList.toggle('active', b.dataset.stack === (s.stacking || '')));
   document.querySelectorAll('[data-zoom]').forEach(b => b.classList.toggle('active', b.dataset.zoom === (s.zoom || '')));
   const opSlider = document.getElementById('series-opacity-slider');
-  if (opSlider) opSlider.value = s.seriesOpacity ?? 1;
+  if (opSlider) { opSlider.value = s.seriesOpacity ?? 1; _syncSliderFill(opSlider); }
   const opVal = document.getElementById('opacity-val');
   if (opVal) opVal.textContent = Math.round((s.seriesOpacity ?? 1) * 100) + '%';
   const animMs = s.animationDuration ?? 800;
   const animSlider = document.getElementById('anim-duration-slider');
-  if (animSlider) animSlider.value = animMs;
+  if (animSlider) { animSlider.value = animMs; _syncSliderFill(animSlider); }
   const animVal = document.getElementById('anim-duration-val');
   if (animVal) animVal.textContent = animMs === 0 ? 'None' : animMs + 'ms';
   const easingSel = document.getElementById('sb-easing');
-  if (easingSel) easingSel.value = s.animationEasing || 'swing';
+  if (easingSel) { easingSel.value = s.animationEasing || 'swing'; if (typeof _syncEnhancedLabel === 'function') _syncEnhancedLabel('sb-easing'); }
   updateAccLinesVisibility();
   updateDonutVisibility();
 }
@@ -5092,7 +5292,17 @@ function selectChartType(type) {
     }
   }
 
+  const _prevType = state.chartType;
   state.chartType = type;
+  // Adjust gridLines default when switching between column/bar and other types
+  const _toColBar   = ['column','bar'].includes(type);
+  const _fromColBar = ['column','bar'].includes(_prevType);
+  if (_toColBar !== _fromColBar) {
+    state.gridLines = !_toColBar;
+    const _glEl = document.getElementById('toggle-gridlines');
+    if (_glEl) _glEl.classList.toggle('on', state.gridLines);
+    updateAxisColorVisibility();
+  }
   // For raw-config charts, propagate the new type into the stored config
   if (_lastRawConfig) {
     if (!_lastRawConfig.chart) _lastRawConfig.chart = {};
@@ -5174,7 +5384,7 @@ function update() {
       data: s.categories.map((cat, i) => ({
         name: cat,
         y: first.data[i] || 0,
-        color: themeColors[i % themeColors.length],
+        color: _manualColorOverrides[`0-${i}`] || themeColors[i % themeColors.length],
       })),
       dataLabels: { enabled: s.dataLabels },
     }];
@@ -5183,8 +5393,8 @@ function update() {
       type: hcType,
       name: sr.name,
       data: isBubble
-        ? sr.data.map((v, idx) => v === null ? null : { x: idx, y: v, z: Math.abs(v) })
-        : sr.data.map(v => v === null ? null : v),
+        ? sr.data.map((v, idx) => v === null ? null : (_manualColorOverrides[`${i}-${idx}`] ? { x: idx, y: v, z: Math.abs(v), color: _manualColorOverrides[`${i}-${idx}`] } : { x: idx, y: v, z: Math.abs(v) }))
+        : sr.data.map((v, idx) => v === null ? null : (_manualColorOverrides[`${i}-${idx}`] ? { y: v, color: _manualColorOverrides[`${i}-${idx}`] } : v)),
       color: sr.colorOverride ? sr.color : themeColors[i % themeColors.length],
       lineWidth: (isScatter || isBubble) ? 0 : s.lineWidth,
       dashStyle: s.dashStyle,
@@ -5193,7 +5403,7 @@ function update() {
       fillOpacity: ['area','areaspline'].includes(hcType) ? s.fillOpacity : undefined,
       dataLabels: {
         enabled: s.dataLabels,
-        format: s.valSuffix ? `{y}${s.valSuffix}` : '{y}',
+        format: _dataLabelFormat(s.decimals, s.valSuffix),
       },
       stacking: s.stacking || undefined,
     }));
@@ -5224,7 +5434,7 @@ function update() {
       title: { text: s.xTitle || null, style: { color: textCol } },
       lineWidth: s.xLine ? 1 : 0,
       tickWidth: 0,
-      lineColor: `rgba(${hexToRgb(textCol)},0.3)`,
+      lineColor: s.xLine ? (s.xLineColor || '#cbc8c8') : 'transparent',
     } : {
       type: isScatter ? 'category' : (s.xAxisType || 'category'),
       categories: s.categories,
@@ -5232,7 +5442,7 @@ function update() {
       labels: { rotation: s.xRotation, style: { color: textCol } },
       lineWidth: s.xLine ? 1 : 0,
       tickWidth: 0,
-      lineColor: `rgba(${hexToRgb(textCol)},0.3)`,
+      lineColor: s.xLine ? (s.xLineColor || '#cbc8c8') : 'transparent',
       tickInterval: s.xTickInterval ? s.xTickInterval * 365.25 * 24 * 3600 * 1000 : undefined,
     },
     yAxis: isPie ? undefined : [
@@ -5242,16 +5452,19 @@ function update() {
         max: s.yMax,
         tickInterval: s.yTickInterval || undefined,
         type: s.yScale === 'logarithmic' ? 'logarithmic' : 'linear',
-        gridLineColor: s.gridLines ? gridCol : 'transparent',
+        gridLineColor: s.gridLines ? (s.gridLineColor || '#cbc8c8') : 'transparent',
         labels: { format: s.yFormat || undefined, style: { color: textCol } },
-        plotLines: s.yPlotLines.map(pl => ({
-          value: pl.value,
-          color: pl.color || '#d83949',
-          width: 1.5,
-          dashStyle: 'Dash',
-          label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
-          zIndex: 5,
-        })),
+        plotLines: [
+          ...(s.yZeroLine ? [{ value: 0, color: s.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 }] : []),
+          ...s.yPlotLines.map(pl => ({
+            value: pl.value,
+            color: pl.color || '#d83949',
+            width: 1,
+            zIndex: 4,
+            ...(pl.dashStyle && pl.dashStyle !== 'Solid' ? { dashStyle: pl.dashStyle } : {}),
+            label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
+          })),
+        ],
       },
       s.yAxis2 ? { opposite: true, title: { text: null }, linkedTo: 0 } : null,
     ].filter(Boolean),
@@ -5295,6 +5508,11 @@ function update() {
   chartInstance = window.chartInstance = Highcharts.chart(container, opts);
   container.style.height = s.chartHeight + 'px';
 
+  const cpBar = document.getElementById('color-point-bar');
+  if (cpBar) cpBar.style.display = 'flex';
+  _updateColorPointBtn();
+  if (_colorPointMode) _attachColorPointListeners();
+
   renderConfig();
   setTimeout(() => { initFieldHovers(); initChartClickNav(); }, 50);
 }
@@ -5334,8 +5552,9 @@ function generateConfig() {
     if (s.xRotation !== 0) lblOpts.rotation = s.xRotation;
     if (s.decimals !== null) lblOpts.format = `{value:.${s.decimals}f}`;
     if (Object.keys(lblOpts).length) xa.labels = lblOpts;
+    if (s.xTickInterval != null) xa.tickInterval = s.xTickInterval * 365.25 * 24 * 3600 * 1000;
     xa.lineWidth = s.xLine ? 1 : 0;
-    xa.lineColor = '#b2a896';
+    if (s.xLine && s.xLineColor && s.xLineColor !== '#cbc8c8') xa.lineColor = s.xLineColor;
     cfg.xAxis = xa;
   }
 
@@ -5349,15 +5568,19 @@ function generateConfig() {
     if (Object.keys(yLbl).length) ya.labels = yLbl;
     if (s.yMin !== null) ya.min = s.yMin;
     if (s.yMax !== null) ya.max = s.yMax;
+    if (s.yTickInterval != null) ya.tickInterval = s.yTickInterval;
     ya.gridLineWidth = s.gridLines ? 1 : 0;
+    if (s.gridLines && s.gridLineColor && s.gridLineColor !== '#cbc8c8') ya.gridLineColor = s.gridLineColor;
     if (s.yScale === 'logarithmic') ya.type = 'logarithmic';
-    if (s.yPlotLines.length) {
-      ya.plotLines = s.yPlotLines.map(pl => {
-        const out = { value: pl.val, color: pl.color || '#b2a896', width: pl.width || 1 };
-        if (pl.label) out.label = { text: pl.label };
-        return out;
-      });
-    }
+    const _cleanPL = [];
+    if (s.yZeroLine) _cleanPL.push({ value: 0, color: s.yZeroLineColor && s.yZeroLineColor !== '#b2a896' ? s.yZeroLineColor : undefined, width: 1, zIndex: 4 });
+    if (s.yPlotLines.length) s.yPlotLines.forEach(pl => {
+      const entry = { value: pl.val || pl.value, color: pl.color || '#d83949', width: 1, zIndex: 4 };
+      if (pl.dashStyle && pl.dashStyle !== 'Solid') entry.dashStyle = pl.dashStyle;
+      if (pl.label) entry.label = { text: pl.label };
+      _cleanPL.push(entry);
+    });
+    if (_cleanPL.length) ya.plotLines = _cleanPL;
     cfg.yAxis = s.yAxis2 ? [ya, { opposite: true, title: { text: '' } }] : ya;
   }
 
@@ -5423,8 +5646,12 @@ function generateConfig() {
 
   // ── series ──
   if (!s.csvUrl) {
-    cfg.series = s.series.map(sr => {
-      const out = { name: sr.name, data: sr.data };
+    cfg.series = s.series.map((sr, si) => {
+      const out = { name: sr.name, data: sr.data.map((v, pi) => {
+        const ov = _manualColorOverrides[`${si}-${pi}`];
+        if (v === null || !ov) return v;
+        return { y: v, color: ov };
+      }) };
       if (sr.colorOverride) out.color = sr.color; // only include if manually set
       return out;
     });
@@ -5630,15 +5857,29 @@ function syncStateFromConfig(cfg) {
   if (cfg.subtitle?.text != null) state.subtitle = cfg.subtitle.text;
   if (cfg.chart?.height)          state.chartHeight = cfg.chart.height;
   const ya = Array.isArray(cfg.yAxis) ? cfg.yAxis[0] : cfg.yAxis;
+  // For col/bar charts with no explicit gridLineWidth, default to OFF
+  const _cfgIsColBar = ['column','bar'].includes(cfg.chart?.type || cfg.series?.[0]?.type);
+  if (_cfgIsColBar && ya?.gridLineWidth == null) state.gridLines = false;
   if (ya) {
     if (ya.gridLineWidth != null) state.gridLines = ya.gridLineWidth !== 0;
+    if (ya.gridLineColor)         state.gridLineColor = ya.gridLineColor;
     if (ya.min           != null) state.yMin = ya.min;
     if (ya.max           != null) state.yMax = ya.max;
     if (ya.tickInterval  != null) state.yTickInterval = ya.tickInterval;
     if (ya.title?.text   != null) state.yTitle = ya.title.text;
+    // Detect zero plotline
+    if (Array.isArray(ya.plotLines)) {
+      const zeroPL = ya.plotLines.find(pl => pl.value === 0);
+      state.yZeroLine = !!zeroPL;
+      if (zeroPL?.color) state.yZeroLineColor = zeroPL.color;
+    }
   }
   const xa = Array.isArray(cfg.xAxis) ? cfg.xAxis[0] : cfg.xAxis;
-  if (xa?.title?.text != null) state.xTitle = xa.title.text;
+  if (xa) {
+    if (xa.title?.text != null)  state.xTitle = xa.title.text;
+    if (xa.lineWidth   != null)  state.xLine  = xa.lineWidth !== 0;
+    if (xa.lineColor)            state.xLineColor = xa.lineColor;
+  }
   const dl = cfg.plotOptions?.series?.dataLabels;
   if (dl != null) {
     state.dataLabels = !!dl.enabled;
@@ -5675,6 +5916,7 @@ function applyConfigEdit() {
     // Store as raw config and re-render via _reapplyFromRawConfig so the
     // active theme colours and sidebar state overrides are applied correctly.
     _lastRawConfig = JSON.parse(JSON.stringify(cfg));
+    _clearManualColorOverrides();
     syncStateFromConfig(cfg);
     _reapplyFromRawConfig();
     msg.textContent = '✓ Applied';
@@ -5689,16 +5931,29 @@ function applyConfigEdit() {
 }
 
 /* ═══════════════════════════════════════════
-   COLOUR POINTS MODE
+   PER-POINT COLOUR OVERRIDES
+   "✏️ Edit individual bars" mode — click a bar directly to edit its
+   value and colour together. No separate edit-mode toggle needed.
 ═══════════════════════════════════════════ */
+
+// Tracks colours manually set by the user. Key: "si-pi" (series index - point
+// index). Only these colours are included in the copy output.
+let _manualColorOverrides = {};
+
+function _clearManualColorOverrides() {
+  _manualColorOverrides = {};
+}
+
+/* ── Edit individual bars mode ── */
 let _colorPointMode = false;
+let _colorPointHCListeners = [];
 
 function _updateColorPointBtn() {
   const btn = document.getElementById('color-point-btn');
   if (!btn) return;
-  btn.textContent      = _colorPointMode ? '✓ Colouring on' : '🎨 Colour points';
-  btn.style.background = _colorPointMode ? '#571b39' : '#fff';
-  btn.style.color      = _colorPointMode ? '#fff'    : '#571b39';
+  btn.textContent       = _colorPointMode ? '✓ Editing on' : '✏️ Edit individual bars';
+  btn.style.background  = _colorPointMode ? '#571b39' : '#fff';
+  btn.style.color       = _colorPointMode ? '#fff'    : '#571b39';
   btn.style.borderColor = '#571b39';
 }
 
@@ -5709,69 +5964,74 @@ function toggleColorPointMode() {
   else { _detachColorPointListeners(); _closeColorPicker(); }
 }
 
-let _colorPointHCListeners = [];
-
 function _attachColorPointListeners() {
   const chart = window.chartInstance;
-  if (!chart) return;
+  if (!chart || !_colorPointMode) return;
   _detachColorPointListeners();
-  // Use Highcharts' native point click event — gives guaranteed correct point.index
   chart.series.forEach((series, si) => {
-    const handler = function(e) {
-      const point = e.point || this;
+    series.points.forEach((point) => {
+      const el = point.graphic?.element;
+      if (!el) return;
       const pi = point.index;
-      // currentColor: explicit per-point colour from raw config, or the rendered colour
-      const rawPoint = _lastRawConfig?.series?.[si]?.data?.[pi];
-      const currentColor = (typeof rawPoint === 'object' ? rawPoint?.color : null)
-        || point.options?.color || point.color;
-      _openColorPicker(e.originalEvent || e.browserEvent || e, si, pi, currentColor);
-    };
-    const remove = Highcharts.addEvent(series, 'click', handler);
-    _colorPointHCListeners.push(remove);
-    // cursor
-    series.points.forEach(p => { if (p.graphic?.element) p.graphic.element.style.cursor = 'crosshair'; });
+      el.style.cursor = 'crosshair';
+      // Direct DOM listener: Highcharts.addEvent on the point/series proved
+      // unreliable once a chart has been destroyed and recreated.
+      const handler = (e) => {
+        const current = _manualColorOverrides[`${si}-${pi}`] || point.color;
+        _openColorPicker(e, si, pi, current);
+      };
+      el.addEventListener('click', handler);
+      _colorPointHCListeners.push(() => {
+        el.removeEventListener('click', handler);
+        el.style.cursor = '';
+      });
+    });
   });
 }
 
 function _detachColorPointListeners() {
   _colorPointHCListeners.forEach(remove => { try { remove(); } catch(e) {} });
   _colorPointHCListeners = [];
-  const chart = window.chartInstance;
-  if (!chart) return;
-  chart.series.forEach(series => {
-    series.points.forEach(p => { if (p.graphic?.element) p.graphic.element.style.cursor = ''; });
-  });
 }
 
 function _openColorPicker(e, si, pi, currentColor) {
   _closeColorPicker();
-  const N1_SWATCHES = ['#009d80','#164848','#7ab5b5','#fbaa96','#fcaa28','#d83949','#571b39','#4f6266','#221b3b','#0a3323','#e8e5ce','#b2a896'];
   const pop = document.createElement('div');
   pop.id = 'color-point-pop';
-  pop.style.cssText = `position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px;width:200px;font-family:inherit`;
-  // Position near cursor — e may be a native MouseEvent or Highcharts event wrapper
-  const cx = e.clientX ?? e.chartX ?? 100;
-  const cy = e.clientY ?? e.chartY ?? 100;
+  pop.style.cssText = 'position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px;width:210px;font-family:inherit';
+  const cx = e.clientX ?? 100, cy = e.clientY ?? 100;
   let top = cy + 12, left = cx + 4;
-  if (top + 200 > window.innerHeight) top = cy - 200;
-  if (left + 215 > window.innerWidth) left = cx - 215;
-  pop.style.top  = top  + 'px';
+  if (top  + 210 > window.innerHeight) top  = cy - 210;
+  if (left + 225 > window.innerWidth)  left = cx - 225;
+  pop.style.top = top + 'px';
   pop.style.left = left + 'px';
 
-  const swatchHTML = N1_SWATCHES.map(c =>
-    `<span onclick="applyPointColor(${si},${pi},'${c}')" title="${c}" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${c};cursor:pointer;border:2px solid ${c === currentColor ? '#333' : 'transparent'};transition:transform .1s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform=''"></span>`
+  const safe = /^#[0-9a-fA-F]{6}$/.test(currentColor) ? currentColor.toLowerCase() : '#009d80';
+  const point = window.chartInstance?.series?.[si]?.points?.[pi];
+  const curVal = point?.y ?? '';
+  const cats = _lastRawConfig?.xAxis?.categories || state.categories;
+  const ptName = (cats && cats[pi]) || `Point ${pi + 1}`;
+  const seriesName = window.chartInstance?.series?.[si]?.name || '';
+
+  const swatches = N1_PALETTE.map(c =>
+    `<span class="cp-sw" data-c="${c}" onclick="_cpPickSwatch(this)" title="${c}" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${c};cursor:pointer;border:2px solid ${c.toLowerCase()===safe?'#333':'transparent'}"></span>`
   ).join('');
 
   pop.innerHTML = `
-    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:8px">Point colour</div>
-    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${swatchHTML}</div>
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-      <input type="color" id="color-point-custom" value="${currentColor || '#009d80'}" style="width:32px;height:28px;border:1px solid #ddd;border-radius:4px;cursor:pointer;padding:1px">
-      <button onclick="applyPointColor(${si},${pi},document.getElementById('color-point-custom').value)" style="flex:1;padding:5px 8px;background:#009d80;color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Apply custom</button>
+    <div style="font-size:11px;font-weight:700;color:#333;margin-bottom:2px">${escHtml(ptName)}</div>
+    <div style="font-size:10px;color:#999;margin-bottom:10px">${escHtml(seriesName)}</div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:10px;color:#888;margin-bottom:3px">Value</label>
+      <input type="number" id="color-point-val" value="${curVal}" step="any" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:4px;padding:5px 8px;font-size:12px;font-family:inherit;outline:none">
     </div>
+    <label style="display:block;font-size:10px;color:#888;margin-bottom:4px">Colour</label>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${swatches}</div>
+    <input type="text" id="color-point-hex" value="${safe}" maxlength="7" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:4px;padding:5px 8px;font-size:11px;font-family:monospace;outline:none;margin-bottom:10px">
+    <button onclick="applyPointEdit(${si},${pi})" style="width:100%;padding:7px;background:#009d80;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:6px">Done ✓</button>
     <button onclick="resetPointColor(${si},${pi})" style="width:100%;padding:5px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">Reset to theme colour</button>`;
   document.body.appendChild(pop);
-  setTimeout(() => document.addEventListener('click', _colorPickerOutside, { once: true }), 0);
+  document.removeEventListener('click', _colorPickerOutside);
+  setTimeout(() => document.addEventListener('click', _colorPickerOutside), 0);
 }
 
 function _colorPickerOutside(e) {
@@ -5780,6 +6040,60 @@ function _colorPickerOutside(e) {
 
 function _closeColorPicker() {
   document.getElementById('color-point-pop')?.remove();
+  document.removeEventListener('click', _colorPickerOutside);
+}
+
+// Highlights the chosen swatch and mirrors it into the hex field.
+function _cpPickSwatch(el) {
+  document.querySelectorAll('#color-point-pop .cp-sw').forEach(s => s.style.borderColor = 'transparent');
+  el.style.borderColor = '#333';
+  const hex = document.getElementById('color-point-hex');
+  if (hex) hex.value = el.dataset.c;
+}
+
+// Saves value + colour together. Updates the live chart in place (no rebuild,
+// no animation), records the override, and refreshes the config output.
+function applyPointEdit(si, pi) {
+  const hexVal = document.getElementById('color-point-hex')?.value?.trim();
+  const numVal = document.getElementById('color-point-val')?.value;
+  const dataArr = _lastRawConfig ? _lastRawConfig.series?.[si]?.data : state.series?.[si]?.data;
+  if (!Array.isArray(dataArr)) return;
+  if (_lastRawConfig) _pushUndo();
+
+  const upd = {};
+  if (numVal !== '' && numVal != null && !isNaN(parseFloat(numVal))) upd.y = parseFloat(numVal);
+  if (/^#[0-9a-fA-F]{6}$/.test(hexVal)) {
+    upd.color = hexVal;
+    _manualColorOverrides[`${si}-${pi}`] = hexVal;
+  }
+
+  // Keep the underlying data model in sync so a later full re-render keeps this.
+  if (upd.y != null) {
+    if (typeof dataArr[pi] === 'object' && dataArr[pi] !== null) dataArr[pi].y = upd.y;
+    else dataArr[pi] = upd.y;
+  }
+  if (upd.color) {
+    if (typeof dataArr[pi] !== 'object' || dataArr[pi] === null) dataArr[pi] = { y: dataArr[pi] };
+    dataArr[pi].color = upd.color;
+  }
+
+  try { window.chartInstance?.series[si]?.points[pi]?.update(upd, true, false); } catch(e) {}
+  _closeColorPicker();
+  if (_lastRawConfig) refreshConfigPanel(); else { renderGrid(); renderConfig(); }
+  _attachColorPointListeners();
+  markDirty();
+}
+
+function resetPointColor(si, pi) {
+  delete _manualColorOverrides[`${si}-${pi}`];
+  const dataArr = _lastRawConfig ? _lastRawConfig.series?.[si]?.data : state.series?.[si]?.data;
+  if (Array.isArray(dataArr) && typeof dataArr[pi] === 'object' && dataArr[pi] !== null) {
+    if (_lastRawConfig) _pushUndo();
+    delete dataArr[pi].color;
+  }
+  _closeColorPicker();
+  if (_lastRawConfig) _reapplyFromRawConfig(); else schedUpdate();
+  markDirty();
 }
 
 /* ── Undo history for raw-config changes ── */
@@ -5798,32 +6112,6 @@ function undoRawConfig() {
   _reapplyFromRawConfig();
   refreshConfigPanel();
   showToast('Undone');
-}
-
-function applyPointColor(si, pi, color) {
-  if (!_lastRawConfig?.series?.[si]) return;
-  const s = _lastRawConfig.series[si];
-  if (!Array.isArray(s.data)) return;
-  _pushUndo();
-  if (typeof s.data[pi] !== 'object' || s.data[pi] === null) {
-    s.data[pi] = { y: s.data[pi] };
-  }
-  s.data[pi].color = color;
-  _closeColorPicker();
-  _reapplyFromRawConfig();
-  refreshConfigPanel();
-  const keepChk = document.getElementById('config-keep-colors');
-  if (keepChk && !keepChk.checked) { keepChk.checked = true; refreshConfigPanel(); }
-}
-
-function resetPointColor(si, pi) {
-  if (!_lastRawConfig?.series?.[si]?.data?.[pi]) return;
-  _pushUndo();
-  const pt = _lastRawConfig.series[si].data[pi];
-  if (typeof pt === 'object') delete pt.color;
-  _closeColorPicker();
-  _reapplyFromRawConfig();
-  refreshConfigPanel();
 }
 
 /* ═══════════════════════════════════════════
@@ -6008,8 +6296,37 @@ function _reapplyFromRawConfig() {
     if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
     // Apply theme display colours (not stored in _lastRawConfig)
     if (!cfg.chart) cfg.chart = {};
-    // Inject theme palette so series without explicit colours use theme colours
+    // Inject theme palette — strip any series-level colour so the palette drives the preview.
+    // Per-point colours are only applied from _manualColorOverrides (user-chosen overrides).
     cfg.colors = thm.chartSeriesColors || N1_PALETTE;
+    if (cfg.series) {
+      cfg.series.forEach((s, si) => {
+        // Strip series-level colour so the theme palette drives unbucketed series
+        delete s.color;
+        // Preserve original per-point colours from the config.
+        // Apply manual overrides (from the colour picker) on top of them.
+        if (Array.isArray(s.data)) {
+          s.data.forEach((pt, pi) => {
+            // Defensive: repair a { y: { y, color }, color } double-wrap, in
+            // case any older/cached state produced one — Highcharts requires
+            // y to be a plain number and would otherwise fail to render.
+            if (pt && typeof pt === 'object' && pt.y && typeof pt.y === 'object') {
+              const inner = pt.y;
+              pt.y = inner.y ?? inner.value ?? 0;
+              if (inner.color && !pt.color) pt.color = inner.color;
+              s.data[pi] = pt;
+            }
+            const ov = _manualColorOverrides[`${si}-${pi}`];
+            if (ov) {
+              if (typeof s.data[pi] !== 'object' || s.data[pi] === null) {
+                s.data[pi] = { y: s.data[pi] };
+              }
+              s.data[pi].color = ov;
+            }
+          });
+        }
+      });
+    }
     cfg.chart.backgroundColor = thm.pageBackground;
     if (!cfg.title)    cfg.title    = {};
     if (!cfg.subtitle) cfg.subtitle = {};
@@ -6046,7 +6363,7 @@ function _reapplyFromRawConfig() {
       if (state.xTitle != null)    cfg.xAxis.title     = { ...(cfg.xAxis.title || {}), text: state.xTitle || null, style: axStyle };
       if (state.xRotation != null) { if (!cfg.xAxis.labels) cfg.xAxis.labels = {}; cfg.xAxis.labels.rotation = state.xRotation; cfg.xAxis.labels.style = axStyle; }
       cfg.xAxis.lineWidth = state.xLine ? 1 : 0;
-      cfg.xAxis.lineColor = `rgba(${hexToRgb(thm.bodyColor)},0.3)`;
+      cfg.xAxis.lineColor = state.xLine ? (state.xLineColor || '#cbc8c8') : 'transparent';
       if (state.xTickInterval != null) {
         const oneYear = 365.25 * 24 * 3600 * 1000;
         cfg.xAxis.tickInterval = state.xTickInterval * oneYear;
@@ -6068,14 +6385,16 @@ function _reapplyFromRawConfig() {
       if (state.yTitle != null)  yaOverride.title = { ...(yaOverride.title || {}), text: state.yTitle || null, style: axStyle };
       yaOverride.type = state.yScale === 'logarithmic' ? 'logarithmic' : 'linear';
       yaOverride.gridLineWidth = state.gridLines ? 1 : 0;
-      yaOverride.gridLineColor = state.gridLines ? gridCol : 'transparent';
+      yaOverride.gridLineColor = state.gridLines ? (state.gridLineColor || '#cbc8c8') : 'transparent';
       if (state.yFormat)         yaOverride.labels = { ...(yaOverride.labels || {}), format: state.yFormat, style: axStyle };
-      if (state.yPlotLines?.length) {
-        yaOverride.plotLines = state.yPlotLines.map(pl => ({
-          value: pl.value, color: pl.color || '#d83949', width: 1.5, dashStyle: 'Dash', zIndex: 5,
-          label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
-        }));
-      }
+      const _allPL = [];
+      if (state.yZeroLine) _allPL.push({ value: 0, color: state.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 });
+      if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => _allPL.push({
+        value: pl.value, color: pl.color || '#d83949', width: 1, zIndex: 4,
+        ...(pl.dashStyle && pl.dashStyle !== 'Solid' ? { dashStyle: pl.dashStyle } : {}),
+        label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
+      }));
+      if (_allPL.length) yaOverride.plotLines = _allPL; else delete yaOverride.plotLines;
     }
 
     // Legend
@@ -6110,7 +6429,7 @@ function _reapplyFromRawConfig() {
       if (state.stepLine)            cfg.plotOptions.series.step        = state.stepLine;
       if (state.stacking)            cfg.plotOptions.series.stacking    = state.stacking;
       if (state.seriesOpacity < 1)   cfg.plotOptions.series.opacity     = state.seriesOpacity;
-      if (state.dataLabels)          cfg.plotOptions.series.dataLabels  = { enabled: true, format: state.valSuffix ? `{y}${state.valSuffix}` : '{y}' };
+      if (state.dataLabels)          cfg.plotOptions.series.dataLabels  = { enabled: true, format: _dataLabelFormat(state.decimals, state.valSuffix) };
     }
     if (['column','bar'].includes(chartType)) {
       const shapeKey = chartType;
@@ -6135,10 +6454,10 @@ function _reapplyFromRawConfig() {
     const pre = document.getElementById('config-output');
     if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
     if (_dragMode) setTimeout(_attachDragListeners, 50);
-    // Show colour-points button for any raw-config chart
     const cpBar = document.getElementById('color-point-bar');
     if (cpBar) cpBar.style.display = 'flex';
-    if (_colorPointMode) setTimeout(_attachColorPointListeners, 80);
+    _updateColorPointBtn();
+    if (_colorPointMode) _attachColorPointListeners();
   } catch(e) {
     console.error('_reapplyFromRawConfig:', e);
   }
@@ -6171,10 +6490,6 @@ function _serializeConfig(obj, depth) {
   return String(obj);
 }
 
-function _keepColorsEnabled() {
-  return document.getElementById('config-keep-colors')?.checked || false;
-}
-
 function refreshConfigPanel() {
   if (!_lastRawConfig) return;
   const pre = document.getElementById('config-output');
@@ -6186,31 +6501,63 @@ function refreshConfigPanel() {
 }
 
 function _cleanConfigForCopy(cfg) {
-  // Build a clean Sitecore-ready config from the raw config + current sidebar state.
-  // By default strips series-level colours so Sitecore applies its theme palette.
-  // When "Keep colours" is checked, all colours are preserved as-is.
+  // Builds a Sitecore-ready config: strips all colours (Sitecore applies the theme palette),
+  // except per-point colours that the user manually overrode via the colour picker.
   if (!cfg?.series) return cfg;
   const out = JSON.parse(JSON.stringify(cfg));
 
-  if (!_keepColorsEnabled()) {
-    // Strip series-level colours only; per-point data colours are intentional overrides
-    out.series.forEach(s => {
-      delete s.color;
-      delete s._colorOverride;
-    });
-  }
-
-  // Apply current sidebar state to yAxis
-  const ya = Array.isArray(out.yAxis) ? out.yAxis[0] : out.yAxis;
-  if (ya) {
-    ya.gridLineWidth = state.gridLines ? 1 : 0;
-    if (!ya.gridLineWidth) delete ya.gridLineColor;
-    if (state.yMin != null) ya.min = state.yMin; else delete ya.min;
-    if (state.yMax != null) ya.max = state.yMax; else delete ya.max;
-    if (state.yTickInterval != null) ya.tickInterval = state.yTickInterval; else delete ya.tickInterval;
-    if (state.yFormat || state.valSuffix) {
-      ya.labels = { ...(ya.labels || {}), format: state.yFormat || `{value}${state.valSuffix}` };
+  out.series.forEach((s, si) => {
+    // Always strip series-level colours
+    delete s.color;
+    delete s._colorOverride;
+    // Strip per-point colours from the original config; re-apply only manual overrides
+    if (Array.isArray(s.data)) {
+      s.data.forEach((pt, pi) => {
+        if (typeof pt === 'object' && pt !== null) {
+          delete pt.color;
+          const override = _manualColorOverrides[`${si}-${pi}`];
+          if (override) pt.color = override;
+        }
+      });
     }
+  });
+
+  // Rebuild yAxis with a clean, consistent property order so sidebar values
+  // always appear at predictable positions (not appended to the end).
+  const _ya = Array.isArray(out.yAxis) ? out.yAxis[0] : out.yAxis;
+  if (_ya) {
+    const _cpPL = [];
+    if (state.yZeroLine) {
+      const _ze = { value: 0, width: 1, zIndex: 4 };
+      if (state.yZeroLineColor && state.yZeroLineColor !== '#b2a896') _ze.color = state.yZeroLineColor;
+      _cpPL.push(_ze);
+    }
+    if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => {
+      const _e = { value: pl.value, color: pl.color || '#d83949', width: 1, zIndex: 4 };
+      if (pl.dashStyle && pl.dashStyle !== 'Solid') _e.dashStyle = pl.dashStyle;
+      if (pl.label) _e.label = { text: pl.label };
+      _cpPL.push(_e);
+    });
+
+    const _yaNew = {};
+    if (_ya.title != null)       _yaNew.title = _ya.title;
+    if (state.yTitle != null)    _yaNew.title = { text: state.yTitle || null };
+    if (state.yMin  != null)     _yaNew.min = state.yMin;
+    if (state.yMax  != null)     _yaNew.max = state.yMax;
+    if (state.yTickInterval != null) _yaNew.tickInterval = state.yTickInterval;
+    _yaNew.gridLineWidth = state.gridLines ? 1 : 0;
+    if (state.gridLines && state.gridLineColor && state.gridLineColor !== '#cbc8c8') _yaNew.gridLineColor = state.gridLineColor;
+    const _fmt = state.yFormat || (state.valSuffix ? `{value}${state.valSuffix}` : null);
+    if (_fmt) _yaNew.labels = { ...(_ya.labels || {}), format: _fmt };
+    else if (_ya.labels && Object.keys(_ya.labels).some(k => k !== 'style')) {
+      const _lbl = { ..._ya.labels }; delete _lbl.style; if (Object.keys(_lbl).length) _yaNew.labels = _lbl;
+    }
+    if (_ya.type && _ya.type !== 'linear') _yaNew.type = _ya.type;
+    if (_cpPL.length) _yaNew.plotLines = _cpPL;
+    // Carry forward any other raw-config keys not yet handled
+    const _handled = new Set(['title','min','max','tickInterval','gridLineWidth','gridLineColor','labels','type','plotLines','lineColor','tickColor']);
+    Object.keys(_ya).forEach(k => { if (!_handled.has(k)) _yaNew[k] = _ya[k]; });
+    if (Array.isArray(out.yAxis)) out.yAxis[0] = _yaNew; else out.yAxis = _yaNew;
   }
 
   // Apply title/subtitle from sidebar
@@ -6223,15 +6570,23 @@ function _cleanConfigForCopy(cfg) {
     delete out.series;
   }
 
-  // Strip any theme-injected display styles (colours, backgrounds)
+  // Strip theme-injected display styles (colours, backgrounds)
   if (out.title?.style)    delete out.title.style;
   if (out.subtitle?.style) delete out.subtitle.style;
   if (out.chart?.backgroundColor) delete out.chart.backgroundColor;
-  ;[out.xAxis, ...(Array.isArray(out.yAxis) ? out.yAxis : [out.yAxis])].forEach(ax => {
+  if (out.xAxis) {
+    if (out.xAxis.labels?.style) delete out.xAxis.labels.style;
+    if (out.xAxis.title?.style)  delete out.xAxis.title.style;
+    delete out.xAxis.tickColor;
+    out.xAxis.lineWidth = state.xLine ? 1 : 0;
+    if (state.xLine && state.xLineColor && state.xLineColor !== '#cbc8c8') out.xAxis.lineColor = state.xLineColor;
+    else delete out.xAxis.lineColor;
+  }
+  ;(Array.isArray(out.yAxis) ? out.yAxis : [out.yAxis]).forEach(ax => {
     if (!ax) return;
     if (ax.labels?.style) delete ax.labels.style;
     if (ax.title?.style)  delete ax.title.style;
-    delete ax.lineColor; delete ax.tickColor;
+    delete ax.tickColor; delete ax.lineColor;
   });
   if (out.legend?.itemStyle) delete out.legend.itemStyle;
 
@@ -6683,6 +7038,7 @@ function applyAIConfig(cfg) {
       })),
     };
     _lastRawConfig = JSON.parse(JSON.stringify(cleanCfg));
+    _clearManualColorOverrides();
     // renderCfg: display-only version with theme preview colours
     const renderCfg = JSON.parse(JSON.stringify(cleanCfg));
     renderCfg.chart.backgroundColor = thm.pageBackground;
@@ -7490,7 +7846,11 @@ function setStep(s) {
   document.querySelectorAll('[data-step]').forEach(b => b.classList.toggle('active', b.dataset.step === s));
   schedUpdate(); persist();
 }
-function setDecimals(n) { state.decimals = n; schedUpdate(); persist(); }
+function setDecimals(n) {
+  state.decimals = n;
+  document.querySelectorAll('[data-dec]').forEach(b => b.classList.toggle('active', b.dataset.dec === (n === null ? 'auto' : String(n))));
+  schedUpdate(); persist();
+}
 function setTooltipMode(m) { state.tooltipMode = m; schedUpdate(); persist(); }
 
 function addYPlotLine() {
@@ -7784,6 +8144,8 @@ function switchTab(tab) {
   document.getElementById('data-tab-content').style.display = isData ? 'block' : 'none';
   document.getElementById('tab-preview').classList.toggle('active', !isData);
   document.getElementById('tab-data').classList.toggle('active', isData);
+  const tabsEl = document.getElementById('canvas-tabs');
+  if (tabsEl) tabsEl.dataset.active = isData ? 'data' : 'preview';
   if (isData) {
     renderRawDataPreview();
     if (!_lastRawConfig) renderGrid();
@@ -7897,26 +8259,68 @@ const CHART_TEMPLATES = [
   {
     id: 'ex02-col',
     name: 'Commodity Changes',
-    desc: 'Column pos/neg, data labels',
+    desc: 'Column pos/neg, per-point colour, responsive',
     section: 'Column & Bar',
+    typeHint: 'column',
     preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><line x1="0" y1="43" x2="120" y2="43" stroke="#ccc" stroke-width="0.5"/><rect x="2"   y="5"  width="11" height="38" fill="#009d80"/><rect x="16"  y="28" width="11" height="15" fill="#009d80"/><rect x="30"  y="31" width="11" height="12" fill="#009d80"/><rect x="44"  y="33" width="11" height="10" fill="#009d80"/><rect x="58"  y="42" width="11" height="1"  fill="#009d80"/><rect x="72"  y="43" width="11" height="2"  fill="#d83949"/><rect x="86"  y="43" width="11" height="5"  fill="#d83949"/><rect x="100" y="43" width="11" height="11" fill="#d83949"/></svg>`,
-    state: {
-      chartType: 'column',
-      title: 'Commodity price changes over the quarter',
-      subtitle: '',
-      categories: ['Nickel','Copper','Zinc','WTI Oil','Palladium','Platinum','Aluminium','Iron Ore','Gold','Silver','Brent Crude','US Nat Gas'],
-      series: [
-        { name: '', colorOverride: false, data: [13.8,5.3,4.2,3.6,3.1,2.3,0.2,-0.7,-1.1,-1.8,-3.7,-4.1] },
-      ],
-      animationDuration: 800, animationEasing: 'swing',
-      lineWidth: 2, markers: false, markerRadius: 4, dashStyle: 'Solid',
-      fillOpacity: 0.3, seriesOpacity: 1, borderRadius: 0, pointPadding: 0.1,
-      xAxisType: 'category', xTitle: '', xRotation: -90, xLine: true,
-      yTitle: '', yMin: -6, yMax: 16, yScale: 'linear', yFormat: '{value}%',
-      gridLines: true, legend: false, legendPos: 'bottom',
-      tooltip: true, tooltipMode: 'single', ttPrefix: '', ttSuffix: '%',
-      decimals: 1, dataLabels: true,
-      stacking: '', zoom: '', chartHeight: 500, innerSize: 60,
+    rawConfig: {
+      chart: { type: 'column', height: 500 },
+      title: { text: 'Commodity price changes over the quarter' },
+      subtitle: { text: '' },
+      xAxis: {
+        categories: ['Nickel','Copper','Zinc','WTI Oil','Palladium','Platinum Spot','Alluminium','Iron Ore','Gold','Silver','Brent Crude Oil','US Natural Gas'],
+        lineWidth: 1,
+        lineColor: '#cbc8c8',
+        startOnTick: true,
+        labels: { rotation: -90 }
+      },
+      yAxis: {
+        plotLines: [{ value: 0, color: '#b2a896', width: 1 }],
+        title: { text: null },
+        labels: { format: '{value}%' },
+        gridLineWidth: 1,
+        gridLineColor: '#cbc8c8',
+        min: -6,
+        max: 16,
+        tickInterval: 2
+      },
+      plotOptions: {
+        column: {
+          stacking: 'normal',
+          dataLabels: { enabled: true, inside: false, format: '{y:.1f}%' }
+        }
+      },
+      legend: { enabled: false },
+      tooltip: { pointFormat: '{point.y:.1f}%' },
+      series: [{
+        name: '',
+        data: [
+          { y: 13.8, color: '#009d80' },
+          { y: 5.3,  color: '#009d80' },
+          { y: 4.2,  color: '#009d80' },
+          { y: 3.6,  color: '#009d80' },
+          { y: 3.1,  color: '#009d80' },
+          { y: 2.3,  color: '#009d80' },
+          { y: 0.2,  color: '#009d80' },
+          { y: -0.7, color: '#d83949' },
+          { y: -1.1, color: '#d83949' },
+          { y: -1.8, color: '#d83949' },
+          { y: -3.7, color: '#d83949' },
+          { y: -4.1, color: '#d83949' }
+        ]
+      }],
+      responsive: {
+        rules: [{
+          condition: { maxWidth: 500 },
+          chartOptions: {
+            chart: { height: '600' },
+            yAxis: { labels: { enabled: false }, min: -1.5, max: 8 },
+            plotOptions: {
+              column: { pointWidth: 22, dataLabels: { rotation: -90, inside: true } }
+            }
+          }
+        }]
+      }
     }
   },
   {
@@ -8481,13 +8885,20 @@ const VIEWPORT_ICONS = {
   mobile:  `<rect x="6" y="2" width="12" height="20" rx="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke-width="2.5" stroke-linecap="round"/>`
 };
 
+const VIEWPORT_LABELS = { desktop: 'Desktop — full width', tablet: 'Tablet — 768px', mobile: 'Mobile — 375px' };
+
 function setViewport(size) {
   const wrap = document.getElementById('preview-card');
   const icon = document.getElementById('viewport-icon');
-  const sel  = document.getElementById('viewport-select');
+  const label = document.getElementById('viewport-trigger-label');
 
   if (icon) icon.innerHTML = VIEWPORT_ICONS[size] || VIEWPORT_ICONS.desktop;
-  if (sel && sel.value !== size) sel.value = size;
+  if (label) label.textContent = VIEWPORT_LABELS[size] || VIEWPORT_LABELS.desktop;
+  document.querySelectorAll('#viewport-menu .n1-dropdown-item').forEach(item => {
+    const isSel = item.dataset.size === size;
+    item.classList.toggle('sel', isSel);
+    item.setAttribute('aria-checked', isSel ? 'true' : 'false');
+  });
 
   if (size === 'desktop') {
     wrap.style.maxWidth = '';
@@ -8505,6 +8916,266 @@ function setViewport(size) {
   // Reflow rather than rebuild — viewport change is layout-only, not data
   setTimeout(() => { try { window.chartInstance && window.chartInstance.reflow(); } catch(e){} }, 50);
 }
+
+/* ── Viewport dropdown: opens below trigger, arrow keys move selection,
+   Enter picks, Escape closes, outside click closes. Same pattern as
+   any future pop-up-button-style menu in the toolbar. ── */
+let _vpKbdIndex = -1;
+let _vpScrollCleanup = null;
+
+function pickViewport(size) {
+  setViewport(size);
+  persist();
+  closeViewportMenu();
+}
+
+function toggleViewportMenu() {
+  const menu = document.getElementById('viewport-menu');
+  if (menu.classList.contains('open')) closeViewportMenu(); else openViewportMenu();
+}
+
+// Positions a position:fixed dropdown menu against its trigger's real screen
+// rect. align 'right' anchors the menu's right edge to the trigger's right
+// edge (toolbar dropdowns); 'left' anchors left edges (sidebar dropdowns).
+function _positionFixedMenu(menu, trigger, align) {
+  const r = trigger.getBoundingClientRect();
+  const menuWidth = Math.max(menu.offsetWidth, parseInt(getComputedStyle(menu).minWidth) || 180);
+  let left = align === 'right' ? r.right - menuWidth : r.left;
+  left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8));
+  // Use the menu's real height (not an estimate) so the "flip above" branch
+  // can't overshoot and push the menu off the bottom of the screen — then
+  // clamp unconditionally so an off-screen trigger still yields a visible menu.
+  const menuHeight = menu.scrollHeight || 200;
+  let top = r.bottom + 8;
+  if (top + menuHeight > window.innerHeight - 8) top = r.top - 8 - menuHeight;
+  top = Math.max(8, Math.min(top, window.innerHeight - menuHeight - 8));
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+}
+
+function _closeFixedMenuOnScroll(closeFn) {
+  const onScroll = () => closeFn();
+  setTimeout(() => window.addEventListener('scroll', onScroll, { capture: true, once: true }), 0);
+  return () => window.removeEventListener('scroll', onScroll, { capture: true });
+}
+
+function openViewportMenu() {
+  const menu = document.getElementById('viewport-menu');
+  const trigger = document.getElementById('viewport-trigger');
+  // .viewport-select-wrap centers itself with a CSS transform, and any
+  // transformed ancestor becomes the containing block for position:fixed
+  // descendants — silently hijacking this menu's coordinates. Reparent to
+  // <body> so it's actually fixed to the viewport, matching _positionFixedMenu's math.
+  if (menu.parentElement !== document.body) document.body.appendChild(menu);
+  menu.classList.add('open');
+  _positionFixedMenu(menu, trigger, 'right');
+  const items = [...menu.querySelectorAll('.n1-dropdown-item')];
+  _vpKbdIndex = items.findIndex(i => i.classList.contains('sel'));
+  setTimeout(() => document.addEventListener('click', _vpOutsideClick), 0);
+  _vpScrollCleanup = _closeFixedMenuOnScroll(closeViewportMenu);
+}
+
+function closeViewportMenu() {
+  const menu = document.getElementById('viewport-menu');
+  menu.querySelectorAll('.n1-dropdown-item').forEach(i => i.classList.remove('kbd-active'));
+  menu.classList.remove('open');
+  document.removeEventListener('click', _vpOutsideClick);
+  _vpKbdIndex = -1;
+  if (_vpScrollCleanup) { _vpScrollCleanup(); _vpScrollCleanup = null; }
+}
+
+function _vpOutsideClick(e) {
+  const menu = document.getElementById('viewport-menu');
+  const trigger = document.getElementById('viewport-trigger');
+  if (!menu.contains(e.target) && !trigger.contains(e.target)) closeViewportMenu();
+}
+
+function viewportTriggerKey(e) {
+  const menu = document.getElementById('viewport-menu');
+  const items = [...menu.querySelectorAll('.n1-dropdown-item')];
+  if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!menu.classList.contains('open')) { openViewportMenu(); return; }
+    if (e.key === 'Enter' || e.key === ' ') { if (_vpKbdIndex >= 0) items[_vpKbdIndex].click(); }
+    else _moveVpKbd(items, e.key === 'ArrowDown' ? 1 : -1);
+  } else if (e.key === 'Escape') {
+    closeViewportMenu();
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  const menu = document.getElementById('viewport-menu');
+  if (!menu || !menu.classList.contains('open')) return;
+  const items = [...menu.querySelectorAll('.n1-dropdown-item')];
+  if (e.key === 'ArrowDown') { e.preventDefault(); _moveVpKbd(items, 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _moveVpKbd(items, -1); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (_vpKbdIndex >= 0) items[_vpKbdIndex].click(); }
+  else if (e.key === 'Escape') { closeViewportMenu(); document.getElementById('viewport-trigger').focus(); }
+});
+
+function _moveVpKbd(items, dir) {
+  items.forEach(i => i.classList.remove('kbd-active'));
+  _vpKbdIndex = (_vpKbdIndex + dir + items.length) % items.length;
+  items[_vpKbdIndex].classList.add('kbd-active');
+}
+
+/* ── Generic native-<select> → custom dropdown, same visual language and
+   keyboard/outside-click behaviour as the viewport selector. The native
+   <select> stays in the DOM (hidden) as the source of truth: picking an item
+   sets its value and fires a real 'change' event, so every existing
+   onchange="..." handler keeps working untouched. ── */
+const _enhancedSelects = {}; // id -> { kbdIndex }
+
+function enhanceSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel || sel.dataset.n1Enhanced) return;
+  sel.dataset.n1Enhanced = '1';
+  sel.style.position = 'absolute';
+  sel.style.opacity = '0';
+  sel.style.pointerEvents = 'none';
+  sel.style.width = '1px';
+  sel.style.height = '1px';
+
+  const wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+  wrap.style.flex = sel.style.flex || '1';
+  wrap.className = 'n1-select-wrap-enh';
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'field-input n1-select-trigger';
+  trigger.id = selectId + '-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.innerHTML = `<span class="n1-select-trigger-label"></span>
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  const menu = document.createElement('div');
+  menu.className = 'n1-dropdown-menu align-left';
+  menu.id = selectId + '-menu';
+  menu.setAttribute('role', 'listbox');
+  [...sel.options].forEach((opt) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'n1-dropdown-item' + (opt.selected ? ' sel' : '');
+    item.dataset.value = opt.value;
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', opt.selected ? 'true' : 'false');
+    item.innerHTML = `${opt.textContent}<svg class="n1-dropdown-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+    item.onclick = () => _pickEnhancedOption(selectId, opt.value);
+    menu.appendChild(item);
+  });
+
+  trigger.onclick = () => _toggleEnhancedMenu(selectId);
+  trigger.onkeydown = (e) => _enhancedTriggerKey(selectId, e);
+
+  sel.insertAdjacentElement('afterend', wrap);
+  wrap.appendChild(trigger);
+  wrap.appendChild(menu);
+  _syncEnhancedLabel(selectId);
+  _enhancedSelects[selectId] = { kbdIndex: -1 };
+}
+
+function _syncEnhancedLabel(selectId) {
+  const sel = document.getElementById(selectId);
+  const label = document.querySelector(`#${selectId}-trigger .n1-select-trigger-label`);
+  if (label) label.textContent = sel.options[sel.selectedIndex]?.textContent || '';
+  document.querySelectorAll(`#${selectId}-menu .n1-dropdown-item`).forEach(item => {
+    const isSel = item.dataset.value === sel.value;
+    item.classList.toggle('sel', isSel);
+    item.setAttribute('aria-selected', isSel ? 'true' : 'false');
+  });
+}
+
+function _pickEnhancedOption(selectId, value) {
+  const sel = document.getElementById(selectId);
+  sel.value = value;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  _syncEnhancedLabel(selectId);
+  _closeEnhancedMenu(selectId);
+}
+
+function _toggleEnhancedMenu(selectId) {
+  const menu = document.getElementById(selectId + '-menu');
+  if (menu.classList.contains('open')) _closeEnhancedMenu(selectId);
+  else _openEnhancedMenu(selectId);
+}
+
+function _openEnhancedMenu(selectId) {
+  // Close any other enhanced dropdown that might be open.
+  Object.keys(_enhancedSelects).forEach(id => { if (id !== selectId) _closeEnhancedMenu(id); });
+  const menu = document.getElementById(selectId + '-menu');
+  const trigger = document.getElementById(selectId + '-trigger');
+  menu.classList.add('open');
+  _positionFixedMenu(menu, trigger, 'left');
+  trigger.setAttribute('aria-expanded', 'true');
+  const items = [...menu.querySelectorAll('.n1-dropdown-item')];
+  _enhancedSelects[selectId].kbdIndex = items.findIndex(i => i.classList.contains('sel'));
+  const outsideClick = (e) => {
+    if (!menu.contains(e.target) && !trigger.contains(e.target)) {
+      _closeEnhancedMenu(selectId);
+      document.removeEventListener('click', outsideClick);
+    }
+  };
+  _enhancedSelects[selectId]._outsideClick = outsideClick;
+  setTimeout(() => document.addEventListener('click', outsideClick), 0);
+  _enhancedSelects[selectId]._scrollCleanup = _closeFixedMenuOnScroll(() => _closeEnhancedMenu(selectId));
+}
+
+function _closeEnhancedMenu(selectId) {
+  const menu = document.getElementById(selectId + '-menu');
+  const trigger = document.getElementById(selectId + '-trigger');
+  if (!menu) return;
+  menu.querySelectorAll('.n1-dropdown-item').forEach(i => i.classList.remove('kbd-active'));
+  menu.classList.remove('open');
+  trigger?.setAttribute('aria-expanded', 'false');
+  const entry = _enhancedSelects[selectId];
+  if (entry) {
+    if (entry._outsideClick) document.removeEventListener('click', entry._outsideClick);
+    if (entry._scrollCleanup) { entry._scrollCleanup(); entry._scrollCleanup = null; }
+    entry.kbdIndex = -1;
+  }
+}
+
+function _enhancedTriggerKey(selectId, e) {
+  const menu = document.getElementById(selectId + '-menu');
+  const items = [...menu.querySelectorAll('.n1-dropdown-item')];
+  const entry = _enhancedSelects[selectId];
+  if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!menu.classList.contains('open')) { _openEnhancedMenu(selectId); return; }
+    if (e.key === 'Enter' || e.key === ' ') { if (entry.kbdIndex >= 0) items[entry.kbdIndex].click(); }
+    else _moveEnhancedKbd(selectId, items, e.key === 'ArrowDown' ? 1 : -1);
+  } else if (e.key === 'Escape') {
+    _closeEnhancedMenu(selectId);
+  }
+}
+
+function _moveEnhancedKbd(selectId, items, dir) {
+  const entry = _enhancedSelects[selectId];
+  items.forEach(i => i.classList.remove('kbd-active'));
+  entry.kbdIndex = (entry.kbdIndex + dir + items.length) % items.length;
+  items[entry.kbdIndex].classList.add('kbd-active');
+}
+
+document.addEventListener('keydown', (e) => {
+  for (const selectId in _enhancedSelects) {
+    const menu = document.getElementById(selectId + '-menu');
+    if (!menu || !menu.classList.contains('open')) continue;
+    const items = [...menu.querySelectorAll('.n1-dropdown-item')];
+    const entry = _enhancedSelects[selectId];
+    if (e.key === 'ArrowDown') { e.preventDefault(); _moveEnhancedKbd(selectId, items, 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); _moveEnhancedKbd(selectId, items, -1); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (entry.kbdIndex >= 0) items[entry.kbdIndex].click(); }
+    else if (e.key === 'Escape') { _closeEnhancedMenu(selectId); document.getElementById(selectId + '-trigger').focus(); }
+    return;
+  }
+});
+
+// Every sidebar <select> gets the same custom dropdown treatment as the
+// viewport selector — call enhanceSelect('some-id') for any new one added later.
+enhanceSelect('sb-easing');
+enhanceSelect('sb-y-format-sel');
 
 /* ═══════════════════════════════════════════
    VERSION HISTORY (localStorage)
@@ -8973,6 +9644,7 @@ function loadChartVersion(chartId, versionIdx) {
   }
   if (ver.rawConfig) {
     _lastRawConfig = JSON.parse(JSON.stringify(ver.rawConfig));
+    _clearManualColorOverrides();
     try {
       if (chartInstance) chartInstance.destroy();
       const cfg = JSON.parse(JSON.stringify(_lastRawConfig));
@@ -9310,159 +9982,6 @@ function showToast(msg, duration) {
   }, duration);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   PART 10 — EDIT MODE + DIRECT CHART EDITING
-═══════════════════════════════════════════════════════════════ */
-let _editMode = true;
-
-function toggleEditMode() {
-  _editMode = !_editMode;
-  const pill = document.getElementById('edit-mode-pill');
-  if (pill) { pill.classList.toggle('on', _editMode); pill.textContent = _editMode ? '✏️ Edit: ON' : '✏️ Edit: OFF'; }
-  if (_editMode) { buildEditOverlays(); }
-  else { clearEditOverlays(); }
-}
-
-function clearEditOverlays() {
-  const c = document.getElementById('edit-overlay-container');
-  if (c) { c.innerHTML = ''; c.classList.remove('active'); }
-}
-
-function buildEditOverlays() {
-  if (!_editMode || !chartInstance) { clearEditOverlays(); return; }
-  const container = document.getElementById('edit-overlay-container');
-  if (!container) return;
-  container.innerHTML = '';
-  container.classList.add('active');
-  const card = document.getElementById('preview-card');
-  if (!card) return;
-  const cardRect = card.getBoundingClientRect();
-
-  function makeHandle(el, onConfirm, currentVal) {
-    if (!el || !el.getBBox) return;
-    let bbox;
-    try { bbox = el.getBBox(); } catch(e) { return; }
-    const svgEl = card.querySelector('svg.highcharts-root');
-    if (!svgEl) return;
-    const svgRect = svgEl.getBoundingClientRect();
-    const scaleX = svgRect.width / svgEl.viewBox.baseVal.width;
-    const scaleY = svgRect.height / svgEl.viewBox.baseVal.height;
-    const handle = document.createElement('div');
-    handle.className = 'edit-handle';
-    handle.style.left   = (svgRect.left - cardRect.left + bbox.x * scaleX - 4) + 'px';
-    handle.style.top    = (svgRect.top  - cardRect.top  + bbox.y * scaleY - 4) + 'px';
-    handle.style.width  = (bbox.width  * scaleX + 8) + 'px';
-    handle.style.height = (bbox.height * scaleY + 8) + 'px';
-    handle.onclick = () => openInlineEdit(handle, currentVal, onConfirm);
-    container.appendChild(handle);
-  }
-
-  // Title
-  const titleEl = chartInstance.title?.element;
-  if (titleEl) makeHandle(titleEl, v => { state.title = v; const inp = document.getElementById('sb-title'); if(inp) inp.value = v; schedUpdate(); }, state.title || '');
-
-  // Subtitle
-  const subtitleEl = chartInstance.subtitle?.element;
-  if (subtitleEl) makeHandle(subtitleEl, v => { state.subtitle = v; const inp = document.getElementById('sb-subtitle'); if(inp) inp.value = v; schedUpdate(); }, state.subtitle || '');
-
-  // Click on chart points for data editing
-  if (chartInstance.series) {
-    chartInstance.series.forEach((series, si) => {
-      if (!series.points) return;
-      series.points.forEach((pt, pi) => {
-        const graphic = pt.graphic?.element;
-        if (!graphic || !graphic.getBBox) return;
-        let bbox;
-        try { bbox = graphic.getBBox(); } catch(e) { return; }
-        const svgEl = card.querySelector('svg.highcharts-root');
-        if (!svgEl) return;
-        const svgRect = svgEl.getBoundingClientRect();
-        const scaleX = svgRect.width / svgEl.viewBox.baseVal.width;
-        const scaleY = svgRect.height / svgEl.viewBox.baseVal.height;
-        const handle = document.createElement('div');
-        handle.className = 'edit-handle';
-        handle.style.left   = (svgRect.left - cardRect.left + bbox.x * scaleX - 4) + 'px';
-        handle.style.top    = (svgRect.top  - cardRect.top  + bbox.y * scaleY - 4) + 'px';
-        handle.style.width  = Math.max(bbox.width  * scaleX + 8, 20) + 'px';
-        handle.style.height = Math.max(bbox.height * scaleY + 8, 20) + 'px';
-        handle.style.cursor = 'pointer';
-        handle.onclick = () => openDataPointPopover(handle, si, pi);
-        container.appendChild(handle);
-      });
-    });
-  }
-}
-
-function openInlineEdit(handle, currentVal, onConfirm) {
-  document.querySelectorAll('.edit-inline-input').forEach(e => e.remove());
-  const input = document.createElement('input');
-  input.className = 'edit-inline-input';
-  input.type = 'text';
-  input.value = currentVal;
-  input.style.left   = handle.style.left;
-  input.style.top    = handle.style.top;
-  input.style.width  = Math.max(parseInt(handle.style.width), 120) + 'px';
-  const container = document.getElementById('edit-overlay-container');
-  container.appendChild(input);
-  input.focus(); input.select();
-  const confirm = () => { onConfirm(input.value); input.remove(); setTimeout(buildEditOverlays, 400); };
-  input.onkeydown = e => { if (e.key === 'Enter') confirm(); if (e.key === 'Escape') input.remove(); };
-  input.onblur = confirm;
-}
-
-function openDataPointPopover(handle, si, pi) {
-  document.querySelectorAll('.data-point-popover').forEach(e => e.remove());
-  const series = state.series[si];
-  if (!series) return;
-  const currentVal = series.data[pi];
-  const currentColor = series.colorOverride ? series.color : (N1_THEMES[selectedTheme]?.chartSeriesColors[si % 10] || '#009d80');
-  const popover = document.createElement('div');
-  popover.className = 'data-point-popover';
-  popover.style.left = handle.style.left;
-  popover.style.top  = (parseInt(handle.style.top) + parseInt(handle.style.height) + 4) + 'px';
-  popover.innerHTML = `
-    <div style="font-weight:600;font-size:12px;color:#164848;margin-bottom:8px">${series.name} — point ${pi + 1}</div>
-    <label>Value</label>
-    <input type="number" id="dpp-val" value="${currentVal !== null ? currentVal : ''}">
-    <label>Colour</label>
-    <div class="data-popover-swatches">${N1_PALETTE.map(c => `<div class="data-popover-swatch${c===currentColor?' selected':''}" style="background:${c}" onclick="setDppColor('${si}','${c}',this)"></div>`).join('')}</div>
-    <input type="text" id="dpp-hex" placeholder="${currentColor}" value="${series.colorOverride ? series.color : ''}" style="margin-top:6px">
-    <button class="data-popover-done" onclick="applyDataPointPopover(${si},${pi})">Done</button>
-  `;
-  const container = document.getElementById('edit-overlay-container');
-  container.appendChild(popover);
-  setTimeout(() => { document.addEventListener('click', function dismiss(e) { if (!popover.contains(e.target) && !handle.contains(e.target)) { popover.remove(); document.removeEventListener('click', dismiss); } }); }, 50);
-}
-
-window.setDppColor = function(si, color, el) {
-  el.closest('.data-popover-swatches')?.querySelectorAll('.data-popover-swatch').forEach(s => s.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('dpp-hex').value = color;
-};
-
-function applyDataPointPopover(si, pi) {
-  const valInput = document.getElementById('dpp-val');
-  const hexInput = document.getElementById('dpp-hex');
-  if (valInput) {
-    const v = parseFloat(valInput.value);
-    while (state.series[si].data.length <= pi) state.series[si].data.push(null);
-    state.series[si].data[pi] = isNaN(v) ? null : v;
-  }
-  if (hexInput?.value) {
-    state.series[si].color = hexInput.value;
-    state.series[si].colorOverride = true;
-  }
-  document.querySelectorAll('.data-point-popover').forEach(e => e.remove());
-  renderGrid();
-  renderColourRows();
-  schedUpdate();
-  setTimeout(buildEditOverlays, 400);
-  markDirty();
-}
-
-/* Rebuild overlays after each chart render */
-const _origUpdate = window.update;
-// (overlays rebuilt via schedUpdate → update → Highcharts renders → setTimeout)
 
 /* ═══════════════════════════════════════════════════════════════
    PART 11 — COMPATIBILITY + INIT ADDITIONS
@@ -9488,13 +10007,6 @@ const _origApplyTheme = window.applyTheme;
 window.applyTheme = function(key) {
   if (_origApplyTheme) _origApplyTheme(key);
   renderTimPills();
-};
-
-// Patch schedUpdate to rebuild overlays after render
-const _origSchedUpdate = window.schedUpdate;
-window.schedUpdate = function() {
-  if (_origSchedUpdate) _origSchedUpdate();
-  if (_editMode) setTimeout(buildEditOverlays, 500);
 };
 
 // Patch selectChartType to show toast (Part 9)

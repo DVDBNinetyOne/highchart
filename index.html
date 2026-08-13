@@ -3956,6 +3956,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       </button>
       <div class="accordion-body" id="acc-body-export">
         <div style="display:flex;flex-direction:column;gap:6px">
+          <button onclick="copyConfig()" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;color:#333" onmouseover="this.style.borderColor='#009d80'" onmouseout="this.style.borderColor='#ddd'">📋 Copy to clipboard</button>
           <button onclick="exportChart('png')" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;color:#333" onmouseover="this.style.borderColor='#009d80'" onmouseout="this.style.borderColor='#ddd'">⬇ Download PNG</button>
           <button onclick="exportChart('svg')" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;color:#333" onmouseover="this.style.borderColor='#009d80'" onmouseout="this.style.borderColor='#ddd'">⬇ Download SVG</button>
           <button onclick="exportCsv()" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;background:#fff;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;color:#333" onmouseover="this.style.borderColor='#009d80'" onmouseout="this.style.borderColor='#ddd'">⬇ Download CSV</button>

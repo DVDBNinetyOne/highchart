@@ -3256,7 +3256,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
     <div id="export-dropdown" class="topbar-dropdown" style="display:none">
-      <button class="td-item" onclick="copyConfig();closeTopbarDropdowns()">Copy config</button>
+      <button class="td-item" onclick="copyConfig();closeTopbarDropdowns()">Copy to clipboard</button>
       <button class="td-item" onclick="downloadConfig();closeTopbarDropdowns()">Download .json</button>
       <div class="td-sep"></div>
       <button class="td-item" onclick="exportGridCsv();closeTopbarDropdowns()">Export data as CSV</button>
@@ -3452,6 +3452,9 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
             <span class="config-card-label" id="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions" id="config-card-actions">
               <button class="btn-ghost-light" id="config-edit-btn" onclick="toggleConfigEdit()">Edit</button>
+              <button class="btn-ghost-light" id="config-copy-btn" onclick="copyConfig()" title="Copy config to clipboard">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              </button>
               <button class="btn-ghost-light" id="config-more-trigger" onclick="toggleConfigMoreMenu()" title="More actions">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></svg>
               </button>

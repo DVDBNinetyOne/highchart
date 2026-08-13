@@ -1382,7 +1382,7 @@ body {
 
 /* ─── Right Panel ─── */
 #right-panel {
-  width: 300px;
+  width: 340px;
   flex-shrink: 0;
   background: #fff;
   border-left: 0.5px solid #e0e0e0;
@@ -1899,51 +1899,22 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 .accordion-section {
   border-bottom: 1px solid #e8e8e8;
 }
-
-.accordion-header {
-  width: 100%;
-  padding: 11px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: #333;
-  font-family: inherit;
-}
-.accordion-header:hover { background: #fafafa; }
-
-.accordion-header .chevron {
-  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-  color: #999;
-}
-.accordion-header.open .chevron { transform: rotate(180deg); }
-
-.accordion-body {
-  max-height: 0;
-  overflow: hidden;
-  padding: 0 16px;
-  transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1), padding 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.accordion-body.open {
-  max-height: 900px;
-  padding: 12px 16px 16px;
-}
+/* .accordion-header/.accordion-body live further down (Part 8 — UI refresh),
+   which is the effective definition for these selectors; this block used to
+   duplicate them with different values and was always overridden. */
 
 .field-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  padding: 10px 0;
 }
+.field-row + .field-row { border-top: 1px solid #efece4; }
 
 .field-row label {
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 400;
   color: #333;
   min-width: 96px;
   flex-shrink: 0;
@@ -2772,9 +2743,9 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
   color: #aaa; margin: 14px 0 6px 2px;
 }
 .n1-fieldgroup {
-  background: #fafaf8; border-radius: 8px; padding: 4px 12px 2px;
+  background: #fafaf8; border-radius: 8px; padding: 6px 12px;
 }
-.n1-fieldgroup .field-row { margin-bottom: 0; padding: 8px 0; }
+.n1-fieldgroup .field-row { margin-bottom: 0; padding: 10px 0; }
 .n1-fieldgroup .field-row:hover { background: none; }
 .n1-fieldgroup .field-row + .field-row { border-top: 1px solid #efece4; }
 
@@ -3099,7 +3070,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 .accordion-header {
   min-height: 44px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between;
   cursor: pointer; background: #fff; border: none; width: 100%; text-align: left;
-  font-family: inherit; font-size: 12px; color: #333; font-weight: 500;
+  font-family: inherit; font-size: 15px; color: #333; font-weight: 500;
   transition: background .12s; border-left: 3px solid transparent;
 }
 .accordion-header:hover { background: #f5f3ec; }
@@ -3109,11 +3080,14 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 }
 .accordion-header.open:hover { background: #fff; }
 .accordion-header .chevron {
-  font-size: 14px; transition: transform 150ms ease; display: inline-block; color: #aaa;
+  font-size: 14px; transition: transform .28s cubic-bezier(0.22, 1, 0.36, 1); display: inline-block; color: #aaa;
 }
 .accordion-header.open .chevron { transform: rotate(90deg); color: #009d80; }
-.accordion-body { max-height: 0; overflow: hidden; transition: max-height .2s ease; }
-.accordion-body.open { max-height: 2000px; }
+/* max-height is set inline by toggleAccordion() to the section's real
+   scrollHeight (not a large fixed value) — animating through a huge
+   unused range is what made this feel jerky/instant before. */
+.accordion-body { max-height: 0; overflow: hidden; padding: 0 16px; transition: max-height .35s cubic-bezier(0.22, 1, 0.36, 1), padding .35s cubic-bezier(0.22, 1, 0.36, 1); }
+.accordion-body.open { max-height: 2000px; padding: 12px 16px 16px; }
 
 /* ═══════════════════════════════════════════
    PART 9 — TOAST NOTIFICATIONS
@@ -3625,7 +3599,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Colours -->
     <div class="accordion-section" id="acc-colours">
       <button class="accordion-header open" onclick="toggleAccordion('colours')">
-        Colours <span class="chevron">▸</span>
+        Series colours <span class="chevron">▸</span>
       </button>
       <div class="accordion-body open" id="acc-body-colours">
         <div id="series-colour-rows"></div>
@@ -3635,7 +3609,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Lines & Markers -->
     <div class="accordion-section" id="acc-lines" style="display:none">
       <button class="accordion-header" onclick="toggleAccordion('lines')">
-        Lines &amp; markers <span class="chevron">▸</span>
+        Line style <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-lines">
         <div class="field-row" id="fr-thickness">
@@ -3707,7 +3681,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Labels -->
     <div class="accordion-section">
       <button class="accordion-header open" onclick="toggleAccordion('labels')">
-        Labels <span class="chevron">▸</span>
+        Chart labels <span class="chevron">▸</span>
       </button>
       <div class="accordion-body open" id="acc-body-labels">
         <div class="field-row">
@@ -3762,7 +3736,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Horizontal axis -->
     <div class="accordion-section" id="acc-haxis">
       <button class="accordion-header" onclick="toggleAccordion('xaxis')">
-        Horizontal axis <span class="chevron">▸</span>
+        X axis — horizontal <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-xaxis">
         <div class="field-row">
@@ -3803,7 +3777,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Vertical axis -->
     <div class="accordion-section" id="acc-vaxis">
       <button class="accordion-header" onclick="toggleAccordion('yaxis')">
-        Vertical axis <span class="chevron">▸</span>
+        Y axis — vertical <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-yaxis">
         <div class="field-row">
@@ -3859,7 +3833,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Legend -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('legend')">
-        Legend <span class="chevron">▸</span>
+        Legend &amp; key <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-legend">
         <div class="field-row">
@@ -3880,7 +3854,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Hover info box -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('tooltip')">
-        Hover info box <span class="chevron">▸</span>
+        Tooltip — hover info <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-tooltip">
         <div class="field-row">
@@ -3917,7 +3891,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Advanced -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('advanced')">
-        Advanced <span class="chevron">▸</span>
+        More options <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-advanced">
         <div class="field-row">
@@ -3975,7 +3949,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Export -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('export')">
-        Export <span class="chevron">▸</span>
+        Copy &amp; export <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-export">
         <div style="display:flex;flex-direction:column;gap:6px">
@@ -4035,6 +4009,37 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 <div id="cms-key-tooltip"><span class="tt-label">Sitecore key</span><span id="cms-key-value"></span></div>
 
 <script>
+/* ═══════════════════════════════════════════
+   HIGHCHARTS EASING POLYFILL
+   Highcharts' animate() resolves a named easing as `Math[name] || Math.easeInOutSine`
+   (Highcharts itself defines Math.easeInOutSine as its only real named default) —
+   it looks the name up directly on the global Math object, not on a nested
+   Math.easing map. Without this, every option below except 'easeInOutSine'
+   silently collapses to the same default curve. Only define names not already
+   present so Highcharts' own easeInOutSine is never overwritten.
+═══════════════════════════════════════════ */
+(function() {
+  const easings = {
+    linear: p => p,
+    swing: p => 0.5 - Math.cos(p * Math.PI) / 2,
+    easeInQuad: p => p * p,
+    easeOutQuad: p => p * (2 - p),
+    easeInOutQuad: p => p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p,
+    easeOutBounce: p => {
+      const n1 = 7.5625, d1 = 2.75;
+      if (p < 1 / d1) return n1 * p * p;
+      if (p < 2 / d1) { p -= 1.5 / d1; return n1 * p * p + 0.75; }
+      if (p < 2.5 / d1) { p -= 2.25 / d1; return n1 * p * p + 0.9375; }
+      p -= 2.625 / d1; return n1 * p * p + 0.984375;
+    },
+    easeOutElastic: p => {
+      const c4 = (2 * Math.PI) / 3;
+      return p === 0 ? 0 : p === 1 ? 1 : Math.pow(2, -10 * p) * Math.sin((p * 10 - 0.75) * c4) + 1;
+    },
+  };
+  Object.keys(easings).forEach(name => { if (!Math[name]) Math[name] = easings[name]; });
+})();
+
 /* ═══════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════ */
@@ -4394,16 +4399,39 @@ function switchTab(tab) {
 /* ═══════════════════════════════════════════
    ACCORDION
 ═══════════════════════════════════════════ */
+// Animating max-height through a huge fixed value (e.g. 2000px) when the real
+// content is only ~150px tall makes the transition look instant/jerky — nearly
+// all of the animated range is empty. Measure and animate to the section's
+// real scrollHeight instead, so the motion is proportional to what's visible.
+function _closeAccordionBody(body) {
+  body.style.maxHeight = body.scrollHeight + 'px'; // pin current real height first...
+  void body.offsetHeight; // ...force a synchronous reflow so the browser commits it as the transition's start value...
+  body.style.maxHeight = '0px'; // ...then this change animates smoothly down to 0
+  body.classList.remove('open');
+}
+
 function toggleAccordion(id) {
   const header = document.querySelector(`#acc-body-${id}`).previousElementSibling;
   const body = document.getElementById(`acc-body-${id}`);
   const isOpen = body.classList.contains('open');
-  // Close all
-  document.querySelectorAll('.accordion-body.open').forEach(b => b.classList.remove('open'));
+
+  document.querySelectorAll('.accordion-body.open').forEach(b => { if (b !== body) _closeAccordionBody(b); });
   document.querySelectorAll('.accordion-header.open').forEach(h => h.classList.remove('open'));
-  if (!isOpen) {
+
+  if (isOpen) {
+    _closeAccordionBody(body);
+    header.classList.remove('open');
+  } else {
     body.classList.add('open');
     header.classList.add('open');
+    body.style.maxHeight = body.scrollHeight + 'px';
+    // Once open, release the fixed max-height so later content changes (e.g.
+    // adding a plot line row) aren't clipped by a stale measurement. A timer
+    // matched to the transition duration is used instead of transitionend —
+    // that event doesn't reliably fire if the transition gets interrupted by
+    // rapid toggling, which would otherwise leave the section permanently
+    // capped at whatever height it happened to have at that moment.
+    setTimeout(() => { if (body.classList.contains('open')) body.style.maxHeight = 'none'; }, 400);
   }
 }
 
@@ -5583,6 +5611,9 @@ function update() {
         stacking: s.stacking || undefined,
         connectNulls: s.connectNulls,
         step: s.stepLine || undefined,
+        // chart.animation alone doesn't reliably drive the series point-draw
+        // animation — Highcharts needs it set at plotOptions.series too.
+        animation: s.animationDuration > 0 ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false,
       },
       column: { pointPadding: s.pointPadding ?? 0.1, borderRadius: s.borderRadius || 0, borderWidth: 0 },
       bar:    { pointPadding: s.pointPadding ?? 0.1, borderRadius: s.borderRadius || 0, borderWidth: 0 },
@@ -5626,6 +5657,8 @@ function generateConfig() {
   // ── chart ──
   cfg.chart = { type: isPie ? 'pie' : s.chartType, height: s.chartHeight };
   if (s.zoom) cfg.chart.zooming = { type: s.zoom };
+  cfg.chart.animation = s.animationDuration > 0
+    ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false;
 
   // ── title / subtitle ──
   cfg.title    = { text: s.title || '' };
@@ -5684,6 +5717,8 @@ function generateConfig() {
   }
   if (s.dataLabels) spo.dataLabels = { enabled: true };
   if (s.stacking) spo.stacking = s.stacking;
+  spo.animation = s.animationDuration > 0
+    ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false;
   if (Object.keys(spo).length) po.series = spo;
 
   if (isPie) {
@@ -6518,6 +6553,10 @@ function _reapplyFromRawConfig() {
       if (state.dashStyle)           cfg.plotOptions.series.dashStyle    = state.dashStyle;
       cfg.plotOptions.series.marker       = { enabled: !!state.markers, radius: state.markerRadius ?? 4 };
       cfg.plotOptions.series.connectNulls = !!state.connectNulls;
+      // chart.animation alone doesn't reliably drive the series point-draw
+      // animation — Highcharts needs it set at plotOptions.series too.
+      cfg.plotOptions.series.animation = state.animationDuration > 0
+        ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
       if (state.stepLine)            cfg.plotOptions.series.step        = state.stepLine;
       if (state.stacking)            cfg.plotOptions.series.stacking    = state.stacking;
       if (state.seriesOpacity < 1)   cfg.plotOptions.series.opacity     = state.seriesOpacity;
@@ -6682,6 +6721,53 @@ function _cleanConfigForCopy(cfg) {
   });
   if (out.legend?.itemStyle) delete out.legend.itemStyle;
 
+  // Animation, zoom, tooltip, and plotOptions are computed live in
+  // _reapplyFromRawConfig() for the on-screen preview but were never written
+  // back to _lastRawConfig — mirror that same logic here so the exported/
+  // copied config actually reflects these sidebar controls too.
+  if (!out.chart) out.chart = {};
+  if (state.animationDuration != null) {
+    out.chart.animation = state.animationDuration > 0
+      ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
+  }
+  if (state.zoom) out.chart.zoomType = state.zoom; else delete out.chart.zoomType;
+
+  if (!out.tooltip) out.tooltip = {};
+  out.tooltip.enabled = state.tooltip !== false;
+  if (state.tooltipMode)      out.tooltip.shared        = state.tooltipMode === 'shared';
+  if (state.ttPrefix != null) out.tooltip.valuePrefix   = state.ttPrefix || undefined;
+  if (state.ttSuffix != null) out.tooltip.valueSuffix   = state.ttSuffix || undefined;
+  if (state.decimals  != null) out.tooltip.valueDecimals = state.decimals;
+
+  const _chartType = out.chart.type || 'line';
+  const _isSeriesType = !['pie','sunburst','treemap','packedbubble'].includes(_chartType);
+  if (!out.plotOptions) out.plotOptions = {};
+  if (_isSeriesType) {
+    if (!out.plotOptions.series) out.plotOptions.series = {};
+    if (state.lineWidth != null) out.plotOptions.series.lineWidth = state.lineWidth;
+    if (state.dashStyle)         out.plotOptions.series.dashStyle = state.dashStyle;
+    out.plotOptions.series.marker       = { enabled: !!state.markers, radius: state.markerRadius ?? 4 };
+    out.plotOptions.series.connectNulls = !!state.connectNulls;
+    out.plotOptions.series.animation = state.animationDuration > 0
+      ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
+    if (state.stepLine)          out.plotOptions.series.step       = state.stepLine;
+    if (state.stacking)          out.plotOptions.series.stacking   = state.stacking;
+    if (state.seriesOpacity < 1) out.plotOptions.series.opacity    = state.seriesOpacity;
+    if (state.dataLabels)        out.plotOptions.series.dataLabels = { enabled: true, format: _dataLabelFormat(state.decimals, state.valSuffix) };
+  }
+  if (['column','bar'].includes(_chartType)) {
+    if (!out.plotOptions[_chartType]) out.plotOptions[_chartType] = {};
+    out.plotOptions[_chartType].pointPadding = state.pointPadding ?? 0.1;
+    out.plotOptions[_chartType].borderRadius = state.borderRadius  || 0;
+    out.plotOptions[_chartType].borderWidth  = 0;
+  }
+  if (['area','areaspline'].includes(_chartType) && state.fillOpacity != null) {
+    if (!out.plotOptions.area) out.plotOptions.area = {};
+    out.plotOptions.area.fillOpacity = state.fillOpacity;
+    if (!out.plotOptions.areaspline) out.plotOptions.areaspline = {};
+    out.plotOptions.areaspline.fillOpacity = state.fillOpacity;
+  }
+
   return out;
 }
 
@@ -6788,7 +6874,9 @@ function updateStepIndicators() {
       el.style.fontWeight = i === wizardStep ? '700' : 'normal';
     }
   }
-  document.getElementById('import-nav-back').disabled = wizardStep === 1;
+  // Back is always enabled — at step 1 it exits to the welcome screen instead
+  // of stepping backward within the wizard.
+  document.getElementById('import-nav-back').disabled = false;
 }
 
 function renderWizardStep() {
@@ -7104,7 +7192,11 @@ function wizardNext() {
 }
 
 function wizardBack() {
-  if (wizardStep > 1) { wizardStep--; renderWizardStep(); }
+  if (wizardStep > 1) { wizardStep--; renderWizardStep(); return; }
+  // Step 1 has nowhere earlier to go inside the wizard — back out to the
+  // "How would you like to start?" screen instead of doing nothing.
+  closeImportWizard();
+  showWelcomeModal();
 }
 
 function wizardSetMode(mode) {
@@ -8368,6 +8460,7 @@ function initChartClickNav() {
 }
 
 function showCmsTooltip(rowEl, cmsKey) {
+  return; // Sitecore key hover tooltip switched off for now — re-enable by removing this line.
   const tooltip = document.getElementById('cms-key-tooltip');
   const keyEl = document.getElementById('cms-key-value');
   if (!tooltip || !keyEl) return;
@@ -9042,17 +9135,23 @@ function loadTemplate(id) {
   if (saveInput && !saveInput.value) saveInput.value = tpl.name || '';
 
   if (tpl.rawConfig) {
-    // Advanced chart types rendered directly — builder can't fully edit these
-    if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
-    const el = document.getElementById('chart-container');
-    if (el) el.style.height = (tpl.rawConfig.chart?.height || 500) + 'px';
-    const cfg = Object.assign({}, tpl.rawConfig, { credits: { enabled: false } });
-    chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
-    if (tpl.typeHint) {
-      state.chartType = tpl.typeHint;
-      updateChartTypeUI();
-      if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
-    }
+    // Set _lastRawConfig and render through the shared raw-config path (theme
+    // injection, sidebar sync) instead of calling Highcharts.chart() directly —
+    // otherwise _lastRawConfig stays null and any later action that reads it
+    // (switching chart type, editing sidebar fields) falls back to the empty
+    // state-driven model and the chart disappears.
+    state.series = [];
+    state.categories = [];
+    _lastRawConfig = JSON.parse(JSON.stringify(tpl.rawConfig));
+    _clearManualColorOverrides();
+    if (tpl.typeHint) state.chartType = tpl.typeHint;
+    else if (tpl.rawConfig.chart?.type) state.chartType = tpl.rawConfig.chart.type;
+    _reapplyFromRawConfig();
+    updateChartTypeUI();
+    if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
+    renderColourRows();
+    updateEmptyState();
+    persist();
     // Stay on library panel
     return;
   }

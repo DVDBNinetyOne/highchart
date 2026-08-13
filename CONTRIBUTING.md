@@ -1,9 +1,10 @@
 # Working together on this repo
 
-This is a small, two-person project on a single large `index.html` file, so the
-biggest risk isn't git mechanics — it's two people editing the same function
-differently at the same time. Git will happily merge that without complaint
-even though the result is broken. These habits keep that from happening.
+This is a small team working on a single large `index.html` file, so the
+biggest risk isn't git mechanics — it's two or more people editing the same
+function differently at the same time. Git will happily merge that without
+complaint even though the result is broken. These habits keep that from
+happening.
 
 ## Before you start a session
 
@@ -12,7 +13,7 @@ git pull origin redesign/simplified-ui
 ```
 
 Always pull first, even if you were "just working on it five minutes ago."
-The other person may have pushed since.
+Someone else may have pushed since.
 
 ## While you work
 
@@ -32,14 +33,15 @@ git pull origin redesign/simplified-ui   # in case something landed while you wo
 git push origin redesign/simplified-ui
 ```
 
-If `git pull` reports a conflict, don't panic — it means you and the other
-person touched the same lines. Open the file, look for the `<<<<<<<` /
-`=======` / `>>>>>>>` markers, decide which version (or combination) is
-correct, remove the markers, then commit and push as normal.
+If `git pull` reports a conflict, don't panic — it means someone else touched
+the same lines. Open the file, look for the `<<<<<<<` / `=======` / `>>>>>>>`
+markers, decide which version (or combination) is correct, remove the
+markers, then commit and push as normal.
 
 ## If conflicts start happening often
 
 That's a sign to add a bit more process — e.g. opening a quick PR for review
 before merging into `redesign/simplified-ui`, or branch protection requiring
-PRs. Not needed yet, but worth revisiting if this workflow starts feeling
-risky.
+PRs. Worth revisiting sooner rather than later once a third person is
+regularly working in the same file — more concurrent editors means more
+chances to silently overlap.

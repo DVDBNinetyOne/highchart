@@ -4861,8 +4861,15 @@ function setXRot(r) {
   schedUpdate(); persist();
 }
 
+// Tracks whether the user has explicitly picked a legend position from the
+// sidebar dropdown for the CURRENT config — until they do, a pasted raw
+// config's own legend layout/align/verticalAlign is left alone instead of
+// being reset to the sidebar's default on every re-render.
+let _legendPosTouched = false;
+
 function setLegendPos(pos) {
   state.legendPos = pos;
+  _legendPosTouched = true;
   schedUpdate(); persist();
 }
 
@@ -5279,8 +5286,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('type-picker-overlay').classList.remove('open');
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentVersion(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-    // Only intercept if a raw-config chart is loaded (undo history exists)
-    if (_rawConfigHistory.length) { e.preventDefault(); undoRawConfig(); }
+    // Don't hijack undo inside a text field (title, textarea, config editor,
+    // etc.) — let the browser's native input undo work there instead.
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+    if (_undoHistory.length) { e.preventDefault(); undoLastChange(); }
   }
 });
 
@@ -5601,9 +5611,13 @@ function toggleCmsType(type, val) {
 /* ═══════════════════════════════════════════
    HIGHCHARTS RENDER
 ═══════════════════════════════════════════ */
+let _pendingUndoCapture = true;
 function schedUpdate() {
+  // Capture the pre-edit snapshot once per burst of changes (a rapid run of
+  // keystrokes/clicks collapses into one undo step), not on every call.
+  if (_pendingUndoCapture) { _pushUndo(); _pendingUndoCapture = false; }
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(update, 80);
+  debounceTimer = setTimeout(() => { update(); _pendingUndoCapture = true; }, 80);
 }
 
 function update() {
@@ -5776,6 +5790,7 @@ function update() {
 
   renderConfig();
   setTimeout(() => { initFieldHovers(); initChartClickNav(); }, 50);
+  _commitSettledSnapshot();
 }
 
 /* ═══════════════════════════════════════════
@@ -6166,6 +6181,51 @@ function syncStateFromConfig(cfg) {
     || cfg.plotOptions?.column?.stacking
     || cfg.plotOptions?.bar?.stacking;
   if (stacking) state.stacking = stacking;
+
+  // Everything below mirrors a corresponding "state.X" override that
+  // _reapplyFromRawConfig() applies UNCONDITIONALLY on every re-render
+  // (not gated behind a null check, since the sidebar field always has a
+  // real default value). Without reading the pasted config's own value in
+  // here first, the very next re-render — triggered by clicking any other
+  // field — would silently stomp it back to the sidebar's stock default.
+  if (xa?.labels?.rotation != null) state.xRotation = xa.labels.rotation;
+
+  const spo = cfg.plotOptions?.series || {};
+  const typeOpts = cfg.plotOptions?.[chartType] || {};
+  if (spo.lineWidth != null)        state.lineWidth    = spo.lineWidth;
+  if (spo.dashStyle)                state.dashStyle    = spo.dashStyle;
+  if (spo.marker?.enabled != null)  state.markers      = !!spo.marker.enabled;
+  if (spo.marker?.radius != null)   state.markerRadius = spo.marker.radius;
+  if (spo.connectNulls != null)     state.connectNulls = !!spo.connectNulls;
+  if (spo.step)                     state.stepLine     = spo.step;
+  if (spo.opacity != null)          state.seriesOpacity = spo.opacity;
+  const animCfg = spo.animation ?? cfg.chart?.animation;
+  if (animCfg === false) {
+    state.animationDuration = 0;
+  } else if (animCfg && typeof animCfg === 'object') {
+    if (animCfg.duration != null) state.animationDuration = animCfg.duration;
+    if (animCfg.easing)           state.animationEasing   = animCfg.easing;
+  }
+  if (typeOpts.pointPadding != null) state.pointPadding = typeOpts.pointPadding;
+  if (typeOpts.borderRadius != null) state.borderRadius = typeOpts.borderRadius;
+  const areaOpts = cfg.plotOptions?.area || cfg.plotOptions?.areaspline;
+  if (areaOpts?.fillOpacity != null) state.fillOpacity = areaOpts.fillOpacity;
+
+  if (cfg.chart?.zoomType) state.zoom = cfg.chart.zoomType;
+
+  if (cfg.tooltip?.enabled === false) state.tooltip = false;
+  else if (cfg.tooltip?.enabled === true) state.tooltip = true;
+  if (cfg.tooltip?.shared != null)        state.tooltipMode = cfg.tooltip.shared ? 'shared' : 'single';
+  if (cfg.tooltip?.valuePrefix != null)   state.ttPrefix    = cfg.tooltip.valuePrefix;
+  if (cfg.tooltip?.valueSuffix != null)   state.ttSuffix    = cfg.tooltip.valueSuffix;
+  if (cfg.tooltip?.valueDecimals != null) state.decimals    = cfg.tooltip.valueDecimals;
+
+  if (ya?.labels?.format) state.yFormat = ya.labels.format;
+  if (ya?.type === 'logarithmic') state.yScale = 'logarithmic';
+
+  // Legend position/layout: a freshly pasted config's own layout should win
+  // until the user explicitly picks a position from the sidebar dropdown.
+  _legendPosTouched = false;
 }
 
 function applyConfigEdit() {
@@ -6336,7 +6396,7 @@ function applyPointEdit(si, pi) {
   const numVal = document.getElementById('color-point-val')?.value;
   const dataArr = _lastRawConfig ? _lastRawConfig.series?.[si]?.data : state.series?.[si]?.data;
   if (!Array.isArray(dataArr)) return;
-  if (_lastRawConfig) _pushUndo();
+  _pushUndo();
 
   const upd = {};
   if (numVal !== '' && numVal != null && !isNaN(parseFloat(numVal))) upd.y = parseFloat(numVal);
@@ -6359,14 +6419,15 @@ function applyPointEdit(si, pi) {
   _closeColorPicker();
   if (_lastRawConfig) refreshConfigPanel(); else { renderGrid(); renderConfig(); }
   _attachColorPointListeners();
+  _commitSettledSnapshot();
   markDirty();
 }
 
 function resetPointColor(si, pi) {
+  _pushUndo();
   delete _manualColorOverrides[`${si}-${pi}`];
   const dataArr = _lastRawConfig ? _lastRawConfig.series?.[si]?.data : state.series?.[si]?.data;
   if (Array.isArray(dataArr) && typeof dataArr[pi] === 'object' && dataArr[pi] !== null) {
-    if (_lastRawConfig) _pushUndo();
     delete dataArr[pi].color;
   }
   _closeColorPicker();
@@ -6374,23 +6435,57 @@ function resetPointColor(si, pi) {
   markDirty();
 }
 
-/* ── Undo history for raw-config changes ── */
-const _rawConfigHistory = [];
+/* ── Undo history — covers ANY edit (state-driven or raw-config), not just
+   per-point colour edits. schedUpdate() auto-captures the pre-edit snapshot
+   at the start of each burst of changes (see _lastSettledSnapshot below);
+   direct-manipulation paths that bypass schedUpdate() (point-colour picker,
+   annotation drag) call _pushUndo() themselves before mutating. ── */
+const _undoHistory = [];
 const _RAW_HISTORY_MAX = 50;
+let _lastSettledSnapshot = null;
+
+function _snapshotNow() {
+  return {
+    state: JSON.stringify(state),
+    rawConfig: _lastRawConfig ? JSON.stringify(_lastRawConfig) : null,
+    manualColorOverrides: JSON.stringify(_manualColorOverrides),
+  };
+}
+
+// Call after any successful render so the next edit's "before" snapshot is
+// accurate — without this, schedUpdate()'s auto-capture would push a stale
+// snapshot from before the last direct-manipulation edit (point colour,
+// annotation drag) instead of reflecting it.
+function _commitSettledSnapshot() { _lastSettledSnapshot = _snapshotNow(); }
 
 function _pushUndo() {
-  if (!_lastRawConfig) return;
-  _rawConfigHistory.push(JSON.stringify(_lastRawConfig));
-  if (_rawConfigHistory.length > _RAW_HISTORY_MAX) _rawConfigHistory.shift();
+  _undoHistory.push(_lastSettledSnapshot || _snapshotNow());
+  if (_undoHistory.length > _RAW_HISTORY_MAX) _undoHistory.shift();
+  // Prevent a schedUpdate() call right after this from double-pushing —
+  // this edit's "before" state is already captured.
+  _pendingUndoCapture = false;
 }
 
-function undoRawConfig() {
-  if (!_rawConfigHistory.length) { showToast('Nothing to undo'); return; }
-  _lastRawConfig = JSON.parse(_rawConfigHistory.pop());
-  _reapplyFromRawConfig();
+function undoLastChange() {
+  if (!_undoHistory.length) { showToast('Nothing to undo'); return; }
+  const snap = _undoHistory.pop();
+  Object.assign(state, JSON.parse(snap.state));
+  state.series = (JSON.parse(snap.state).series || []).map(s => ({ ...s }));
+  _lastRawConfig = snap.rawConfig ? JSON.parse(snap.rawConfig) : null;
+  _manualColorOverrides = JSON.parse(snap.manualColorOverrides);
+  if (_lastRawConfig) _reapplyFromRawConfig(); else schedUpdate();
+  syncSidebarToState();
+  updateChartTypeUI();
+  updateFieldVisibility();
+  renderColourRows();
+  renderGrid();
   refreshConfigPanel();
+  _commitSettledSnapshot();
   showToast('Undone');
 }
+// Old name kept as an alias — some call sites still refer to it by the
+// raw-config-only name from before undo covered state-driven charts too.
+function undoRawConfig() { undoLastChange(); }
 
 /* ═══════════════════════════════════════════
    DRAG POINTS MODE
@@ -6701,14 +6796,22 @@ function _reapplyFromRawConfig() {
       if (_allPL.length) yaOverride.plotLines = _allPL; else delete yaOverride.plotLines;
     }
 
-    // Legend
+    // Legend — a pasted config's own layout/align/verticalAlign wins until
+    // the user explicitly picks a position from the sidebar dropdown
+    // (_legendPosTouched); otherwise every re-render (triggered by clicking
+    // ANY other field) would silently reset a custom legend layout back to
+    // the sidebar's stock default.
     if (!state.legend) {
       cfg.legend = { enabled: false };
-    } else if (state.legendPos) {
-      const posMap = { bottom: { align:'center', verticalAlign:'bottom' }, top: { align:'center', verticalAlign:'top' }, right: { align:'right', verticalAlign:'middle', layout:'vertical' } };
+    } else if (_legendPosTouched && state.legendPos) {
+      const posMap = { bottom: { align:'center', verticalAlign:'bottom', layout:'horizontal' }, top: { align:'center', verticalAlign:'top', layout:'horizontal' }, right: { align:'right', verticalAlign:'middle', layout:'vertical' } };
       cfg.legend = { ...(cfg.legend || {}), ...(posMap[state.legendPos] || {}), enabled: true, itemStyle: { color: thm.bodyColor, fontWeight: 'normal' } };
     } else if (cfg.legend) {
+      cfg.legend.enabled = true;
       cfg.legend.itemStyle = { color: thm.bodyColor, fontWeight: 'normal' };
+    } else {
+      const posMap = { bottom: { align:'center', verticalAlign:'bottom' }, top: { align:'center', verticalAlign:'top' }, right: { align:'right', verticalAlign:'middle', layout:'vertical' } };
+      cfg.legend = { ...(posMap[state.legendPos] || {}), enabled: true, itemStyle: { color: thm.bodyColor, fontWeight: 'normal' } };
     }
 
     // Tooltip
@@ -6769,6 +6872,7 @@ function _reapplyFromRawConfig() {
     _updateColorPointBtn();
     if (_colorPointMode) _attachColorPointListeners();
     _attachAnnotationInteractions();
+    _commitSettledSnapshot();
   } catch(e) {
     console.error('_reapplyFromRawConfig:', e);
   }
@@ -6900,6 +7004,12 @@ function _cleanConfigForCopy(cfg) {
     delete ax.tickColor; delete ax.lineColor;
   });
   if (out.legend?.itemStyle) delete out.legend.itemStyle;
+  if (!state.legend) {
+    out.legend = { enabled: false };
+  } else if (_legendPosTouched && state.legendPos) {
+    const posMap = { bottom: { align:'center', verticalAlign:'bottom', layout:'horizontal' }, top: { align:'center', verticalAlign:'top', layout:'horizontal' }, right: { align:'right', verticalAlign:'middle', layout:'vertical' } };
+    out.legend = { ...(out.legend || {}), ...(posMap[state.legendPos] || {}) };
+  }
 
   // Animation, zoom, tooltip, and plotOptions are computed live in
   // _reapplyFromRawConfig() for the on-screen preview but were never written
@@ -7522,19 +7632,45 @@ async function applyAndFinish() {
 
   if (wizardData.chosenTemplateId) {
     applyTemplateWithImportedData(wizardData.chosenTemplateId, cfg);
+    const n = _mergeImportedAnnotations(cfg.annotationsImport);
     dismissBanner();
     closeImportWizard();
     switchTab('preview');
-    showToast('Chart ready — paste config into Sitecore when done');
+    showToast(n ? `Chart ready — imported ${n} annotation${n === 1 ? '' : 's'} from the file too` : 'Chart ready — paste config into Sitecore when done');
     return;
   }
   if (wizardData.chosenChartType) cfg.type = wizardData.chosenChartType;
 
   applyAIConfig(cfg);
+  const n = _mergeImportedAnnotations(cfg.annotationsImport);
   dismissBanner();
   closeImportWizard();
   switchTab('preview');
-  showToast('Chart ready — paste config into Sitecore when done');
+  showToast(n ? `Chart ready — imported ${n} annotation${n === 1 ? '' : 's'} from the file too` : 'Chart ready — paste config into Sitecore when done');
+}
+
+// Folds annotations/arrows extracted from an uploaded file (currently PPTX)
+// into the sidebar's own lists, same as pasting a config with an
+// `annotations` array does. Returns how many were added, for the toast.
+function _mergeImportedAnnotations(imp) {
+  if (!imp) return 0;
+  let count = 0;
+  if (imp.labels?.length) {
+    state.annotations = (state.annotations || []).concat(imp.labels.map(l => ({
+      text: l.text, x: l.x, y: l.y, backgroundColor: '#EEEBDA', fontSize: 14, width: 200,
+    })));
+    count += imp.labels.length;
+  }
+  if (imp.arrows?.length) {
+    state.calloutArrows = (state.calloutArrows || []).concat(imp.arrows);
+    count += imp.arrows.length;
+  }
+  if (count) {
+    renderAnnotationsSection();
+    renderCalloutArrowsSection();
+    schedUpdate(); persist();
+  }
+  return count;
 }
 
 // Some templates (e.g. Commodity Changes) colour each point individually based
@@ -7871,7 +8007,11 @@ async function parsePPTX(file) {
   if (!serNodes.length) throw new Error('No series found in chart');
 
   // Detect chart type
-  const parentTag = plotArea.children[0]?.localName || 'lineChart';
+  // plotArea's first child is usually <c:layout>, not the chart-type element
+  // (e.g. <c:barChart>) — find whichever child actually names a chart type
+  // instead of assuming position 0.
+  const chartTypeEl = Array.from(plotArea.children).find(c => /Chart$/.test(c.localName));
+  const parentTag = chartTypeEl?.localName || 'lineChart';
   let chartType = 'line';
   if (parentTag.includes('bar')) chartType = 'column';
   if (parentTag.includes('pie')) chartType = 'pie';
@@ -7956,7 +8096,199 @@ async function parsePPTX(file) {
     return { name, data, color };
   });
 
-  return { type: chartType, categories, series };
+  // Best-effort: pull in any manually-drawn text boxes + connector arrows
+  // layered on the slide directly over the chart (the common way people
+  // hand-annotate a PPTX chart with "+X bps"-style callouts). Never throws
+  // out of parsePPTX — annotation import is a bonus, not required for the
+  // chart itself to come through.
+  let annotationsImport = null;
+  try {
+    const catAxNode = getNodes(plotArea, 'catAx')[0];
+    const rotAttr = catAxNode && getNodes(getNodes(catAxNode, 'txPr')[0] || catAxNode, 'bodyPr')[0]?.getAttribute('rot');
+    const xRotationDeg = rotAttr ? parseFloat(rotAttr) / 60000 : 0;
+    const allVals = series.flatMap(s => s.data).filter(v => typeof v === 'number' && !isNaN(v));
+    const yMax = allVals.length ? Math.max(0, ...allVals) * 1.15 : 100;
+    const yMin = allVals.length ? Math.min(0, ...allVals) : 0;
+    annotationsImport = await _extractPptxAnnotations(zip, chartFiles[0], categories.length || series[0]?.data.length || 1, [yMin, yMax], xRotationDeg);
+  } catch (e) { /* annotation import is best-effort only */ }
+
+  return { type: chartType, categories, series, annotationsImport };
+}
+
+// Converts manually-drawn text boxes + connector arrows found on the slide
+// (layered over an embedded chart) into our callout-arrow/text-label shape.
+// PowerPoint's auto layout engine never records the chart's actual rendered
+// plot-area pixel bounds in the file, so mapping a shape's slide position
+// into axis coordinates is necessarily an approximation — calibrated here
+// against a real Ninety One deck. Treat results as a starting point the
+// user drags into its exact position, not a precise import.
+async function _extractPptxAnnotations(zip, chartPartPath, catCount, yRange, xRotationDeg) {
+  const chartFileName = chartPartPath.split('/').pop();
+  const slideNames = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n));
+  let slideName = null, chartRelId = null;
+  for (const sn of slideNames) {
+    const relsName = sn.replace(/^ppt\/slides\//, 'ppt/slides/_rels/') + '.rels';
+    if (!zip.files[relsName]) continue;
+    const relsXml = await zip.files[relsName].async('text');
+    const relDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+    const rel = Array.from(relDoc.getElementsByTagName('Relationship')).find(r => (r.getAttribute('Target') || '').includes(chartFileName));
+    if (rel) { slideName = sn; chartRelId = rel.getAttribute('Id'); break; }
+  }
+  if (!slideName) return null;
+
+  const slideXml = await zip.files[slideName].async('text');
+  const doc = new DOMParser().parseFromString(slideXml, 'application/xml');
+  const kids = (parent, tag) => parent ? Array.from(parent.getElementsByTagName('*')).filter(el => el.localName === tag) : [];
+  const firstKid = (parent, tag) => kids(parent, tag)[0];
+
+  const frames = kids(doc, 'graphicFrame');
+  let chartFrame = null;
+  frames.forEach(f => {
+    const chartEl = firstKid(f, 'chart');
+    if (chartEl && chartEl.getAttribute('r:id') === chartRelId) chartFrame = f;
+  });
+  if (!chartFrame) return null;
+  // Scope to the frame's own <p:xfrm> — searching the whole subtree for any
+  // localName 'ext' also matches the unrelated <a:extLst><a:ext uri="..."/>
+  // (a Microsoft extension marker with no cx/cy) that sits earlier in
+  // document order, inside <p:cNvPr>, and wins if picked unscoped.
+  const fXfrm = firstKid(chartFrame, 'xfrm');
+  const fOff = firstKid(fXfrm, 'off');
+  const fExt = firstKid(fXfrm, 'ext');
+  if (!fOff || !fExt) return null;
+  const frame = {
+    x: parseFloat(fOff.getAttribute('x')), y: parseFloat(fOff.getAttribute('y')),
+    cx: parseFloat(fExt.getAttribute('cx')), cy: parseFloat(fExt.getAttribute('cy')),
+  };
+  if ([frame.x, frame.y, frame.cx, frame.cy].some(isNaN)) return null;
+
+  // Heuristic insets (fractions of the chart frame) for where the plotted
+  // area actually sits within it — left/bottom are generous because y-axis
+  // tick labels and (often rotated) category labels eat real space.
+  const leftInset = 0.14, rightInset = 0.02, topInset = 0.045;
+  const bottomInset = Math.abs(xRotationDeg) >= 45 ? 0.4 : 0.16;
+  const plotX = frame.x + frame.cx * leftInset;
+  const plotY = frame.y + frame.cy * topInset;
+  const plotW = frame.cx * (1 - leftInset - rightInset);
+  const plotH = frame.cy * (1 - topInset - bottomInset);
+  const [yMin, yMax] = yRange;
+
+  const toChartCoords = (emuX, emuY) => ({
+    x: Math.round(((emuX - plotX) / plotW) * catCount * 100) / 100,
+    y: Math.round((yMax - ((emuY - plotY) / plotH) * (yMax - yMin)) * 100) / 100,
+  });
+
+  const boxOf = (shapeEl) => {
+    const xfrm = firstKid(shapeEl, 'xfrm');
+    const off = xfrm && firstKid(xfrm, 'off');
+    const ext = xfrm && firstKid(xfrm, 'ext');
+    if (!off || !ext) return null;
+    const x = parseFloat(off.getAttribute('x')), y = parseFloat(off.getAttribute('y'));
+    const cx = parseFloat(ext.getAttribute('cx')), cy = parseFloat(ext.getAttribute('cy'));
+    return { x, y, cx, cy, cx2: x + cx, cy2: y + cy };
+  };
+  const overlapsFrame = (box) => !!box && box.x < frame.x + frame.cx && box.cx2 > frame.x && box.y < frame.y + frame.cy && box.cy2 > frame.y;
+
+  // Only top-level shapes in spTree — skips the chart's own graphicFrame and
+  // any OTHER graphicFrame (e.g. a ratings table drawn below the chart).
+  const spTree = firstKid(doc, 'spTree');
+  const topLevel = spTree ? Array.from(spTree.children) : [];
+
+  const labels = [];
+  const connectors = [];
+  topLevel.forEach(el => {
+    if (el.localName === 'sp') {
+      const box = boxOf(el);
+      if (!overlapsFrame(box)) return;
+      const textRuns = kids(el, 't').map(t => t.textContent).filter(Boolean);
+      if (!textRuns.length) return; // skip decoration-only shapes (e.g. legend colour swatches)
+      const cx = box.x + box.cx / 2, cy = box.y + box.cy / 2;
+      labels.push({ text: textRuns.join(''), box, anchor: toChartCoords(cx, cy) });
+    } else if (el.localName === 'cxnSp') {
+      const box = boxOf(el);
+      if (!overlapsFrame(box)) return;
+      connectors.push({ box, start: toChartCoords(box.x, box.y), end: toChartCoords(box.cx2, box.cy2) });
+    }
+  });
+  if (!labels.length && !connectors.length) return null;
+
+  // A single arrow "leg" is usually drawn as TWO separate connector shapes
+  // chained end-to-end (a short horizontal elbow near the label, then a long
+  // vertical drop to the bar) — only the elbow's near end actually touches
+  // the label; the vertical's own endpoints can sit closer to a completely
+  // different label purely by bounding-box distance. So instead of nearest-
+  // label-by-distance, follow the chain: union connectors that share a
+  // (roughly) common endpoint, then assign the whole chain to whichever
+  // label one of its endpoints actually touches.
+  const TOL = 80000; // EMU (~0.087in) — covers the small gaps in hand-placed connectors
+  // Deliberately tighter than TOL: a connector's far end (the arrowhead
+  // touching a bar) can coincidentally fall within another label's box once
+  // padded by the full chain-linking tolerance, even though it never
+  // actually attaches to that label — only the near/elbow end does, and
+  // that gap is much smaller in practice than the chain-bridging gaps.
+  const LABEL_TOL = 40000;
+  const dist2 = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+  const pointNearLabel = (px, py, l) =>
+    px >= l.box.x - LABEL_TOL && px <= l.box.cx2 + LABEL_TOL && py >= l.box.y - LABEL_TOL && py <= l.box.cy2 + LABEL_TOL;
+
+  const parent = connectors.map((_, i) => i);
+  const find = (i) => { while (parent[i] !== i) { i = parent[i]; } return i; };
+  const union = (i, j) => { const ri = find(i), rj = find(j); if (ri !== rj) parent[ri] = rj; };
+
+  connectors.forEach((c1, i) => connectors.forEach((c2, j) => {
+    if (i >= j) return;
+    const pts1 = [[c1.box.x, c1.box.y], [c1.box.cx2, c1.box.cy2]];
+    const pts2 = [[c2.box.x, c2.box.y], [c2.box.cx2, c2.box.cy2]];
+    for (const [x1, y1] of pts1) for (const [x2, y2] of pts2) {
+      if (dist2(x1, y1, x2, y2) <= TOL) union(i, j);
+    }
+  }));
+
+  const groupLabel = {}; // union-find root -> label index
+  const groupLabelDist = {}; // root -> distance of the current best match, so a closer label always wins over whichever was merely checked last
+  connectors.forEach((c, i) => {
+    const pts = [[c.box.x, c.box.y], [c.box.cx2, c.box.cy2]];
+    labels.forEach((l, li) => {
+      pts.forEach(([px, py]) => {
+        if (!pointNearLabel(px, py, l)) return;
+        const cx = Math.min(Math.max(px, l.box.x), l.box.cx2), cy = Math.min(Math.max(py, l.box.y), l.box.cy2);
+        const d = dist2(px, py, cx, cy);
+        const root = find(i);
+        if (groupLabelDist[root] === undefined || d < groupLabelDist[root]) { groupLabelDist[root] = d; groupLabel[root] = li; }
+      });
+    });
+  });
+
+  // Within one leg (root group, usually an elbow + a drop, 2 connectors),
+  // only the segment whose far end is FARTHEST from the label should carry
+  // the arrowhead — the near/elbow segment just connects back to the label
+  // and shouldn't also render its own arrow.
+  const rootLabelPoint = {};
+  Object.keys(groupLabel).forEach(root => { rootLabelPoint[root] = labels[groupLabel[root]]; });
+  const rootConnIdx = {};
+  connectors.forEach((c, i) => { const r = find(i); (rootConnIdx[r] = rootConnIdx[r] || []).push(i); });
+
+  const results = labels.map(l => ({ text: l.text, x: l.anchor.x, y: l.anchor.y, shapes: [] }));
+  connectors.forEach((c, i) => {
+    const root = find(i);
+    const li = groupLabel[root];
+    if (li == null) return;
+    const l = rootLabelPoint[root];
+    const minDistToLabel = (box) => {
+      const pts = [[box.x, box.y], [box.cx2, box.cy2]];
+      return Math.min(...pts.map(([px, py]) => {
+        const cx = Math.min(Math.max(px, l.box.x), l.box.cx2), cy = Math.min(Math.max(py, l.box.y), l.box.cy2);
+        return dist2(px, py, cx, cy);
+      }));
+    };
+    const peers = (rootConnIdx[root] || []).filter(j => j !== i);
+    const isTip = !peers.length || minDistToLabel(c.box) >= Math.max(...peers.map(j => minDistToLabel(connectors[j].box)));
+    results[li].shapes.push({ points: [c.start, c.end], arrow: isTip });
+  });
+
+  const plainLabels = [], arrowCallouts = [];
+  results.forEach(r => (r.shapes.length ? arrowCallouts : plainLabels).push(r));
+  return { labels: plainLabels, arrows: arrowCallouts };
 }
 
 /* ═══════════════════════════════════════════
@@ -8722,7 +9054,9 @@ function buildCalloutArrowsConfig() {
       type: 'path',
       strokeWidth: 1,
       fill: 'none',
-      markerEnd: 'arrow',
+      // Imported multi-segment legs only mark one segment (the true tip) as
+      // the arrow; a plain single-shape leg (sh.arrow undefined) always is.
+      ...(sh.arrow === false ? {} : { markerEnd: 'arrow' }),
       points: (sh.points || []).map(p => ({ xAxis: 0, yAxis: 0, x: p.x || 0, y: p.y || 0 })),
     })),
   }));
@@ -8767,6 +9101,7 @@ function _onAnnotationDragged(i, annotation) {
   const a = state.annotations?.[i];
   const pt = annotation?.options?.labels?.[0]?.point;
   if (!a || !pt) return;
+  _pushUndo();
   a.x = pt.x;
   a.y = pt.y;
   const xInput = document.querySelector(`[data-annotation-x="${i}"]`);
@@ -8777,6 +9112,7 @@ function _onAnnotationDragged(i, annotation) {
   if (posEl) posEl.textContent = `Position: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
   persist();
   _refreshConfigOutputOnly();
+  _commitSettledSnapshot();
 }
 
 // Callout arrows drag as one group (label + all its connector legs move
@@ -8786,6 +9122,7 @@ function _onCalloutArrowDragged(j, annotation) {
   const a = state.calloutArrows?.[j];
   const opts = annotation?.options;
   if (!a || !opts) return;
+  _pushUndo();
   const lp = opts.labels?.[0]?.point;
   if (lp) { a.x = lp.x; a.y = lp.y; }
   if (Array.isArray(opts.shapes)) {
@@ -8795,6 +9132,7 @@ function _onCalloutArrowDragged(j, annotation) {
   if (posEl) posEl.textContent = `Anchor: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
   persist();
   _refreshConfigOutputOnly();
+  _commitSettledSnapshot();
 }
 
 function _refreshConfigOutputOnly() {
@@ -9743,6 +10081,11 @@ function saveCurrentChart() {
     savedAt: new Date().toISOString(),
     chartType: state.chartType,
     state: JSON.parse(JSON.stringify(state)),
+    // Pasted/raw-config charts (annotations, gradients, dual axes, responsive
+    // rules, etc.) live in _lastRawConfig, not state.series — without this,
+    // "My Charts" silently dropped everything but the sidebar's own fields.
+    rawConfig: _lastRawConfig ? JSON.parse(JSON.stringify(_lastRawConfig)) : null,
+    theme: selectedTheme,
   };
   const idx = saved.findIndex(c => c.id === id);
   if (idx >= 0) saved[idx] = entry; else saved.unshift(entry);
@@ -9773,13 +10116,37 @@ function loadSavedChartById(id) {
   if (card) card.classList.add('loaded');
   Object.assign(state, entry.state);
   state.series = entry.state.series.map(s => ({ ...s }));
+  if (entry.theme && N1_THEMES[entry.theme]) {
+    selectedTheme = entry.theme;
+    applyThemeCss(selectedTheme);
+  }
+  if (entry.rawConfig) {
+    // Raw-config chart (annotations, gradients, dual axes, responsive
+    // rules, etc.) — restore it the same way loadChartVersion() does,
+    // instead of falling through to the empty state-driven render.
+    _lastRawConfig = JSON.parse(JSON.stringify(entry.rawConfig));
+    _clearManualColorOverrides();
+    try {
+      if (chartInstance) chartInstance.destroy();
+      const cfg = JSON.parse(JSON.stringify(_lastRawConfig));
+      cfg.credits = { enabled: false };
+      if (!cfg.chart) cfg.chart = {};
+      cfg.chart.style = { fontFamily: N1_CHART_FONT };
+      cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: true, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
+      cfg.annotations = buildAnnotationsForChart() || [];
+      chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+      _attachAnnotationInteractions();
+    } catch(e) {}
+  } else {
+    _lastRawConfig = null;
+  }
   syncSidebarToState();
   updateChartTypeUI();
   updateFieldVisibility();
   renderColourRows();
   checkColourOverrides();
   if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
-  schedUpdate();
+  if (!entry.rawConfig) schedUpdate();
   persist();
   const input = document.getElementById('lib-save-title');
   if (input) input.value = entry.title;

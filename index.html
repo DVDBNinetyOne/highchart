@@ -3817,7 +3817,10 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       </div>
     </div>
 
-    <!-- Accordion: Text labels (annotations) -->
+    <!-- Accordion: Text labels (annotations) — callout arrows (connector-line
+         annotations) live here too rather than as their own always-visible
+         section, since most charts never have any; their cards only appear
+         once one exists (imported from a pasted config, or added below). -->
     <div class="accordion-section" id="acc-annotations">
       <button class="accordion-header" onclick="toggleAccordion('annotations')">
         Text labels (annotations) <span class="chevron">▸</span>
@@ -3825,21 +3828,13 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       <div class="accordion-body" id="acc-body-annotations">
         <div id="annotations-tip" style="display:none"></div>
         <div id="annotations-list"></div>
-        <button class="annotation-add-btn" onclick="addAnnotation()">+ Add text label</button>
-        <button id="annotation-edit-mode-btn" onclick="toggleAnnotationEditMode()" style="width:100%;margin-top:6px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #009d80;color:#009d80;background:#fff;border-radius:6px;padding:7px;cursor:pointer;transition:all 0.15s">📍 Edit mode (drag / right-click labels)</button>
-      </div>
-    </div>
-
-    <!-- Accordion: Callout arrows (label + connector-line annotations, e.g. pasted configs with shapes/arrows) -->
-    <div class="accordion-section" id="acc-calloutarrows">
-      <button class="accordion-header" onclick="toggleAccordion('calloutarrows')">
-        Callout arrows <span class="chevron">▸</span>
-      </button>
-      <div class="accordion-body" id="acc-body-calloutarrows">
-        <div id="calloutarrows-tip" class="annotation-helper" style="background:#f5f3ec;border-radius:6px;padding:8px 10px;margin-bottom:10px">Callouts with connector arrows — pasted configs with an <code>annotations</code> array containing <code>shapes</code> are imported here automatically. Drag the label in edit mode and its arrows follow.</div>
+        <div id="calloutarrows-tip" class="annotation-helper" style="display:none;background:#f5f3ec;border-radius:6px;padding:8px 10px;margin-bottom:10px">Callouts with connector arrows — pasted configs with an <code>annotations</code> array containing <code>shapes</code> are imported here automatically. Drag the label in edit mode and its arrows follow.</div>
         <div id="calloutarrows-list"></div>
-        <button class="annotation-add-btn" onclick="addCalloutArrow()">+ Add arrow callout</button>
-        <button id="calloutarrow-edit-mode-btn" onclick="toggleAnnotationEditMode()" style="width:100%;margin-top:6px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #009d80;color:#009d80;background:#fff;border-radius:6px;padding:7px;cursor:pointer;transition:all 0.15s">📍 Edit mode (drag / right-click labels)</button>
+        <div style="display:flex;gap:6px">
+          <button class="annotation-add-btn" onclick="addAnnotation()" style="flex:1">+ Add text label</button>
+          <button class="annotation-add-btn" onclick="addCalloutArrow()" style="flex:1;background:#fff;color:#009d80;border:1px solid #009d80">+ Add arrow callout</button>
+        </div>
+        <button id="annotation-edit-mode-btn" onclick="toggleAnnotationEditMode()" style="width:100%;margin-top:6px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #009d80;color:#009d80;background:#fff;border-radius:6px;padding:7px;cursor:pointer;transition:all 0.15s">📍 Edit mode (drag / right-click labels)</button>
       </div>
     </div>
 
@@ -5058,7 +5053,6 @@ function updateFieldVisibility() {
   // support a point-anchored label (not pie/donut/bubble).
   show('acc-annotations', ANNOTATIONS_SUPPORTED_TYPES.includes(t));
   renderAnnotationsSection();
-  show('acc-calloutarrows', ANNOTATIONS_SUPPORTED_TYPES.includes(t));
   renderCalloutArrowsSection();
 
   // Advanced fields
@@ -7652,24 +7646,18 @@ async function applyAndFinish() {
 // Folds annotations/arrows extracted from an uploaded file (currently PPTX)
 // into the sidebar's own lists, same as pasting a config with an
 // `annotations` array does. Returns how many were added, for the toast.
+// Called right after importing a brand-new chart from a file — this IS the
+// resulting chart's full annotation set, so it replaces whatever was left
+// over from a previously-imported/edited chart rather than piling onto it.
 function _mergeImportedAnnotations(imp) {
-  if (!imp) return 0;
-  let count = 0;
-  if (imp.labels?.length) {
-    state.annotations = (state.annotations || []).concat(imp.labels.map(l => ({
-      text: l.text, x: l.x, y: l.y, backgroundColor: '#EEEBDA', fontSize: 14, width: 200,
-    })));
-    count += imp.labels.length;
-  }
-  if (imp.arrows?.length) {
-    state.calloutArrows = (state.calloutArrows || []).concat(imp.arrows);
-    count += imp.arrows.length;
-  }
-  if (count) {
-    renderAnnotationsSection();
-    renderCalloutArrowsSection();
-    schedUpdate(); persist();
-  }
+  state.annotations = imp?.labels?.length ? imp.labels.map(l => ({
+    text: l.text, x: l.x, y: l.y, backgroundColor: '#EEEBDA', fontSize: 14, width: 200,
+  })) : [];
+  state.calloutArrows = imp?.arrows?.length ? imp.arrows : [];
+  const count = state.annotations.length + state.calloutArrows.length;
+  renderAnnotationsSection();
+  renderCalloutArrowsSection();
+  schedUpdate(); persist();
   return count;
 }
 
@@ -7780,9 +7768,11 @@ function applyAIConfig(cfg) {
         const lastTs  = pts?.length ? (Array.isArray(pts[pts.length-1]) ? pts[pts.length-1][0] : pts[pts.length-1]) : null;
         const spanYrs = (firstTs && lastTs) ? (lastTs - firstTs) / oneYear : 0;
         const xa = { type: 'datetime' };
-        if (spanYrs > 60)      { xa.labels = { format: '{value:%Y}' };        xa.tickInterval = 10 * oneYear; }
-        else if (spanYrs > 25) { xa.labels = { format: '{value:%Y}' };        xa.tickInterval =  5 * oneYear; }
-        else if (spanYrs > 8)  { xa.labels = { format: '{value:%Y}' };        xa.tickInterval =  2 * oneYear; }
+        // 2-digit years for long spans — matches how these multi-decade
+        // ratio/valuation charts are conventionally labelled (e.g. 86, 90, 94…).
+        if (spanYrs > 60)      { xa.labels = { format: '{value:%y}' };        xa.tickInterval = 10 * oneYear; }
+        else if (spanYrs > 25) { xa.labels = { format: '{value:%y}' };        xa.tickInterval =  5 * oneYear; }
+        else if (spanYrs > 8)  { xa.labels = { format: '{value:%y}' };        xa.tickInterval =  2 * oneYear; }
         else if (spanYrs > 3)  { xa.labels = { format: '{value:%d/%m/%Y}' };  xa.tickInterval =      oneYear; }
         else if (spanYrs > 1)  { xa.labels = { format: '{value:%b %Y}' };     xa.tickInterval = Math.round(oneYear / 2); }
         else                   { xa.labels = { format: '{value:%e %b}' }; }
@@ -7798,9 +7788,15 @@ function applyAIConfig(cfg) {
       series: cfg.series.map((s, i) => ({
         name: s.name,
         color: seriesColors[i % seriesColors.length],
+        ...(s.dashStyle ? { dashStyle: s.dashStyle } : {}),
         data: s.data,
       })),
     };
+    // Respect the source's own choice — e.g. a chart whose only "legend" is
+    // hand-placed text boxes (picked up separately as annotations) rather
+    // than Highcharts' built-in legend.
+    if (cfg.legendEnabled === false) cleanCfg.legend = { enabled: false };
+    state.legend = cfg.legendEnabled !== false;
     _lastRawConfig = JSON.parse(JSON.stringify(cleanCfg));
     _clearManualColorOverrides();
     // renderCfg: display-only version with theme preview colours
@@ -7812,7 +7808,7 @@ function applyAIConfig(cfg) {
     renderCfg.xAxis.lineColor = renderCfg.xAxis.tickColor = thm.bodyColor;
     renderCfg.yAxis.title.style  = { color: thm.bodyColor };
     renderCfg.yAxis.labels = { style: { color: thm.bodyColor } };
-    renderCfg.legend = { itemStyle: { color: thm.bodyColor } };
+    renderCfg.legend = { ...(renderCfg.legend || {}), itemStyle: { color: thm.bodyColor } };
     if (!renderCfg.tooltip) renderCfg.tooltip = {};
     renderCfg.tooltip.outside = true;
     renderCfg.credits = { enabled: false };
@@ -8038,6 +8034,17 @@ async function parsePPTX(file) {
     }
   }
 
+  // A <c:dateAx> means the category values above are Excel date serials
+  // (e.g. 46185), not text labels — the "numbering" on a plain category
+  // axis would otherwise show those raw serials instead of real dates.
+  const isDateAxis = getNodes(plotArea, 'dateAx').length > 0;
+  const excelSerialToTs = (serial) => Math.round((serial - 25569) * 86400 * 1000);
+
+  // Absence of <c:legend> means the source chart had no legend at all —
+  // common when reference lines are labelled by hand-placed text boxes
+  // instead (picked up separately as annotations).
+  const hasLegend = getNodes(doc, 'legend').length > 0;
+
   const series = serNodes.map((ser, i) => {
     // Name
     let name = 'Series ' + (i+1);
@@ -8093,8 +8100,43 @@ async function parsePPTX(file) {
       }
     }
 
-    return { name, data, color };
+    // Dash style (e.g. a dashed reference line) — <a:prstDash> lives on the
+    // series' own line properties.
+    let dashStyle;
+    if (spPrNodes.length) {
+      const prstDash = getNodes(spPrNodes[0], 'prstDash')[0]?.getAttribute('val');
+      const DASH_MAP = {
+        dash: 'Dash', dashDot: 'DashDot', dot: 'Dot',
+        lgDash: 'LongDash', lgDashDot: 'LongDashDot', lgDashDotDot: 'LongDashDotDot',
+        sysDash: 'ShortDash', sysDashDot: 'ShortDashDot', sysDashDotDot: 'ShortDashDotDot', sysDot: 'ShortDot',
+      };
+      if (prstDash && DASH_MAP[prstDash]) dashStyle = DASH_MAP[prstDash];
+    }
+
+    return { name, data, color, dashStyle };
   });
+
+  // A genuine date axis: convert the Excel serials into real timestamps and
+  // restructure each series as [timestamp, value] pairs — categories no
+  // longer apply once the axis is datetime-typed.
+  let xAxisType, xRangeForAnnotations = [0, Math.max(1, categories.length - 1)];
+  if (isDateAxis && categories.length) {
+    const serials = categories.map(c => parseFloat(c));
+    if (serials.every(v => !isNaN(v))) {
+      const timestamps = serials.map(excelSerialToTs);
+      // Source data is often listed most-recent-first — Highcharts line
+      // series draws points in array order, not sorted by x, so descending
+      // dates would render as a backwards zigzag. Sort ascending by time.
+      series.forEach(s => {
+        s.data = s.data
+          .map((v, i) => [timestamps[i], v])
+          .sort((a, b) => a[0] - b[0]);
+      });
+      xAxisType = 'datetime';
+      xRangeForAnnotations = [Math.min(...timestamps), Math.max(...timestamps)];
+      categories = [];
+    }
+  }
 
   // Best-effort: pull in any manually-drawn text boxes + connector arrows
   // layered on the slide directly over the chart (the common way people
@@ -8106,13 +8148,13 @@ async function parsePPTX(file) {
     const catAxNode = getNodes(plotArea, 'catAx')[0];
     const rotAttr = catAxNode && getNodes(getNodes(catAxNode, 'txPr')[0] || catAxNode, 'bodyPr')[0]?.getAttribute('rot');
     const xRotationDeg = rotAttr ? parseFloat(rotAttr) / 60000 : 0;
-    const allVals = series.flatMap(s => s.data).filter(v => typeof v === 'number' && !isNaN(v));
+    const allVals = series.flatMap(s => s.data).map(v => Array.isArray(v) ? v[1] : v).filter(v => typeof v === 'number' && !isNaN(v));
     const yMax = allVals.length ? Math.max(0, ...allVals) * 1.15 : 100;
     const yMin = allVals.length ? Math.min(0, ...allVals) : 0;
-    annotationsImport = await _extractPptxAnnotations(zip, chartFiles[0], categories.length || series[0]?.data.length || 1, [yMin, yMax], xRotationDeg);
+    annotationsImport = await _extractPptxAnnotations(zip, chartFiles[0], xRangeForAnnotations, [yMin, yMax], xRotationDeg);
   } catch (e) { /* annotation import is best-effort only */ }
 
-  return { type: chartType, categories, series, annotationsImport };
+  return { type: chartType, categories, series, annotationsImport, xAxisType, legendEnabled: hasLegend };
 }
 
 // Converts manually-drawn text boxes + connector arrows found on the slide
@@ -8122,7 +8164,7 @@ async function parsePPTX(file) {
 // into axis coordinates is necessarily an approximation — calibrated here
 // against a real Ninety One deck. Treat results as a starting point the
 // user drags into its exact position, not a precise import.
-async function _extractPptxAnnotations(zip, chartPartPath, catCount, yRange, xRotationDeg) {
+async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRotationDeg) {
   const chartFileName = chartPartPath.split('/').pop();
   const slideNames = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n));
   let slideName = null, chartRelId = null;
@@ -8172,10 +8214,16 @@ async function _extractPptxAnnotations(zip, chartPartPath, catCount, yRange, xRo
   const plotW = frame.cx * (1 - leftInset - rightInset);
   const plotH = frame.cy * (1 - topInset - bottomInset);
   const [yMin, yMax] = yRange;
+  const [xMin, xMax] = xRange;
 
+  // Clamp to the actual plottable range — a common annotation style labels
+  // the END of a line just outside the plotted area (in the slide margin),
+  // which without clamping maps to an axis value beyond the chart entirely
+  // and never renders at all. Clamping keeps it visible at the chart edge
+  // instead; drag mode can then nudge it wherever it should really sit.
   const toChartCoords = (emuX, emuY) => ({
-    x: Math.round(((emuX - plotX) / plotW) * catCount * 100) / 100,
-    y: Math.round((yMax - ((emuY - plotY) / plotH) * (yMax - yMin)) * 100) / 100,
+    x: Math.min(xMax, Math.max(xMin, Math.round((xMin + ((emuX - plotX) / plotW) * (xMax - xMin)) * 100) / 100)),
+    y: Math.min(yMax, Math.max(yMin, Math.round((yMax - ((emuY - plotY) / plotH) * (yMax - yMin)) * 100) / 100)),
   });
 
   const boxOf = (shapeEl) => {
@@ -8914,6 +8962,10 @@ function renderCalloutArrowsSection() {
   const listEl = document.getElementById('calloutarrows-list');
   if (!listEl) return;
   const arrows = state.calloutArrows || [];
+  // Most charts never have any callout arrows — only show the explanatory
+  // tip once one actually exists, instead of always taking up space.
+  const tipEl = document.getElementById('calloutarrows-tip');
+  if (tipEl) tipEl.style.display = arrows.length ? '' : 'none';
   listEl.innerHTML = arrows.map((a, j) => `
     <div class="annotation-card calloutarrow-card" data-i="${j}" onmouseenter="_hoverAnnotation(${(state.annotations||[]).length + j},true)" onmouseleave="_hoverAnnotation(${(state.annotations||[]).length + j},false)">
       <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px">
@@ -8936,8 +8988,16 @@ function renderCalloutArrowsSection() {
 // `annotations` from state. Plain single-label annotations (our own output
 // shape) go to state.annotations; anything with connector shapes, multiple
 // labels, or labelOptions goes to state.calloutArrows.
+// Called on every fresh paste/apply of a raw config — replaces the sidebar's
+// annotation lists with whatever this config actually contains (including
+// clearing them out if it contains none), rather than layering onto
+// whatever was left over from the PREVIOUS config that was loaded.
 function _importAnnotationsFromRawConfig(cfg) {
-  if (!Array.isArray(cfg.annotations) || !cfg.annotations.length) return;
+  if (!Array.isArray(cfg.annotations) || !cfg.annotations.length) {
+    state.annotations = [];
+    state.calloutArrows = [];
+    return;
+  }
   const importedLabels = [];
   const importedArrows = [];
   cfg.annotations.forEach(ann => {
@@ -8982,8 +9042,8 @@ function _importAnnotationsFromRawConfig(cfg) {
       });
     });
   });
-  if (importedLabels.length) state.annotations = (state.annotations || []).concat(importedLabels);
-  if (importedArrows.length) state.calloutArrows = (state.calloutArrows || []).concat(importedArrows);
+  state.annotations = importedLabels;
+  state.calloutArrows = importedArrows;
 }
 
 // Annotation edit mode is deliberately its own toggle, independent from
@@ -8992,13 +9052,12 @@ function _importAnnotationsFromRawConfig(cfg) {
 let _annotationEditMode = false;
 
 function _updateAnnotationEditModeBtn() {
-  ['annotation-edit-mode-btn', 'calloutarrow-edit-mode-btn'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
+  const btn = document.getElementById('annotation-edit-mode-btn');
+  if (btn) {
     btn.textContent      = _annotationEditMode ? '✓ Edit mode on' : '📍 Edit mode (drag / right-click labels)';
     btn.style.background = _annotationEditMode ? '#009d80' : '#fff';
     btn.style.color      = _annotationEditMode ? '#fff'    : '#009d80';
-  });
+  }
 }
 
 function toggleAnnotationEditMode() {

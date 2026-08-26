@@ -6245,9 +6245,11 @@ function applyConfigEdit() {
     // Any annotations already in the pasted config would otherwise be
     // silently discarded, since the render pipeline always rebuilds
     // `annotations` from state — pull them into the sidebar instead so
-    // they're visible and draggable.
+    // they're visible and draggable. _reapplyFromRawConfig() (below) then
+    // overwrites _lastRawConfig.annotations with the canonical rebuilt
+    // version, so it stays in sync with the sidebar rather than holding
+    // onto this raw pasted copy.
     _importAnnotationsFromRawConfig(_lastRawConfig);
-    delete _lastRawConfig.annotations;
     _clearManualColorOverrides();
     syncStateFromConfig(cfg);
     _reapplyFromRawConfig();
@@ -6854,6 +6856,12 @@ function _reapplyFromRawConfig() {
     cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: true, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
     cfg.annotations = buildAnnotationsForChart() || [];
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+    // Keep _lastRawConfig itself (not just the render clone) in sync with the
+    // sidebar's annotation state — otherwise the editable config textarea
+    // shows a config with no annotations even though the preview has them,
+    // and re-applying that text wipes them out as if they'd been deleted.
+    const _annCfgForEdit = buildAnnotationsConfig();
+    if (_annCfgForEdit) _lastRawConfig.annotations = _annCfgForEdit; else delete _lastRawConfig.annotations;
     if (!_configEditMode) enterConfigEdit();
     const ta = document.getElementById('config-edit-input');
     if (ta) ta.value = _serializeConfig(_lastRawConfig);

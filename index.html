@@ -6648,7 +6648,7 @@ function _onDragUp() {
   }
   if (!_configEditMode) enterConfigEdit();
   const ta = document.getElementById('config-edit-input');
-  if (ta && _lastRawConfig) ta.value = _serializeConfig(_lastRawConfig);
+  if (ta && _lastRawConfig) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
   const badge = document.getElementById('drag-coords-badge');
   if (badge) badge.style.display = 'none';
   _dragState = null;
@@ -6864,7 +6864,10 @@ function _reapplyFromRawConfig() {
     if (_annCfgForEdit) _lastRawConfig.annotations = _annCfgForEdit; else delete _lastRawConfig.annotations;
     if (!_configEditMode) enterConfigEdit();
     const ta = document.getElementById('config-edit-input');
-    if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    // Show the same fully-computed config here as the preview and the
+    // copy panel — whatever's rendered (legend, animation, tooltip,
+    // plotOptions, annotations) must be visible in the editable code too.
+    if (ta) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
     // Keep config-output panel in sync with clean output (includes csvURL if set)
     const pre = document.getElementById('config-output');
     if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
@@ -7726,7 +7729,7 @@ function applyTemplateWithImportedData(chartId, cfg) {
     _reapplyFromRawConfig();
     if (!_configEditMode) enterConfigEdit();
     const ta = document.getElementById('config-edit-input');
-    if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    if (ta) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
     renderColourRows();
     updateEmptyState();
   } else if (tpl.state) {

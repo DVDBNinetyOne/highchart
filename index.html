@@ -6239,29 +6239,41 @@ function applyConfigEdit() {
     return;
   }
   try {
-    // Store as raw config and re-render via _reapplyFromRawConfig so the
-    // active theme colours and sidebar state overrides are applied correctly.
-    _lastRawConfig = JSON.parse(JSON.stringify(cfg));
-    // Any annotations already in the pasted config would otherwise be
-    // silently discarded, since the render pipeline always rebuilds
-    // `annotations` from state — pull them into the sidebar instead so
-    // they're visible and draggable. _reapplyFromRawConfig() (below) then
-    // overwrites _lastRawConfig.annotations with the canonical rebuilt
-    // version, so it stays in sync with the sidebar rather than holding
-    // onto this raw pasted copy.
-    _importAnnotationsFromRawConfig(_lastRawConfig);
-    _clearManualColorOverrides();
-    syncStateFromConfig(cfg);
-    _reapplyFromRawConfig();
+    applyFullRawConfig(cfg);
     msg.textContent = '✓ Applied';
     msg.style.color = '#009d80';
-    syncSidebarToState();
-    updateChartTypeUI();
-    updateEmptyState();
   } catch(e) {
     msg.textContent = '⚠ Highcharts error: ' + e.message;
     msg.style.color = '#d83949';
   }
+}
+
+// Apply a full, native Highcharts config object (as opposed to the
+// parsed-import shape applyAIConfig() expects — {type, categories, series,
+// xAxisType, ...}). Used for anything that hands back a complete config to
+// render as-is: the manual config-edit textarea, and the "Ask AI" chat
+// (whose system prompt tells it to return "the current Highcharts config
+// object" with only the requested change, i.e. always this shape — routing
+// it through applyAIConfig() instead silently dropped annotations/legend/etc.
+// on any datetime chart, since that function's own bypass path rebuilds a
+// fresh config from scratch rather than applying the one it was given).
+function applyFullRawConfig(cfg) {
+  // Store as raw config and re-render via _reapplyFromRawConfig so the
+  // active theme colours and sidebar state overrides are applied correctly.
+  _lastRawConfig = JSON.parse(JSON.stringify(cfg));
+  // Any annotations already in the config would otherwise be silently
+  // discarded, since the render pipeline always rebuilds `annotations` from
+  // state — pull them into the sidebar instead so they're visible and
+  // draggable. _reapplyFromRawConfig() (below) then overwrites
+  // _lastRawConfig.annotations with the canonical rebuilt version, so it
+  // stays in sync with the sidebar rather than holding onto this raw copy.
+  _importAnnotationsFromRawConfig(_lastRawConfig);
+  _clearManualColorOverrides();
+  syncStateFromConfig(cfg);
+  _reapplyFromRawConfig();
+  syncSidebarToState();
+  updateChartTypeUI();
+  updateEmptyState();
 }
 
 /* ═══════════════════════════════════════════
@@ -6646,9 +6658,12 @@ function _onDragUp() {
     _lastRawConfig.series[si].data[pi].x = nx;
     _lastRawConfig.series[si].data[pi].y = ny;
   }
-  if (!_configEditMode) enterConfigEdit();
+  // Don't force the panel into "editing" mode just because a value changed —
+  // that hides the Edit/Copy buttons behind Cancel/Apply until the user
+  // explicitly asks to edit. Only refresh whichever view is already showing.
   const ta = document.getElementById('config-edit-input');
-  if (ta && _lastRawConfig) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
+  if (_configEditMode && ta && _lastRawConfig) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
+  else _refreshConfigOutputOnly();
   const badge = document.getElementById('drag-coords-badge');
   if (badge) badge.style.display = 'none';
   _dragState = null;
@@ -6762,11 +6777,34 @@ function _reapplyFromRawConfig() {
       if (state.xTickInterval != null) {
         const oneYear = 365.25 * 24 * 3600 * 1000;
         cfg.xAxis.tickInterval = state.xTickInterval * oneYear;
-        // Update label format to match the interval granularity
+        // Update label format to match the interval granularity — mirrors the
+        // same tiers the datetime-import path uses (applyAIConfig), so a
+        // sidebar-triggered re-render doesn't change the format away from
+        // what was originally imported.
         if (!cfg.xAxis.labels) cfg.xAxis.labels = {};
-        cfg.xAxis.labels.format = state.xTickInterval >= 1 ? '{value:%Y}' : '{value:%b %Y}';
+        cfg.xAxis.labels.format = state.xTickInterval >= 2 ? '{value:%y}'
+          : state.xTickInterval >= 1 ? '{value:%d/%m/%y}'
+          : state.xTickInterval >= 0.5 ? '{value:%b %y}'
+          : '{value:%e %b}';
+        // Recompute explicit tick positions from the actual data range so a
+        // manually-entered tick interval stays immune to the same
+        // container-width issue as the import path — anchored at the first
+        // data point (_dtTicksFromAnchor), NOT nice-calendar-year-rounded
+        // (_dtYearTicks). Using the same anchor basis as applyAIConfig's
+        // datetime-import branch is essential here: since state.xTickInterval
+        // is now synced from the import (so the sidebar field shows it), this
+        // branch runs on every re-render after import too (not just on a
+        // manual edit) — a different rounding basis here would silently
+        // shift the ticks away from what was just imported on the very next
+        // interaction (drag, toggle, etc.), even with no interval change.
+        const pts = Array.isArray(cfg.series) ? cfg.series[0]?.data : null;
+        const firstTs = pts?.length ? (Array.isArray(pts[0]) ? pts[0][0] : null) : null;
+        const lastTs  = pts?.length ? (Array.isArray(pts[pts.length - 1]) ? pts[pts.length - 1][0] : null) : null;
+        const ticks = _dtTicksFromAnchor(firstTs, lastTs, Math.round(state.xTickInterval * 12));
+        if (ticks) cfg.xAxis.tickPositions = ticks; else delete cfg.xAxis.tickPositions;
       }
-      // else: leave cfg.xAxis.tickInterval and label format from _lastRawConfig (auto-calculated on import)
+      // else: leave cfg.xAxis.tickInterval, tickPositions and label format
+      // from _lastRawConfig (auto-calculated on import)
     }
 
     // yAxis overrides (min, max, title, scale, gridlines, format, plotLines)
@@ -6862,12 +6900,15 @@ function _reapplyFromRawConfig() {
     // and re-applying that text wipes them out as if they'd been deleted.
     const _annCfgForEdit = buildAnnotationsConfig();
     if (_annCfgForEdit) _lastRawConfig.annotations = _annCfgForEdit; else delete _lastRawConfig.annotations;
-    if (!_configEditMode) enterConfigEdit();
+    // Don't force the panel into "editing" mode on every re-render — that
+    // hid the Edit/Copy buttons behind Cancel/Apply on every single sidebar
+    // change, so Copy was never reachable without first hitting Cancel/Apply.
+    // Only refresh the textarea if editing was already open.
     const ta = document.getElementById('config-edit-input');
     // Show the same fully-computed config here as the preview and the
     // copy panel — whatever's rendered (legend, animation, tooltip,
     // plotOptions, annotations) must be visible in the editable code too.
-    if (ta) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
+    if (_configEditMode && ta) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
     // Keep config-output panel in sync with clean output (includes csvURL if set)
     const pre = document.getElementById('config-output');
     if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
@@ -7648,6 +7689,11 @@ async function applyAndFinish() {
 
   applyAIConfig(cfg);
   const n = _mergeImportedAnnotations(cfg.annotationsImport);
+  // The source file's own title is never baked into the chart config
+  // (Sitecore renders its own title/source around the chart), but it's
+  // still worth using to name the chart in the builder itself.
+  const nameEl = document.getElementById('chart-name-display');
+  if (cfg.title && nameEl && nameEl.textContent === 'Untitled chart') nameEl.textContent = cfg.title;
   dismissBanner();
   closeImportWizard();
   switchTab('preview');
@@ -7727,9 +7773,6 @@ function applyTemplateWithImportedData(chartId, cfg) {
     // colours get injected the same way every other raw-config chart does —
     // rendering directly here left the chart on Highcharts' plain white default.
     _reapplyFromRawConfig();
-    if (!_configEditMode) enterConfigEdit();
-    const ta = document.getElementById('config-edit-input');
-    if (ta) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
     renderColourRows();
     updateEmptyState();
   } else if (tpl.state) {
@@ -7755,6 +7798,44 @@ function applyTemplateWithImportedData(chartId, cfg) {
   persist();
 }
 
+// Explicit tick-timestamp list for a datetime axis, snapped to nice month
+// boundaries every `yrs` years across [firstTs, lastTs]. Some CMS rendering
+// contexts (a collapsed tab, a not-yet-laid-out container) give Highcharts a
+// near-zero measured axis width on first paint; its automatic tick-interval
+// placement then collapses to a single tick because it divides the value
+// range by that broken pixel width. Listing exact tick positions makes
+// placement independent of measured container size — this is plain JSON
+// data (no functions), so it survives being pasted into Sitecore's config
+// field (a literal function value there broke the whole chart — see commit
+// history — because Sitecore parses this as JSON, not evaluated JS).
+function _dtYearTicks(firstTs, lastTs, yrs) {
+  if (!yrs || firstTs == null || lastTs == null) return null;
+  const stepMonths = Math.round(yrs * 12);
+  if (stepMonths <= 0) return null;
+  const d0 = new Date(firstTs), d1 = new Date(lastTs);
+  const startIdx = Math.floor((d0.getUTCFullYear() * 12 + d0.getUTCMonth()) / stepMonths) * stepMonths;
+  const endIdx   = Math.ceil ((d1.getUTCFullYear() * 12 + d1.getUTCMonth()) / stepMonths) * stepMonths;
+  const ticks = [];
+  for (let m = startIdx; m <= endIdx; m += stepMonths) ticks.push(Date.UTC(Math.floor(m / 12), m % 12, 1));
+  return ticks;
+}
+
+// Same idea, but anchored at the data's own first point instead of the
+// nearest "nice" calendar year — matches PowerPoint's own auto-scaled date
+// axis, which (per its <c:dateAx><c:scaling><c:orientation val="minMax"/>,
+// no explicit min) starts ticking exactly from the first data point, not a
+// rounded year. Used when we know the source's exact majorUnit interval
+// (e.g. 48 months) rather than guessing one from the overall date span.
+function _dtTicksFromAnchor(firstTs, lastTs, stepMonths) {
+  if (!stepMonths || firstTs == null || lastTs == null) return null;
+  const d0 = new Date(firstTs), d1 = new Date(lastTs);
+  const anchorIdx = d0.getUTCFullYear() * 12 + d0.getUTCMonth();
+  const endIdx = d1.getUTCFullYear() * 12 + d1.getUTCMonth();
+  const ticks = [];
+  for (let m = anchorIdx; m <= endIdx; m += stepMonths) ticks.push(Date.UTC(Math.floor(m / 12), m % 12, 1));
+  return ticks;
+}
+
 /* ═══════════════════════════════════════════
    APPLY CONFIG FROM IMPORT
 ═══════════════════════════════════════════ */
@@ -7767,11 +7848,19 @@ function applyAIConfig(cfg) {
     const seriesColors = thm.chartSeriesColors || N1_PALETTE;
     // Datetime x-axis only makes sense for line-family/column/bar — fall back to line for anything else.
     const dtChartType = ['line','spline','area','areaspline','column','bar'].includes(cfg.type) ? cfg.type : 'line';
+    // Populated by the xAxis builder below, then mirrored onto state.xAxisType/
+    // state.xTickInterval so the sidebar's Axis type/Tick interval fields show
+    // what was actually imported instead of sitting on stale defaults.
+    let dtTickIntervalYrs = null;
     // _lastRawConfig: clean output config — no theme display colours (Sitecore injects those)
     const cleanCfg = {
       chart: { type: dtChartType, height: 500, style: { fontFamily: N1_CHART_FONT } },
-      title:    { text: cfg.title    || '' },
-      subtitle: { text: cfg.subtitle || '' },
+      // Never carry an imported title/subtitle into the chart config itself —
+      // Sitecore renders its own title and source/citation around the chart
+      // from separate CMS fields, so baking these in here just duplicates
+      // and visually collides with that (confirmed against the live page).
+      title:    { text: '' },
+      subtitle: { text: '' },
       xAxis: (() => {
         const oneYear = 365.25 * 24 * 3600 * 1000;
         const pts = cfg.series?.[0]?.data;
@@ -7779,20 +7868,60 @@ function applyAIConfig(cfg) {
         const lastTs  = pts?.length ? (Array.isArray(pts[pts.length-1]) ? pts[pts.length-1][0] : pts[pts.length-1]) : null;
         const spanYrs = (firstTs && lastTs) ? (lastTs - firstTs) / oneYear : 0;
         const xa = { type: 'datetime' };
-        // 2-digit years for long spans — matches how these multi-decade
-        // ratio/valuation charts are conventionally labelled (e.g. 86, 90, 94…).
-        if (spanYrs > 60)      { xa.labels = { format: '{value:%y}' };        xa.tickInterval = 10 * oneYear; }
-        else if (spanYrs > 25) { xa.labels = { format: '{value:%y}' };        xa.tickInterval =  5 * oneYear; }
-        else if (spanYrs > 8)  { xa.labels = { format: '{value:%y}' };        xa.tickInterval =  2 * oneYear; }
-        else if (spanYrs > 3)  { xa.labels = { format: '{value:%d/%m/%Y}' };  xa.tickInterval =      oneYear; }
-        else if (spanYrs > 1)  { xa.labels = { format: '{value:%b %Y}' };     xa.tickInterval = Math.round(oneYear / 2); }
-        else                   { xa.labels = { format: '{value:%e %b}' }; }
+        // Prefer the exact interval PowerPoint's own <c:dateAx> specified
+        // (<c:majorUnit>/<c:majorTimeUnit>, e.g. 48 months = every 4 years)
+        // over a guess derived from the overall date span — a chart whose
+        // source used a 4-year interval starting on its first data year
+        // ("86, 90, 94...") won't match a heuristic that rounds to "nice"
+        // 5-year ticks starting on a round year.
+        const exactStepMonths = cfg.dateAxisMajorUnitMonths;
+        dtTickIntervalYrs = exactStepMonths ? exactStepMonths / 12
+          : spanYrs > 60 ? 10 : spanYrs > 25 ? 5 : spanYrs > 8 ? 2 : spanYrs > 3 ? 1 : spanYrs > 1 ? 0.5 : null;
+        // '%y' (2-digit year, e.g. "86") to match the source PPT's own axis
+        // style, per direct request.
+        xa.labels = { format:
+          dtTickIntervalYrs == null    ? '{value:%e %b}'
+          : dtTickIntervalYrs >= 2     ? '{value:%y}'
+          : dtTickIntervalYrs >= 1     ? '{value:%d/%m/%y}'
+          : dtTickIntervalYrs >= 0.5   ? '{value:%b %y}'
+          :                              '{value:%e %b}'
+        };
+        if (dtTickIntervalYrs != null) xa.tickInterval = dtTickIntervalYrs * oneYear;
+        const ticks = exactStepMonths
+          ? _dtTicksFromAnchor(firstTs, lastTs, exactStepMonths)
+          : _dtYearTicks(firstTs, lastTs, dtTickIntervalYrs);
+        if (ticks) xa.tickPositions = ticks;
         return xa;
       })(),
       yAxis: {
         title: { text: cfg.yTitle || '' },
         gridLineWidth: state.gridLines ? 1 : 0,
+        ...(cfg.referenceLines?.length ? { plotLines: cfg.referenceLines.map(rl => ({
+          value: rl.value,
+          color: rl.color || '#999',
+          width: 1,
+          zIndex: 4,
+          ...(rl.dashStyle ? { dashStyle: rl.dashStyle } : {}),
+          ...(rl.label ? { label: { text: rl.label, style: { color: rl.color || '#999' } } } : {}),
+        })) } : {}),
       },
+      tooltip: (() => {
+        // Match the tooltip's date precision and decimal rounding to the
+        // data's actual granularity — showing "Friday, 29 Dec 1995" and a
+        // 14-decimal ratio on monthly data reads as broken, not precise.
+        const pts = cfg.series?.[0]?.data;
+        let gapDays = 30;
+        if (pts?.length > 1) {
+          const t0 = Array.isArray(pts[0]) ? pts[0][0] : null;
+          const t1 = Array.isArray(pts[1]) ? pts[1][0] : null;
+          if (t0 != null && t1 != null) gapDays = Math.abs(t1 - t0) / (24 * 3600 * 1000);
+        }
+        const xDateFormat = gapDays > 200 ? '%Y' : gapDays > 20 ? '%B %Y' : gapDays > 5 ? '%d %b %Y' : '%A, %d %b %Y';
+        const allVals = (cfg.series || []).flatMap(s => s.data).map(v => Array.isArray(v) ? v[1] : v).filter(v => typeof v === 'number' && !isNaN(v));
+        const maxAbs = allVals.length ? Math.max(...allVals.map(Math.abs)) : 0;
+        const valueDecimals = maxAbs >= 1000 ? 0 : maxAbs >= 10 ? 1 : 2;
+        return { xDateFormat, valueDecimals };
+      })(),
       plotOptions: {
         [dtChartType]: { marker: { enabled: false }, turboThreshold: 15000 }
       },
@@ -7808,6 +7937,23 @@ function applyAIConfig(cfg) {
     // than Highcharts' built-in legend.
     if (cfg.legendEnabled === false) cleanCfg.legend = { enabled: false };
     state.legend = cfg.legendEnabled !== false;
+    // Deliberately blank, not cfg.title/cfg.subtitle — see the comment on
+    // cleanCfg.title above. Keeping state in sync with the (blank) chart
+    // config here also stops a later re-render from reintroducing them.
+    state.title = '';
+    state.subtitle = '';
+    // Same reason as title/subtitle above — _reapplyFromRawConfig() rebuilds
+    // yAxis.plotLines entirely from state.yPlotLines/state.yZeroLine, so any
+    // reference lines baked into cleanCfg.yAxis.plotLines directly would be
+    // wiped on the very next re-render unless mirrored into state too.
+    state.yPlotLines = (cfg.referenceLines || []).map(rl => ({
+      value: rl.value, color: rl.color, dashStyle: rl.dashStyle, label: rl.label || '',
+    }));
+    // Mirror the axis type/interval the import actually computed onto state,
+    // so the sidebar's "Axis type"/"Tick interval" fields match the rendered
+    // chart instead of sitting on whatever they showed before this import.
+    state.xAxisType = 'datetime';
+    state.xTickInterval = dtTickIntervalYrs;
     _lastRawConfig = JSON.parse(JSON.stringify(cleanCfg));
     _clearManualColorOverrides();
     // renderCfg: display-only version with theme preview colours
@@ -7832,11 +7978,14 @@ function applyAIConfig(cfg) {
     updateChartTypeUI();
     const bar = document.getElementById('drag-mode-bar');
     if (bar) bar.style.display = 'none';
-    if (!_configEditMode) enterConfigEdit();
+    // Don't force the panel into "editing" mode — leave Edit/Copy visible
+    // by default; only refresh the textarea if editing was already open.
     const ta = document.getElementById('config-edit-input');
-    if (ta) ta.value = _serializeConfig(_lastRawConfig);
+    if (_configEditMode && ta) ta.value = _serializeConfig(_cleanConfigForCopy(_lastRawConfig));
+    _refreshConfigOutputOnly();
     renderColourRows();
     updateEmptyState();
+    syncSidebarToState();
     return;
   }
 
@@ -8051,12 +8200,30 @@ async function parsePPTX(file) {
   const isDateAxis = getNodes(plotArea, 'dateAx').length > 0;
   const excelSerialToTs = (serial) => Math.round((serial - 25569) * 86400 * 1000);
 
+  // Read the actual tick interval PowerPoint used (<c:majorUnit>/<c:majorTimeUnit>)
+  // instead of guessing one from the data's overall span — a chart with a
+  // 4-year interval starting exactly on its first data year (e.g. "86, 90,
+  // 94...") won't match a heuristic that rounds to "nice" 5-year ticks.
+  let dateAxisMajorUnitMonths = null;
+  if (isDateAxis) {
+    const dateAxEl = getNodes(plotArea, 'dateAx')[0];
+    // <c:majorUnit val="48"/> / <c:majorTimeUnit val="months"/> store their
+    // value in the "val" attribute, not as element text content.
+    const majorUnit = parseFloat(getNodes(dateAxEl, 'majorUnit')[0]?.getAttribute('val'));
+    const majorTimeUnit = getNodes(dateAxEl, 'majorTimeUnit')[0]?.getAttribute('val');
+    if (!isNaN(majorUnit) && majorUnit > 0) {
+      if (majorTimeUnit === 'years') dateAxisMajorUnitMonths = majorUnit * 12;
+      else if (majorTimeUnit === 'months') dateAxisMajorUnitMonths = majorUnit;
+      else if (majorTimeUnit === 'days') dateAxisMajorUnitMonths = null; // sub-month granularity not handled here
+    }
+  }
+
   // Absence of <c:legend> means the source chart had no legend at all —
   // common when reference lines are labelled by hand-placed text boxes
   // instead (picked up separately as annotations).
   const hasLegend = getNodes(doc, 'legend').length > 0;
 
-  const series = serNodes.map((ser, i) => {
+  let series = serNodes.map((ser, i) => {
     // Name
     let name = 'Series ' + (i+1);
     const txNodes = getNodes(ser, 'tx');
@@ -8149,6 +8316,22 @@ async function parsePPTX(file) {
     }
   }
 
+  // A series where every point holds the same constant value isn't real
+  // data — it's a hand-built reference/threshold line (e.g. "cheap" at 50,
+  // "expensive" at 100), which PowerPoint has no dedicated feature for, so
+  // people fake it with a flat series instead. Pull those out into proper
+  // yAxis.plotLines: same dashed look, but they stop cluttering the tooltip
+  // with a meaningless "Series N: 100" on every hover.
+  const referenceLines = [];
+  const realSeries = [];
+  series.forEach(s => {
+    const vals = s.data.map(v => Array.isArray(v) ? v[1] : v).filter(v => typeof v === 'number' && !isNaN(v));
+    const isFlat = vals.length > 2 && vals.every(v => v === vals[0]);
+    if (isFlat) referenceLines.push({ value: vals[0], color: s.color, dashStyle: s.dashStyle, label: s.name?.startsWith('Series ') ? '' : s.name });
+    else realSeries.push(s);
+  });
+  if (referenceLines.length && realSeries.length) series = realSeries;
+
   // Best-effort: pull in any manually-drawn text boxes + connector arrows
   // layered on the slide directly over the chart (the common way people
   // hand-annotate a PPTX chart with "+X bps"-style callouts). Never throws
@@ -8165,7 +8348,59 @@ async function parsePPTX(file) {
     annotationsImport = await _extractPptxAnnotations(zip, chartFiles[0], xRangeForAnnotations, [yMin, yMax], xRotationDeg);
   } catch (e) { /* annotation import is best-effort only */ }
 
-  return { type: chartType, categories, series, annotationsImport, xAxisType, legendEnabled: hasLegend };
+  // The chart's own title is frequently deleted in favour of the slide's
+  // title/body placeholder text (as here) — fall back to reading those.
+  let slideTitle = '', slideSubtitle = '';
+  try {
+    const st = await _extractPptxSlideText(zip, chartFiles[0]);
+    slideTitle = st.title || '';
+    slideSubtitle = st.subtitle || '';
+  } catch (e) { /* best-effort only */ }
+
+  // A lone unnamed real series with nothing else to call it — the chart's
+  // own subtitle usually describes exactly what's being plotted (e.g. "Ratio
+  // of Bloomberg Commodity Index vs. Dow Jones"), which reads far better in
+  // a tooltip than "Series 1".
+  if (series.length === 1 && series[0].name?.startsWith('Series ') && slideSubtitle) {
+    series[0].name = slideSubtitle;
+  }
+
+  return { type: chartType, categories, series, annotationsImport, xAxisType, legendEnabled: hasLegend, title: slideTitle, subtitle: slideSubtitle, referenceLines, dateAxisMajorUnitMonths };
+}
+
+// Reads the slide's own title/body placeholder text — used as a fallback
+// chart title/subtitle when the embedded chart's own <c:title> was deleted
+// (common when the "title" is actually laid out as a slide heading instead).
+async function _extractPptxSlideText(zip, chartPartPath) {
+  const chartFileName = chartPartPath.split('/').pop();
+  const slideNames = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n));
+  let slideName = null;
+  for (const sn of slideNames) {
+    const relsName = sn.replace(/^ppt\/slides\//, 'ppt/slides/_rels/') + '.rels';
+    if (!zip.files[relsName]) continue;
+    const relsXml = await zip.files[relsName].async('text');
+    const relDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+    const rel = Array.from(relDoc.getElementsByTagName('Relationship')).find(r => (r.getAttribute('Target') || '').includes(chartFileName));
+    if (rel) { slideName = sn; break; }
+  }
+  if (!slideName) return {};
+
+  const slideXml = await zip.files[slideName].async('text');
+  const doc = new DOMParser().parseFromString(slideXml, 'application/xml');
+  const kids = (parent, tag) => Array.from(parent.getElementsByTagName('*')).filter(el => el.localName === tag);
+  const sps = kids(doc, 'sp');
+  let title = '', subtitle = '';
+  sps.forEach(sp => {
+    const ph = kids(sp, 'ph')[0];
+    const type = ph?.getAttribute('type');
+    const text = kids(sp, 't').map(t => t.textContent).join(' ').trim();
+    if (!text) return;
+    if (type === 'title' && !title) title = text;
+    // First body placeholder only — a slide can have several (e.g. a
+    // subtitle-like one, then a disclaimer/source footer further down).
+    else if ((type === 'subTitle' || type === 'body') && !subtitle) subtitle = text;
+  });
+  return { title, subtitle };
 }
 
 // Converts manually-drawn text boxes + connector arrows found on the slide
@@ -8875,6 +9110,11 @@ function updateAnnotationField(i, key, val) {
   state.annotations[i][key] = ['x','y','fontSize','width'].includes(key)
     ? (val === '' ? 0 : parseFloat(val))
     : val;
+  // The colour swatch's enabled/disabled state depends on the "No
+  // background" checkbox, so that one field needs a full re-render —
+  // unlike text/number fields, it's not something the user types into
+  // continuously, so there's no focus to lose.
+  if (key === 'backgroundColor') renderAnnotationsSection();
   schedUpdate(); persist();
 }
 
@@ -8903,7 +9143,13 @@ function renderAnnotationsSection() {
       </div>
       <div class="field-row" style="margin-top:8px">
         <label>Background colour</label>
-        <input type="color" value="${a.backgroundColor || '#EEEBDA'}" style="width:28px;height:28px;border:1px solid #ddd;border-radius:4px;padding:1px;cursor:pointer" onchange="updateAnnotationField(${i},'backgroundColor',this.value)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="color" value="${a.backgroundColor && a.backgroundColor !== 'rgba(255,255,255,0)' ? a.backgroundColor : '#EEEBDA'}" ${a.backgroundColor === 'rgba(255,255,255,0)' ? 'disabled' : ''} style="width:28px;height:28px;border:1px solid #ddd;border-radius:4px;padding:1px;cursor:pointer" onchange="updateAnnotationField(${i},'backgroundColor',this.value)">
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666;min-width:auto;cursor:pointer">
+            <input type="checkbox" ${a.backgroundColor === 'rgba(255,255,255,0)' ? 'checked' : ''} onchange="updateAnnotationField(${i},'backgroundColor', this.checked ? 'rgba(255,255,255,0)' : '#EEEBDA')">
+            No background
+          </label>
+        </div>
       </div>
       <div class="field-row">
         <label>Font size</label>
@@ -9003,6 +9249,20 @@ function renderCalloutArrowsSection() {
 // annotation lists with whatever this config actually contains (including
 // clearing them out if it contains none), rather than layering onto
 // whatever was left over from the PREVIOUS config that was loaded.
+// Validates any CSS colour the browser itself would accept — hex (3/6/8
+// digit), rgb()/rgba() (including the 'rgba(255,255,255,0)' "no background"
+// sentinel used elsewhere in the annotations feature), hsl(), or a named
+// colour like 'red' — instead of a hex-only regex, which would silently
+// discard a colour like 'red' (e.g. from an AI chat edit asking for a red
+// background) and fall back to the default.
+function _isValidCssColor(str) {
+  if (typeof str !== 'string' || !str) return false;
+  const s = new Option().style;
+  s.color = '';
+  s.color = str;
+  return s.color !== '';
+}
+
 function _importAnnotationsFromRawConfig(cfg) {
   if (!Array.isArray(cfg.annotations) || !cfg.annotations.length) {
     state.annotations = [];
@@ -9019,7 +9279,7 @@ function _importAnnotationsFromRawConfig(cfg) {
       importedLabels.push({
         text: l.text || '',
         x: l.point?.x || 0, y: l.point?.y || 0,
-        backgroundColor: (/^#[0-9a-fA-F]{6}$/.test(l.backgroundColor) ? l.backgroundColor : '#EEEBDA'),
+        backgroundColor: (_isValidCssColor(l.backgroundColor) ? l.backgroundColor : '#EEEBDA'),
         fontSize: parseInt(l.style?.fontSize) || 14,
         width: l.style?.width || 200,
       });
@@ -9093,7 +9353,12 @@ function buildAnnotationsConfig() {
       text: a.text || '',
       backgroundColor: a.backgroundColor || '#EEEBDA',
       borderWidth: 0,
-      style: { fontSize: (a.fontSize || 14) + 'px', width: a.width || 200 },
+      // A useHTML label is plain text in the browser's eyes, so without
+      // this the browser's native click-drag text selection makes it look
+      // like the label itself can be dragged around on the live page —
+      // it can't (there's no draggable property here at all), it's just
+      // a text-selection highlight following the cursor.
+      style: { fontSize: (a.fontSize || 14) + 'px', width: a.width || 200, userSelect: 'none', WebkitUserSelect: 'none' },
     }],
   }));
   const arrowAnns = buildCalloutArrowsConfig();
@@ -9112,7 +9377,9 @@ function buildCalloutArrowsConfig() {
       borderWidth: 0,
       shadow: false,
       useHTML: true,
-      style: { fontSize: '13px', textOutline: 'none' },
+      // Same reason as the plain text labels — stops the live page's
+      // native text-selection drag from looking like the label moves.
+      style: { fontSize: '13px', textOutline: 'none', userSelect: 'none', WebkitUserSelect: 'none' },
     },
     labels: [{
       point: { xAxis: 0, yAxis: 0, x: a.x || 0, y: a.y || 0 },
@@ -9138,23 +9405,15 @@ function buildCalloutArrowsConfig() {
 // (which calls buildAnnotationsConfig() directly) never contains editor-only
 // function values.
 function buildAnnotationsForChart() {
-  const labelCount = (state.annotations || []).length;
   const base = buildAnnotationsConfig();
   if (!base) return base;
-  return base.map((ann, i) => {
-    const isArrow = i >= labelCount;
-    const j = isArrow ? i - labelCount : i;
-    return {
-      ...ann,
-      draggable: _annotationEditMode ? 'xy' : '',
-      events: {
-        afterUpdate: function () {
-          if (isArrow) _onCalloutArrowDragged(j, this);
-          else _onAnnotationDragged(j, this);
-        },
-      },
-    };
-  });
+  // draggable:'xy' still drives the visual drag (that part of Highcharts
+  // works fine) — but committing the result back into state is handled
+  // ourselves via raw mousedown/mouseup pixel tracking (see
+  // _beginAnnotationDragTrack/_armAnnotationDragSync), not Highcharts'
+  // own afterUpdate event, which doesn't reliably carry the new position
+  // for these labels.
+  return base.map(ann => ({ ...ann, draggable: _annotationEditMode ? 'xy' : '' }));
 }
 
 // Returns which list (labels vs arrows) a flat chart.annotations[] index
@@ -9164,46 +9423,10 @@ function _annotationKindAt(i) {
   return i < n ? { kind: 'label', idx: i } : { kind: 'arrow', idx: i - n };
 }
 
-// Called when the user drags an annotation label to a new position.
-// Syncs state + the sidebar card's fields without a full chart rebuild
-// (the chart already reflects the new position internally).
-function _onAnnotationDragged(i, annotation) {
-  const a = state.annotations?.[i];
-  const pt = annotation?.options?.labels?.[0]?.point;
-  if (!a || !pt) return;
-  _pushUndo();
-  a.x = pt.x;
-  a.y = pt.y;
-  const xInput = document.querySelector(`[data-annotation-x="${i}"]`);
-  if (xInput) xInput.value = a.x;
-  const yInput = document.querySelector(`[data-annotation-y="${i}"]`);
-  if (yInput) yInput.value = a.y;
-  const posEl = document.getElementById(`annotation-pos-${i}`);
-  if (posEl) posEl.textContent = `Position: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
-  persist();
-  _refreshConfigOutputOnly();
-  _commitSettledSnapshot();
-}
-
-// Callout arrows drag as one group (label + all its connector legs move
-// together) — draggable:'xy' translates every point in the annotation by
-// the same pixel delta, so we just read all of them back off afterUpdate.
-function _onCalloutArrowDragged(j, annotation) {
-  const a = state.calloutArrows?.[j];
-  const opts = annotation?.options;
-  if (!a || !opts) return;
-  _pushUndo();
-  const lp = opts.labels?.[0]?.point;
-  if (lp) { a.x = lp.x; a.y = lp.y; }
-  if (Array.isArray(opts.shapes)) {
-    a.shapes = opts.shapes.map(sh => ({ points: (sh.points || []).map(p => ({ x: p.x, y: p.y })) }));
-  }
-  const posEl = document.getElementById(`calloutarrow-pos-${j}`);
-  if (posEl) posEl.textContent = `Anchor: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
-  persist();
-  _refreshConfigOutputOnly();
-  _commitSettledSnapshot();
-}
+// Dragging is now committed via raw mousedown/mouseup pixel tracking (see
+// _beginAnnotationDragTrack/_armAnnotationDragSync below) rather than
+// Highcharts' own afterUpdate event, which doesn't reliably carry the new
+// position back for these labels.
 
 function _refreshConfigOutputOnly() {
   const pre = document.getElementById('config-output');
@@ -9224,6 +9447,86 @@ function _hoverAnnotation(i, on) {
   if (el) { el.style.outline = on ? '2px solid #009d80' : ''; el.style.outlineOffset = on ? '2px' : ''; }
 }
 
+// Pushes each annotation/arrow's current x/y (and Position/Anchor readout)
+// into its sidebar card's fields — shared by the drag-event handler and the
+// raw-mouseup safety net below, so both keep the same fields in sync.
+function _refreshAnnotationSidebarFields() {
+  (state.annotations || []).forEach((a, i) => {
+    const xInput = document.querySelector(`[data-annotation-x="${i}"]`);
+    if (xInput) xInput.value = a.x;
+    const yInput = document.querySelector(`[data-annotation-y="${i}"]`);
+    if (yInput) yInput.value = a.y;
+    const posEl = document.getElementById(`annotation-pos-${i}`);
+    if (posEl) posEl.textContent = `Position: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
+  });
+  (state.calloutArrows || []).forEach((a, j) => {
+    const posEl = document.getElementById(`calloutarrow-pos-${j}`);
+    if (posEl) posEl.textContent = `Anchor: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
+  });
+}
+
+// Highcharts visually drags a label just fine, but doesn't reliably commit
+// that back into the annotation's own point/shapes data afterwards for
+// these labels — so reading ann.options.labels[0].point after a drag can
+// return the stale, pre-drag value even though the label visibly moved.
+// Instead of trusting that internal commit step, track the raw mouse
+// movement ourselves (mousedown on the label → mouseup anywhere) and
+// convert the pixel delta into an axis-value delta directly — that's
+// driven only by real mouse coordinates and the chart's own (reliable)
+// axis pixel/value conversion, so it can't go stale.
+let _annDragTrack = null; // { kind, idx, startClientX, startClientY, startX, startY, startShapes }
+
+function _beginAnnotationDragTrack(i, e) {
+  if (!_annotationEditMode) return;
+  const ref = _annotationKindAt(i);
+  const a = ref.kind === 'arrow' ? state.calloutArrows?.[ref.idx] : state.annotations?.[ref.idx];
+  if (!a) return;
+  _annDragTrack = {
+    kind: ref.kind, idx: ref.idx,
+    startClientX: e.clientX, startClientY: e.clientY,
+    startX: a.x, startY: a.y,
+    startShapes: ref.kind === 'arrow' ? (a.shapes || []).map(sh => ({ points: sh.points.map(p => ({ ...p })) })) : null,
+  };
+}
+
+let _annotationDragSyncArmed = false;
+function _armAnnotationDragSync() {
+  if (_annotationDragSyncArmed) return;
+  _annotationDragSyncArmed = true;
+  const handler = (e) => {
+    if (!_annotationEditMode || !_annDragTrack) return;
+    const drag = _annDragTrack;
+    _annDragTrack = null;
+    const chart = window.chartInstance;
+    const xAxis = chart?.xAxis?.[0], yAxis = chart?.yAxis?.[0];
+    if (!xAxis || !yAxis) return;
+    const dxPx = e.clientX - drag.startClientX;
+    const dyPx = e.clientY - drag.startClientY;
+    if (!dxPx && !dyPx) return; // a plain click, not a drag
+    // toValue() is linear in pixels for both linear and datetime axes, so
+    // the value-per-pixel rate at any two points gives the exact delta —
+    // this avoids needing to know the label's pixel-to-point offset at all.
+    const dxVal = xAxis.toValue(dxPx, true) - xAxis.toValue(0, true);
+    const dyVal = yAxis.toValue(dyPx, true) - yAxis.toValue(0, true);
+    const a = drag.kind === 'arrow' ? state.calloutArrows?.[drag.idx] : state.annotations?.[drag.idx];
+    if (!a) return;
+    _pushUndo();
+    const round2 = (v) => Math.round(v * 100) / 100;
+    a.x = round2(drag.startX + dxVal);
+    a.y = round2(drag.startY + dyVal);
+    if (drag.kind === 'arrow' && drag.startShapes) {
+      a.shapes = drag.startShapes.map(sh => ({ points: sh.points.map(p => ({ x: round2(p.x + dxVal), y: round2(p.y + dyVal) })) }));
+    }
+    schedUpdate();
+    _refreshAnnotationSidebarFields();
+    persist();
+    _refreshConfigOutputOnly();
+    _commitSettledSnapshot();
+  };
+  document.addEventListener('mouseup', handler);
+  document.addEventListener('touchend', handler);
+}
+
 /* ── Annotation on-chart interactions: hover sync, right-click add/edit/delete ── */
 let _annCtxContainerHandler = null;
 let _annotationLabelListeners = [];
@@ -9238,6 +9541,7 @@ function _detachAnnotationLabelListeners() {
 function _attachAnnotationInteractions() {
   const chart = window.chartInstance;
   if (!chart) return;
+  _armAnnotationDragSync();
 
   const container = chart.container;
   if (_annCtxContainerHandler) container.removeEventListener('contextmenu', _annCtxContainerHandler);
@@ -9262,13 +9566,16 @@ function _attachAnnotationInteractions() {
       e.stopPropagation();
       _showAnnotationLabelMenu(e.clientX, e.clientY, i);
     };
+    const onDown = (e) => _beginAnnotationDragTrack(i, e);
     el.addEventListener('mouseenter', onEnter);
     el.addEventListener('mouseleave', onLeave);
     el.addEventListener('contextmenu', onCtx);
+    el.addEventListener('mousedown', onDown);
     _annotationLabelListeners.push(() => {
       el.removeEventListener('mouseenter', onEnter);
       el.removeEventListener('mouseleave', onLeave);
       el.removeEventListener('contextmenu', onCtx);
+      el.removeEventListener('mousedown', onDown);
     });
   });
 }
@@ -10306,6 +10613,12 @@ function loadTemplate(id) {
     return;
   }
 
+  // Switching from a raw-config template (scatter/bubble/treemap/etc.) to a
+  // state-driven one must drop the old raw config — otherwise the preview
+  // updates correctly (it's rebuilt from `state` below) but "Copy config"/
+  // "Edit" would keep serializing the stale previous template, since
+  // _configOutputText() always prefers _lastRawConfig when it's set.
+  _lastRawConfig = null;
   Object.assign(state, tpl.state);
   state.series = tpl.state.series.map(s => ({ ...s }));
   syncSidebarToState();
@@ -11599,14 +11912,19 @@ const AI_MAX_TOKENS = 4096;
 
 const AI_SYSTEM = `You are an expert Highcharts 11 configuration assistant embedded in the Ninety One Chart Builder.
 
-The user will describe a change they want to make to their chart. You will be given the current Highcharts config object and the user's request. Return ONLY a valid Highcharts config object as a JavaScript object literal (not JSON — use single quotes, no trailing commas are required but allowed). Do not include any explanation or markdown — just the raw config object starting with { and ending with }.
+The user will describe a change they want to make to their chart. You will be given the current Highcharts config object and the user's request. Return ONLY a MERGE PATCH — a JavaScript object literal (not JSON — single quotes, trailing commas allowed) containing ONLY the keys that need to change. Do not include any explanation or markdown — just the raw patch object starting with { and ending with }.
+
+How the merge patch works (this is important — it keeps responses small and fast):
+- Only include the specific top-level keys you're changing (e.g. just "chart" and "legend" if that's all that changed) — omit every key you're not touching entirely. Do NOT return the full config back.
+- Nested objects (chart, xAxis, yAxis, tooltip, plotOptions, title, subtitle, legend) are merged key-by-key into the existing config — inside an object you're touching, only include the specific inner key(s) you're changing, not its siblings. E.g. to change only the chart type, return { chart: { type: 'bar' } } — do NOT also repeat chart.height or chart.style.
+- Arrays (annotations, yAxis.plotLines) are NOT merged — if you include one, you must return its ENTIRE new contents, since it fully replaces the existing array.
+- series is a special case: if you're touching a series (color, name, dashStyle, type, stacking) WITHOUT changing its actual data values, return that series entry WITHOUT a "data" key at all — the app will keep the existing data for that series automatically. Only include "data" for a series if the user explicitly asked to change its values. This is the single most important rule — data arrays can be very large, and repeating them wastes time.
+- To remove/reset a key, set its value to null.
 
 Rules:
-- Keep all existing config that the user did not ask to change.
 - Chart type options: line, spline, area, areaspline, column, bar, pie, scatter, bubble.
-- For pie/donut charts, series data must be [{name, y}, ...] format.
+- For pie/donut charts, series data (when you do need to include it) must be [{name, y}, ...] format.
 - Never hardcode series colours — omit color/colors properties entirely so the Sitecore theme applies.
-- Keep credits: { enabled: false }.
 - For axis titles, use title: { text: '...' }. An empty string hides the title.
 - Data labels format: use plotOptions.series.dataLabels.format with {y} or {point.percentage:.1f}%.
 - If the user asks for percentage labels use format: '{point.percentage:.1f}%' and enable dataLabels.
@@ -11614,8 +11932,7 @@ Rules:
 - legend.enabled controls legend visibility.
 - subtitle.text adds a subtitle below the title.
 - For stacked charts: plotOptions.series.stacking = 'normal' or 'percent'.
-- Keep the existing series data unchanged unless the user explicitly asks to change it.
-- Return only the config object — no variable assignment, no explanation, no markdown fences.`;
+- Return only the patch object — no variable assignment, no explanation, no markdown fences.`;
 
 let _aiMessages = [];
 
@@ -11691,6 +12008,42 @@ function aiCurrentConfig() {
   return pre ? pre.textContent : '';
 }
 
+// Applies an AI-returned merge patch onto a full base config, in place, and
+// returns it. JSON-merge-patch semantics (RFC 7396): plain nested objects
+// merge key-by-key (only keys present in the patch are touched — siblings
+// the AI didn't mention are left alone); arrays and primitives are replaced
+// wholesale; null deletes the key. `series` gets one special case on top of
+// that: a patched series entry with no "data" key keeps the base series'
+// existing data — this is what lets the AI skip echoing back potentially
+// hundreds of data points just to change a colour or name, which is what
+// made every single chat turn slow.
+function _mergeConfigPatch(base, patch) {
+  if (!patch || typeof patch !== 'object') return base;
+  for (const key of Object.keys(patch)) {
+    const val = patch[key];
+    if (val === null) { delete base[key]; continue; }
+    if (key === 'series' && Array.isArray(val)) {
+      if (!Array.isArray(base.series)) base.series = [];
+      val.forEach((s, i) => {
+        if (s && typeof s === 'object' && !Array.isArray(s) && !('data' in s) && base.series[i]) {
+          base.series[i] = { ...base.series[i], ...s };
+        } else {
+          base.series[i] = s;
+        }
+      });
+      base.series.length = val.length;
+      continue;
+    }
+    const isPlainObj = v => v && typeof v === 'object' && !Array.isArray(v);
+    if (isPlainObj(val) && isPlainObj(base[key])) {
+      _mergeConfigPatch(base[key], val);
+    } else {
+      base[key] = val;
+    }
+  }
+  return base;
+}
+
 async function aiSend() {
   const input   = document.getElementById('ai-input');
   const sendBtn = document.getElementById('ai-send-btn');
@@ -11729,7 +12082,7 @@ async function aiSend() {
         'Content-Type': 'application/json',
         'x-api-key': key,
         'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-calls': 'true'
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify(body)
     });
@@ -11747,28 +12100,49 @@ async function aiSend() {
     const data = await res.json();
     const rawText = data?.content?.[0]?.text || '';
 
-    // Extract the config object from the response
-    const cfgMatch = rawText.match(/\{[\s\S]*\}/);
+    // The model may or may not wrap the config in a ```-fenced code block —
+    // handle both so the chat reply never ends up showing the raw config
+    // text: if fenced, search/strip the whole fence; otherwise search/strip
+    // just the {...} object itself.
+    const fenceMatch = rawText.match(/```(?:\w+)?\n?([\s\S]*?)```/);
+    const jsonSource = fenceMatch ? fenceMatch[1] : rawText;
+
+    // Extract the merge patch object from the response
+    const cfgMatch = jsonSource.match(/\{[\s\S]*\}/);
     if (!cfgMatch) {
       aiAddMessage('assistant', 'Could not find a chart config in the response. Try rephrasing.', 'error');
       if (sendBtn) sendBtn.disabled = false;
       return;
     }
+    const textWithoutFence = (fenceMatch ? rawText.replace(fenceMatch[0], '') : rawText.replace(cfgMatch[0], ''));
 
-    let cfg;
+    let patch;
     try {
-      cfg = (new Function('return (' + cfgMatch[0] + ')'))();
+      patch = (new Function('return (' + cfgMatch[0] + ')'))();
     } catch(e) {
       aiAddMessage('assistant', 'Config parse error: ' + e.message, 'error');
       if (sendBtn) sendBtn.disabled = false;
       return;
     }
 
-    // Apply the config
-    applyAIConfig(cfg);
+    // Merge the patch onto the current full config, then apply the result —
+    // the AI returns only what changed (see AI_SYSTEM), not a full native
+    // Highcharts config, so this can't go through applyAIConfig() (which
+    // expects the parsed-import shape) or be applied directly (it's
+    // incomplete on its own). Same raw-config path the manual config editor
+    // uses (applyFullRawConfig) once merged into a complete config.
+    try {
+      const baseCfg = JSON.parse(JSON.stringify(_lastRawConfig || generateConfig()));
+      const mergedCfg = _mergeConfigPatch(baseCfg, patch);
+      applyFullRawConfig(mergedCfg);
+    } catch(e) {
+      aiAddMessage('assistant', 'Highcharts error: ' + e.message, 'error');
+      if (sendBtn) sendBtn.disabled = false;
+      return;
+    }
 
     // Show a friendly confirmation
-    const summary = rawText.replace(/\{[\s\S]*\}/, '').trim();
+    const summary = textWithoutFence.trim();
     const replyText = summary
       ? summary.slice(0, 200)
       : 'Done! Chart updated.';

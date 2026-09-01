@@ -424,24 +424,39 @@ body {
 .btn-topbar-primary { background: #009d80; color: #fff; }
 .btn-topbar-primary:hover { background: #00b894; }
 
+/* No unsaved changes: quiet/grey — nothing needs the user's attention. */
 .btn-save-explicit {
-  background: #009d80;
-  color: #fff;
+  background: #e4e2d9;
+  color: #999;
   border: none;
   font-weight: 600;
   letter-spacing: 0.01em;
+  transition: background .2s, color .2s;
 }
-.btn-save-explicit:hover { background: #00b894; }
+.btn-save-explicit:hover { background: #d8d6cc; }
+/* Unsaved changes: teal with a pulsing dot asking to be saved. */
 .btn-save-explicit.dirty {
-  box-shadow: 0 0 0 2px rgba(252,170,40,0.55);
+  background: #009d80;
+  color: #fff;
 }
+.btn-save-explicit.dirty:hover { background: #00b894; }
 .btn-save-explicit.dirty::after {
   content: '●';
-  color: #fcaa28;
+  color: #fff;
   font-size: 8px;
   margin-left: 3px;
   line-height: 0;
   vertical-align: middle;
+  animation: n1-save-dot-pulse 1.4s ease-in-out infinite;
+}
+@keyframes n1-save-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .25; }
+}
+/* Just saved: brief green confirmation, reverts to the quiet state after 2s. */
+.btn-save-explicit.just-saved {
+  background: #1f9d55;
+  color: #fff;
 }
 
 /* legacy button classes kept for any JS refs */
@@ -515,7 +530,7 @@ body {
   transition: background .12s, color .12s;
   font-family: inherit;
 }
-.rail-btn svg { width: 20px; height: 20px; }
+.rail-btn svg { width: 24px; height: 24px; }
 .rail-btn:hover { background: #f5f4f0; color: #333; }
 .rail-btn.active { background: #e8f5f1; color: #009d80; }
 
@@ -527,8 +542,10 @@ body {
   flex-shrink: 0;
 }
 
-/* ─── Rail spacer pushes Library to bottom ─── */
-.rail-spacer { flex: 1; }
+/* Ask AI / Library used to sit isolated at the bottom of the rail behind a
+   flex:1 spacer — now grouped with the editing tools above (just a thin
+   separator), so the whole rail reads as one toolbar. */
+.rail-spacer { flex: 0 0 0; }
 
 /* ─── AI Chat panel ─── */
 #flyout-panel-ai {
@@ -828,7 +845,7 @@ body {
 
 /* ─── Flyout Panel ─── */
 #flyout {
-  width: 196px;
+  width: 272px;
   flex-shrink: 0;
   background: #fff;
   border-right: 0.5px solid #e0e0e0;
@@ -838,6 +855,25 @@ body {
   animation: n1-slide-in .2s ease both;
   position: relative;
 }
+#flyout-expand-tab {
+  display: none;
+  position: fixed;
+  left: 56px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  background: #fff;
+  border: 0.5px solid #e0e0e0;
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  padding: 10px 6px;
+  cursor: pointer;
+  color: #888;
+  box-shadow: 2px 0 6px rgba(0,0,0,.06);
+  transition: color 0.15s;
+}
+#flyout-expand-tab:hover { color: #333; }
+#app-body.flyout-collapsed #flyout-expand-tab { display: flex; }
 #flyout-drag-handle {
   position: absolute;
   right: 0;
@@ -849,6 +885,8 @@ body {
   background: transparent;
   transition: background 0.15s;
 }
+/* Ask AI is a fixed-width panel by design — no resize handle while it's showing. */
+#flyout.flyout-fixed-width #flyout-drag-handle { display: none; }
 #flyout-drag-handle:hover, #flyout-drag-handle.dragging {
   background: rgba(0,157,128,0.25);
 }
@@ -991,6 +1029,11 @@ body {
   cursor: pointer;
   transition: border-color 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s cubic-bezier(0.4,0,0.2,1);
   background: #fff;
+  /* Grid items default to min-width:auto — without this, a card whose
+     nowrap name/desc text is longer forces its whole grid track wider,
+     leaving the two columns visibly uneven widths instead of the equal
+     1fr/1fr the grid is supposed to give them. */
+  min-width: 0;
 }
 .lib-card:hover {
   border-color: #009d80;
@@ -1087,14 +1130,17 @@ body {
      to shrink below their content, which would block the config panel below
      from being dragged taller. */
   min-height: 0;
-  overflow-y: auto;
+  /* The preview/config split manages its own internal scrolling (the config
+     panel's own pre#config-output scrolls) — the wrap itself must not scroll
+     as a whole, or the "split" degenerates into one long scrolling page. */
+  overflow: hidden;
   padding: 20px;
   gap: 16px;
 }
 
 /* ─── Chart Type Bar (inside flyout) ─── */
 #chart-type-bar-wrap {
-  padding: 0;
+  padding: 4px 10px 10px;
   background: transparent;
   border: none;
   flex: 1;
@@ -1108,32 +1154,51 @@ body {
 #chart-type-bar {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0;
+  gap: 8px;
   overflow-y: auto;
   flex: 1;
 }
 #chart-type-bar::-webkit-scrollbar { display: none; }
 
-/* hide old group wrappers — renderChartTypeBar uses .ct-group/.ct-btn */
-.ct-group {
-  display: contents;
-}
+/* renderChartTypeBar uses .ct-group/.ct-btn — group wrappers stay
+   display:contents so their children (the label + the cards) participate
+   directly in #chart-type-bar's own 2-column grid; the label itself spans
+   both columns as a section header. */
+.ct-group { display: contents; }
 .ct-group-stack { display: contents; }
-.ct-group-label { display: none; }
 .ct-cards-row { display: contents; }
+
+.ct-group-label {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #aaa;
+  margin: 14px 4px 4px;
+}
+.ct-group:first-child .ct-group-label { margin-top: 4px; }
+
+.ct-group-note {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  color: #999;
+  margin: 2px 4px 6px;
+  line-height: 1.4;
+}
 
 .ct-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px 6px 10px;
+  padding: 14px 8px 12px;
   cursor: pointer;
-  border: 1.5px solid transparent;
+  border: 1px solid #e0ddd4;
   gap: 8px;
-  background: transparent;
+  background: #fff;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 11px;
   color: #555;
   animation: n1-fade-up .22s ease both;
   min-width: unset;
@@ -1141,13 +1206,26 @@ body {
   box-shadow: none;
   white-space: nowrap;
   position: relative;
-  margin: 2px;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
 }
-.ct-btn:hover { background: #f5f4f0; border-color: transparent; color: #222; }
-.ct-btn.active { background: #edf7f4; border-color: #009d80; color: #009d80; font-weight: 600; box-shadow: none; }
-.ct-btn.active::before { display: none; }
-.ct-btn.dev-type { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
-.ct-btn svg { display: block; }
+.ct-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: #cfcabb; color: #222; }
+.ct-btn.active { background: #f0faf8; border-color: #009d80; color: #009d80; font-weight: 600; box-shadow: none; }
+.ct-btn::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #009d80;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.ct-btn.active::before { opacity: 1; }
+.ct-btn.dev-type { opacity: 0.4; cursor: not-allowed; pointer-events: none; background: #fafafa; }
+.ct-btn.dev-type:hover { transform: none; box-shadow: none; }
+.ct-btn svg { display: block; width: 32px; height: 24px; }
 
 /* ─── Canvas ─── */
 #canvas {
@@ -1348,12 +1426,19 @@ body {
   padding: 20px;
   animation: n1-fade-up .3s .1s ease both;
   position: relative;
+  /* Default height comes from #chart-container's own configured-height inline
+     style plus this padding — i.e. the preview is naturally sized to the
+     chart's height setting. flex-shrink:0 keeps it from being squeezed by
+     the config panel's flex:1 below; min-height is the drag floor. */
+  flex-shrink: 0;
+  min-height: 200px;
+  overflow: hidden;
 }
 
 /* ─── Config resize handle ─── */
 .config-resize-handle {
   height: 12px;
-  cursor: ns-resize;
+  cursor: row-resize;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1368,16 +1453,15 @@ body {
 
 .config-resize-grip {
   display: block;
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
-  background: #d8d6cf;
-  transition: background .15s, width .15s;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 2px;
+  color: #d8d6cf;
+  transition: color .15s;
 }
 .config-resize-handle:hover .config-resize-grip,
 .config-resize-handle.dragging .config-resize-grip {
-  background: #009d80;
-  width: 56px;
+  color: #009d80;
 }
 
 /* ─── Config card ─── */
@@ -1389,9 +1473,11 @@ body {
   animation: n1-fade-up .3s .2s ease both;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-  height: 220px;
-  min-height: 44px;
+  /* Fills all remaining height below the (fixed-height) preview by default —
+     dragging the handle overrides #preview-card's height instead, so this
+     panel always just takes what's left. */
+  flex: 1 1 auto;
+  min-height: 150px;
 }
 
 .config-card-head {
@@ -1429,7 +1515,7 @@ body {
 
 /* ─── Right Panel ─── */
 #right-panel {
-  width: 340px;
+  width: 380px;
   flex-shrink: 0;
   background: #fff;
   border-left: 0.5px solid #e0e0e0;
@@ -1704,7 +1790,7 @@ pre#config-output {
   overflow-y: auto;
   background: #f8f8f8;
   font-family: monospace;
-  font-size: 11px;
+  font-size: 13px;
   padding: 12px;
   border-radius: 0;
   white-space: pre;
@@ -1756,6 +1842,20 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
 .btn-ghost-light svg { flex-shrink: 0; }
 .btn-ghost-divider { width: 1px; height: 18px; background: rgba(0,0,0,.12); margin: 0 2px; flex-shrink: 0; }
 
+.modules-disclosure { margin-top: 10px; }
+.modules-disclosure summary {
+  font-size: 11px; color: #888; cursor: pointer; padding: 4px 0; list-style: none;
+  display: flex; align-items: center; gap: 4px;
+}
+.modules-disclosure summary::-webkit-details-marker { display: none; }
+.modules-disclosure summary::before { content: '▸'; font-size: 9px; color: #aaa; transition: transform .15s; }
+.modules-disclosure[open] summary::before { transform: rotate(90deg); }
+.modules-disclosure summary:hover { color: #009d80; }
+.modules-status-row {
+  display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 0 3px 14px; color: #555;
+  font-family: monospace;
+}
+
 /* ─── Sidebar Export section ─── */
 .export-action-btn {
   width: 100%; padding: 7px; border: 1px solid #ddd; border-radius: 4px; background: #fff;
@@ -1763,6 +1863,8 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
   transition: border-color .15s ease;
 }
 .export-action-btn:hover { border-color: #009d80; }
+
+.accordion-count { font-size: 11px; color: #999; font-weight: 400; }
 
 /* ─── Annotations (text labels) ─── */
 .annotation-card {
@@ -1785,10 +1887,24 @@ pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2p
   transition: background .15s ease;
 }
 .annotation-add-btn:hover { background: #007d66; }
-#annotations-tip {
+#annotations-tip, .annotation-static-tip {
   font-size: 11px; color: #888; background: #f5f3ec; border-radius: 6px;
   padding: 8px 10px; margin-bottom: 10px; line-height: 1.4;
 }
+/* Collapsed-by-default annotation cards: a single summary row, expanding to
+   the full field set only on click, to cut down on sidebar clutter when
+   several annotations are configured. */
+.annotation-card--collapsible { padding: 0; overflow: hidden; }
+.annotation-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer;
+}
+.annotation-row-preview {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; color: #333;
+}
+.annotation-row-preview.is-empty { color: #aaa; font-style: italic; }
+.annotation-row-xy { font-size: 11px; color: #888; flex: none; white-space: nowrap; }
+.annotation-card-body { padding: 10px 12px 12px; border-top: 1px solid #e0ddd4; }
 
 /* ─── Data Tab ─── */
 #data-tab-content {
@@ -2082,7 +2198,10 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
   font-family: inherit;
   transition: background 0.15s, color 0.15s;
 }
-.seg-btn.active { background: #222; color: #fff; }
+/* Teal is the one active/selected colour used everywhere else in the app
+   (rail icons, chart-type cards, colour swatches, theme chips) — this was
+   the one control still using a plain black fill instead. */
+.seg-btn.active { background: #009d80; color: #fff; }
 
 .colour-swatches {
   display: flex;
@@ -2879,6 +2998,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 /* ─── Mobile ─── */
 @media (max-width: 768px) {
   #flyout { display: none; }
+  #flyout-expand-tab { display: none !important; }
   #rail { width: 44px; }
   #right-panel { display: none; }
   #canvas-stage { padding: 12px; }
@@ -2898,7 +3018,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 
   #chart-container { min-height: 280px; }
 
-  pre#config-output { font-size: 10px; max-height: 140px; }
+  pre#config-output { font-size: 12px; max-height: 140px; }
 
   .accordion-body { padding: 10px 12px 14px; }
 
@@ -3161,13 +3281,17 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 }
 .accordion-header.open:hover { background: #fff; }
 .accordion-header .chevron {
-  font-size: 14px; transition: transform .28s cubic-bezier(0.22, 1, 0.36, 1); display: inline-block; color: #aaa;
+  font-size: 14px; transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1), color .3s cubic-bezier(0.4, 0, 0.2, 1); display: inline-block; color: #aaa;
 }
 .accordion-header.open .chevron { transform: rotate(90deg); color: #009d80; }
 /* max-height is set inline by toggleAccordion() to the section's real
    scrollHeight (not a large fixed value) — animating through a huge
    unused range is what made this feel jerky/instant before. */
-.accordion-body { max-height: 0; overflow: hidden; padding: 0 16px; transition: max-height .35s cubic-bezier(0.22, 1, 0.36, 1), padding .35s cubic-bezier(0.22, 1, 0.36, 1); }
+/* A plain decelerate curve, not the previous overshoot one (whose value
+   rises past 100% then eases back down to it) — the "settling back down"
+   phase of an overshoot curve is exactly what read as a jerk/delay right
+   at the end of the animation. */
+.accordion-body { max-height: 0; overflow: hidden; padding: 0 16px; transition: max-height .3s cubic-bezier(0.4, 0, 0.2, 1), padding .3s cubic-bezier(0.4, 0, 0.2, 1); }
 .accordion-body.open { max-height: 2000px; padding: 12px 16px 16px; }
 
 /* ═══════════════════════════════════════════
@@ -3269,7 +3393,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       <div class="chart-name-dropdown" id="chart-name-dropdown">
         <div class="cnd-field">
           <div class="cnd-label">Chart name</div>
-          <input class="cnd-input" id="cnd-name-input" placeholder="Untitled chart" oninput="onCndNameInput()">
+          <input class="cnd-input" id="cnd-name-input" placeholder="e.g. Commodities monthly" oninput="onCndNameInput()">
         </div>
         <div class="cnd-row">
           <div class="cnd-field" style="flex:1">
@@ -3319,9 +3443,9 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
   </div>
 
   <!-- Save button -->
-  <button class="btn-topbar btn-save-explicit" id="save-btn" onclick="saveChartVersion()" title="Save (Ctrl+S)">
+  <button class="btn-topbar btn-save-explicit" id="save-btn" onclick="saveChartVersion()" title="Save chart (Cmd/Ctrl+S)">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-    Save
+    <span class="save-btn-label">Save</span>
   </button>
 
   <!-- New chart -->
@@ -3380,11 +3504,19 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     </button>
   </div>
 
+  <!-- Collapsed-flyout affordance: click a tool a second time (or here) to bring the panel back. -->
+  <button id="flyout-expand-tab" onclick="railSelect(_lastRailPanel || 'type')" title="Show panel">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+
   <!-- ─── Flyout: switchable panels ─── -->
   <div id="flyout">
     <div id="flyout-drag-handle" title="Drag to resize"></div>
     <div id="flyout-head">
       <span id="flyout-title">Chart type</span>
+      <button id="flyout-collapse-btn" onclick="collapseFlyoutExplicit()" title="Collapse panel" style="background:none;border:none;cursor:pointer;color:#aaa;padding:4px;display:flex;align-items:center;border-radius:4px;transition:color 0.15s,background 0.15s;flex-shrink:0" onmouseover="this.style.color='#444';this.style.background='#f5f5f5'" onmouseout="this.style.color='#aaa';this.style.background='none'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="5,2 10,7 5,12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
     <!-- Panel: Chart Types -->
     <div id="flyout-panel-type" class="flyout-panel">
@@ -3427,7 +3559,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Panel: Library -->
     <div id="flyout-panel-library" class="flyout-panel" style="display:none">
       <div class="lib-save-bar">
-        <input type="text" id="lib-save-title" class="lib-save-input" placeholder="Name this chart…" onkeydown="if(event.key==='Enter')saveCurrentChart()"/>
+        <input type="text" id="lib-save-title" class="lib-save-input" placeholder="e.g. Commodities monthly" onkeydown="if(event.key==='Enter')saveCurrentChart()"/>
         <button class="lib-save-btn" onclick="saveCurrentChart()">Save</button>
       </div>
       <div id="flyout-library-content"></div>
@@ -3493,25 +3625,25 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
             <span id="drag-coords-badge" style="font-size:10px;font-family:monospace;color:#009d80;background:#f0faf8;border:1px solid #c0e8e0;border-radius:4px;padding:2px 8px;display:none"></span>
             <button id="drag-mode-btn" onclick="toggleDragMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #009d80;color:#009d80;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">Drag points</button>
           </div>
-          <div id="color-point-bar" style="display:none;position:absolute;bottom:8px;left:8px;z-index:10;gap:6px;align-items:center">
+          <div id="color-point-bar" style="display:none;position:absolute;bottom:12px;left:12px;z-index:10;gap:6px;align-items:center">
             <button id="color-point-btn" onclick="toggleColorPointMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #571b39;color:#571b39;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">✏️ Edit individual bars</button>
           </div>
         </div>
         <!-- Drag handle to resize config panel -->
         <div class="config-resize-handle" id="config-resize-handle" title="Drag to resize">
-          <span class="config-resize-grip"></span>
+          <span class="config-resize-grip">⋮⋮</span>
         </div>
 
         <div id="config-card">
           <div class="config-card-head">
             <span class="config-card-label" id="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions" id="config-card-actions">
-              <button class="btn-ghost-light" id="config-edit-btn" onclick="toggleConfigEdit()">Edit</button>
-              <button class="btn-ghost-light" id="config-copy-btn" onclick="copyConfig()" title="Copy config to clipboard">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              <button class="btn-ghost-light" id="config-edit-btn" onclick="toggleConfigEdit()" title="Edit config">Edit</button>
+              <button class="btn-ghost-light" id="config-copy-btn" onclick="copyConfig()" title="Copy config (Cmd+C)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
               </button>
               <button class="btn-ghost-light" id="config-more-trigger" onclick="toggleConfigMoreMenu()" title="More actions">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></svg>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/></svg>
               </button>
               <div class="n1-dropdown-menu" id="config-more-menu" role="menu">
                 <button class="n1-dropdown-item" onclick="pickConfigMoreAction('copy')">Copy config</button>
@@ -3523,7 +3655,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
           <div class="config-card-body">
             <div class="pre-wrap" style="margin:0">
               <pre id="config-output"></pre>
-              <textarea id="config-edit-input" style="display:none;flex:1;min-height:0;width:100%;box-sizing:border-box;font-family:monospace;font-size:11px;background:#f8f8f8;border:none;outline:none;padding:12px;resize:none;line-height:1.5;color:#222"></textarea>
+              <textarea id="config-edit-input" style="display:none;flex:1;min-height:0;width:100%;box-sizing:border-box;font-family:monospace;font-size:13px;background:#f8f8f8;border:none;outline:none;padding:12px;resize:none;line-height:1.5;color:#222"></textarea>
             </div>
           </div>
           <div id="config-apply-bar" style="display:none;padding:5px 8px;border-top:1px solid #eee;background:#fafafa;gap:6px;align-items:center;flex-shrink:0;flex-wrap:nowrap;min-height:0">
@@ -3683,10 +3815,14 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
     <!-- Accordion: Colours -->
     <div class="accordion-section" id="acc-colours">
       <button class="accordion-header open" onclick="toggleAccordion('colours')">
-        Series colours <span class="chevron">▸</span>
+        Series colours<span class="accordion-count" id="acc-count-colours"></span> <span class="chevron">▸</span>
       </button>
       <div class="accordion-body open" id="acc-body-colours">
         <div id="series-colour-rows"></div>
+        <!-- Fallback home for "Edit individual bars" when the preview panel
+             is too short to show the floating version without it covering
+             the chart itself — see _updateColorPointPlacement(). -->
+        <button id="color-point-btn-sidebar" onclick="toggleColorPointMode()" style="display:none;width:100%;margin-top:8px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #571b39;color:#571b39;background:#fff;border-radius:4px;padding:6px 10px;cursor:pointer;transition:all 0.15s">✏️ Edit individual bars</button>
       </div>
     </div>
 
@@ -3770,11 +3906,11 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       <div class="accordion-body open" id="acc-body-labels">
         <div class="field-row">
           <label>Chart title</label>
-          <input class="field-input" id="sb-title" placeholder="e.g. Fund performance" oninput="onField('title',this.value)">
+          <input class="field-input" id="sb-title" placeholder="e.g. Commodity price changes" oninput="onField('title',this.value)">
         </div>
         <div class="field-row">
           <label>Subtitle</label>
-          <input class="field-input" id="sb-subtitle" placeholder="Optional subtitle" oninput="onField('subtitle',this.value)">
+          <input class="field-input" id="sb-subtitle" placeholder="e.g. Q3 2026" oninput="onField('subtitle',this.value)">
         </div>
         <div class="field-row">
           <label>Show values</label>
@@ -3823,9 +3959,10 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
          once one exists (imported from a pasted config, or added below). -->
     <div class="accordion-section" id="acc-annotations">
       <button class="accordion-header" onclick="toggleAccordion('annotations')">
-        Text labels (annotations) <span class="chevron">▸</span>
+        Text labels (annotations)<span class="accordion-count" id="acc-count-annotations"></span> <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-annotations">
+        <div class="annotation-static-tip">Click + Add label to place an annotation. Drag it on the chart to reposition.</div>
         <div id="annotations-tip" style="display:none"></div>
         <div id="annotations-list"></div>
         <div id="calloutarrows-tip" class="annotation-helper" style="display:none;background:#f5f3ec;border-radius:6px;padding:8px 10px;margin-bottom:10px">Callouts with connector arrows — pasted configs with an <code>annotations</code> array containing <code>shapes</code> are imported here automatically. Drag the label in edit mode and its arrows follow.</div>
@@ -4062,6 +4199,10 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
           <button class="export-action-btn" onclick="exportChart('png')">⬇ Download PNG</button>
           <button class="export-action-btn" onclick="exportChart('svg')">⬇ Download SVG</button>
         </div>
+        <details class="modules-disclosure" ontoggle="if(this.open) renderModulesStatus()">
+          <summary>Loaded Highcharts modules</summary>
+          <div id="modules-status-list"></div>
+        </details>
       </div>
     </div>
 
@@ -4160,14 +4301,19 @@ const N1_CHART_FONT = '"Ninety One Visuelt", sans-serif';
 // solid page background (so they drop onto the article's own background) and
 // a fixed, brand-consistent width/font scale instead of whatever size the
 // live preview canvas happens to be at export time.
+const EXPORT_FONT = 'Arial, Helvetica, sans-serif';
 const EXPORT_CHART_OPTIONS = {
-  chart: { backgroundColor: null },
-  title: { style: { fontSize: '22px' } },
-  subtitle: { style: { fontSize: '14px' } },
-  xAxis: { labels: { style: { fontSize: '13px' } }, title: { style: { fontSize: '14px' } } },
-  yAxis: { labels: { style: { fontSize: '13px' } }, title: { style: { fontSize: '14px' } } },
-  legend: { itemStyle: { fontSize: '13px' } },
-  plotOptions: { series: { dataLabels: { style: { fontSize: '13px' } } } },
+  // Explicit fontFamily on every text-bearing element so exported PNG/SVG/
+  // PDF text renders the same way regardless of whether the Ninety One
+  // Visuelt font is installed in the export environment (Illustrator,
+  // Figma, a print workflow) — Arial/Helvetica is available everywhere.
+  chart: { backgroundColor: null, style: { fontFamily: EXPORT_FONT } },
+  title: { style: { fontSize: '22px', fontFamily: EXPORT_FONT } },
+  subtitle: { style: { fontSize: '14px', fontFamily: EXPORT_FONT } },
+  xAxis: { labels: { style: { fontSize: '13px', fontFamily: EXPORT_FONT } }, title: { style: { fontSize: '14px', fontFamily: EXPORT_FONT } } },
+  yAxis: { labels: { style: { fontSize: '13px', fontFamily: EXPORT_FONT } }, title: { style: { fontSize: '14px', fontFamily: EXPORT_FONT } } },
+  legend: { itemStyle: { fontSize: '13px', fontFamily: EXPORT_FONT } },
+  plotOptions: { series: { dataLabels: { style: { fontSize: '13px', fontFamily: EXPORT_FONT } } } },
 };
 
 // Ninety One official Sitecore theme combinations — Primary + Accent
@@ -4336,17 +4482,17 @@ const N1_THEMES = {
 };
 
 const CHART_TYPES = [
-  { group:'Trends over time', charts:[
+  { group:'Trends', charts:[
     { type:'line',      label:'Line',       desc:'Show changes over time',        icon:'line',    cms:true },
     { type:'spline',    label:'Smooth line',desc:'Curved line chart',             icon:'spline',  cms:true },
     { type:'area',      label:'Area',       desc:'Line with filled area below',   icon:'area',    cms:true },
     { type:'areaspline',label:'Smooth area',desc:'Curved area chart',             icon:'areaspline',cms:true },
   ]},
-  { group:'Compare values', charts:[
+  { group:'Compare', charts:[
     { type:'column',    label:'Column',     desc:'Vertical bars for comparison',  icon:'column',  cms:true },
     { type:'bar',       label:'Bar',        desc:'Horizontal bars for comparison',icon:'bar',     cms:true },
   ]},
-  { group:'Show proportions', charts:[
+  { group:'Proportions', charts:[
     { type:'pie',       label:'Pie',        desc:'Parts of a whole',              icon:'pie',     cms:true },
     { type:'donut',     label:'Donut',      desc:'Pie with a hole in the middle', icon:'donut',   cms:true },
   ]},
@@ -4354,10 +4500,13 @@ const CHART_TYPES = [
     { type:'scatter',   label:'Scatter',    desc:'Compare two numeric variables', icon:'scatter', cms:false },
     { type:'bubble',    label:'Bubble',     desc:'Like scatter with a third value',icon:'bubble', cms:false },
   ]},
-  { group:'Ask your developer', dev:true, charts:[
-    { type:'sunburst',     label:'Sunburst',     desc:'Hierarchical data',  icon:'dev', cms:false },
-    { type:'treemap',      label:'Treemap',       desc:'Nested rectangles', icon:'dev', cms:false },
-    { type:'packedbubble', label:'Packed bubble', desc:'Bubble clusters',   icon:'dev', cms:false },
+  { group:'Hierarchical & clusters', charts:[
+    { type:'sunburst',     label:'Sunburst',     desc:'Each series becomes a ring segment, split by category', icon:'sunburst', cms:true },
+    { type:'treemap',      label:'Treemap',       desc:'Each series becomes a group of nested rectangles',     icon:'treemap', cms:true },
+    { type:'packedbubble', label:'Packed bubble', desc:'Each series becomes a cluster of bubbles',              icon:'packedbubble', cms:true },
+  ]},
+  { group:'Developer required', dev:true, note:'Needs developer setup in Sitecore', charts:[
+    { type:'map', label:'Map', desc:'Geographic regions', icon:'map', cms:false },
   ]},
 ];
 
@@ -4553,12 +4702,21 @@ function toggleAccordion(id) {
     header.classList.add('open');
     body.style.maxHeight = body.scrollHeight + 'px';
     // Once open, release the fixed max-height so later content changes (e.g.
-    // adding a plot line row) aren't clipped by a stale measurement. A timer
-    // matched to the transition duration is used instead of transitionend —
-    // that event doesn't reliably fire if the transition gets interrupted by
-    // rapid toggling, which would otherwise leave the section permanently
-    // capped at whatever height it happened to have at that moment.
-    setTimeout(() => { if (body.classList.contains('open')) body.style.maxHeight = 'none'; }, 400);
+    // adding a plot line row) aren't clipped by a stale measurement.
+    // transitionend fires exactly when the animation actually finishes —
+    // a fixed-delay timer firing even slightly early/late while the max-height
+    // is still moving is what read as a small jerk right at the end of the
+    // open animation. Still guarded by a fallback timer in case the
+    // transition gets interrupted by rapid toggling and transitionend never
+    // fires, which would otherwise leave the section permanently capped.
+    const onDone = (e) => {
+      if (e && e.propertyName !== 'max-height') return;
+      body.removeEventListener('transitionend', onDone);
+      clearTimeout(fallback);
+      if (body.classList.contains('open')) body.style.maxHeight = 'none';
+    };
+    body.addEventListener('transitionend', onDone);
+    const fallback = setTimeout(onDone, 450);
   }
 }
 
@@ -4722,7 +4880,7 @@ function toggleRightPanel() {
     p.style.opacity = '0';
     p.style.borderLeftColor = 'transparent';
   } else {
-    p.style.width = (p._savedWidth || '300') + 'px';
+    p.style.width = (p._savedWidth || '380') + 'px';
     p.style.minWidth = '';
     p.style.overflow = '';
     p.style.opacity = '1';
@@ -5027,6 +5185,9 @@ function updateFieldVisibility() {
   const isColBar   = ['column','bar'].includes(t);
   const isPie      = ['pie','donut'].includes(t);
   const isScatter  = ['scatter','bubble'].includes(t);
+  // Sunburst/treemap/packedbubble are axis-less like pie/donut — same
+  // sidebar sections don't apply to them either.
+  const isNoAxis   = isPie || ['sunburst','treemap','packedbubble'].includes(t);
 
   function show(id, visible) {
     const el = document.getElementById(id);
@@ -5034,7 +5195,7 @@ function updateFieldVisibility() {
   }
 
   // Lines & Markers accordion — show for all except pie/donut
-  show('acc-lines', !isPie);
+  show('acc-lines', !isNoAxis);
 
   // Within Lines & Markers
   show('fr-thickness',   isLineLike);
@@ -5046,8 +5207,8 @@ function updateFieldVisibility() {
   // fr-opacity, fr-transition, easing-row always visible inside acc-lines
 
   // Horizontal / Vertical axis accordions — hide for pie/donut
-  show('acc-haxis', !isPie);
-  show('acc-vaxis', !isPie);
+  show('acc-haxis', !isNoAxis);
+  show('acc-vaxis', !isNoAxis);
 
   // Annotations — only chart types with a meaningful point/axis position
   // support a point-anchored label (not pie/donut/bubble).
@@ -5057,7 +5218,7 @@ function updateFieldVisibility() {
 
   // Advanced fields
   show('fr-stacking', isLineLike || isColBar);
-  show('fr-zoom',     !isPie);
+  show('fr-zoom',     !isNoAxis);
   show('donut-row',   t === 'donut');
   show('col-padding-row', isColBar);
   show('col-radius-row',  isColBar);
@@ -5070,6 +5231,22 @@ function updateDonutVisibility()     { updateFieldVisibility(); }
 /* ═══════════════════════════════════════════
    COLOURS
 ═══════════════════════════════════════════ */
+function _updateColourCountBadge(count) {
+  const badge = document.getElementById('acc-count-colours');
+  if (badge) badge.textContent = count ? ` · ${count}` : '';
+}
+
+// Per-series line style is only meaningful for line-family chart types —
+// a bar's fill pattern (see the point-edit popover) is a separate control.
+const LINE_DASH_CHART_TYPES = ['line', 'spline', 'area', 'areaspline'];
+function _dashStyleRowHtml(i, current, setterFn) {
+  if (!LINE_DASH_CHART_TYPES.includes(state.chartType)) return '';
+  const opts = [['Solid','Solid'],['Dash','Dashed'],['Dot','Dotted']];
+  return `<div style="display:flex;gap:4px;margin-top:6px">
+    ${opts.map(([val,label]) => `<button class="seg-btn${(current||'Solid')===val?' active':''}" style="flex:1;font-size:10px;padding:4px 2px" onclick="${setterFn}(${i},'${val}')">${label}</button>`).join('')}
+  </div>`;
+}
+
 function renderColourRows() {
   const container = document.getElementById('series-colour-rows');
   if (!container) return;
@@ -5098,10 +5275,12 @@ function renderColourRows() {
           </div>
           <input class="hex-input" value="${isOverride?s._colorOverride:''}" maxlength="7" placeholder="${themeCol}" onchange="setRawSeriesColour(${i},this.value)">
         </div>
+        ${_dashStyleRowHtml(i, s.dashStyle, 'setRawSeriesDashStyle')}
       </div>`;
     }).join('');
     const rpCount = document.getElementById('rp-series-count');
     if (rpCount) rpCount.textContent = `${rawSeries.length} series`;
+    _updateColourCountBadge(rawSeries.length);
     container.querySelectorAll('.series-colour-section').forEach((sec, i) => {
       sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
       sec.addEventListener('mouseleave', () => clearChartHighlight());
@@ -5122,8 +5301,10 @@ function renderColourRows() {
     </div>`;
     const rpCount = document.getElementById('rp-series-count');
     if (rpCount) rpCount.textContent = '0 series';
+    _updateColourCountBadge(0);
     return;
   }
+  _updateColourCountBadge(state.series.length);
   container.innerHTML = state.series.map((s, i) => {
     const themeCol = theme.chartSeriesColors[i % theme.chartSeriesColors.length];
     const isOverride = s.colorOverride;
@@ -5143,6 +5324,7 @@ function renderColourRows() {
         </div>
         <input class="hex-input" value="${isOverride?s.color:''}" maxlength="7" placeholder="${themeCol}" onchange="setSeriesColour(${i},this.value)">
       </div>
+      ${_dashStyleRowHtml(i, s.dashStyle, 'setSeriesDashStyle')}
     </div>`;
   }).join('');
   // Update series count in right panel header
@@ -5178,6 +5360,23 @@ function setRawSeriesColour(i, colour) {
   if (!_lastRawConfig?.series?.[i]) return;
   _lastRawConfig.series[i]._colorOverride = colour;
   _lastRawConfig.series[i].color = colour;
+  renderColourRows();
+  _reapplyFromRawConfig();
+}
+
+// Per-series line dash pattern — overrides the chart-wide "Line style"
+// toggle for just this one series, so a multi-line chart can mix solid,
+// dashed and dotted lines the way the source design often does.
+function setSeriesDashStyle(i, ds) {
+  if (!state.series[i]) return;
+  state.series[i].dashStyle = ds;
+  renderColourRows();
+  schedUpdate(); persist();
+}
+
+function setRawSeriesDashStyle(i, ds) {
+  if (!_lastRawConfig?.series?.[i]) return;
+  _lastRawConfig.series[i].dashStyle = ds;
   renderColourRows();
   _reapplyFromRawConfig();
 }
@@ -5277,8 +5476,24 @@ function closeTypePicker(e) {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.getElementById('type-picker-overlay').classList.remove('open');
+  if (e.key === 'Escape') {
+    document.getElementById('type-picker-overlay')?.classList.remove('open');
+    // Safety-net close for modals/popovers with no dedicated Escape handler
+    // of their own (the ones above already handle their own scoped Escape).
+    document.getElementById('color-point-pop') && _closeColorPicker();
+    document.getElementById('config-more-menu')?.classList.remove('open');
+    document.getElementById('chart-name-dropdown')?.classList.remove('open');
+    const wiz = document.getElementById('import-wizard-overlay');
+    if (wiz && wiz.style.display !== 'none') closeImportWizard();
+    document.getElementById('paste-overlay')?.remove();
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveCurrentVersion(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+    // Only hijack Cmd/Ctrl+C when focus is on the config panel itself —
+    // everywhere else, native copy (selected text, an input's value) must
+    // keep working undisturbed.
+    if (e.target?.closest?.('#config-card')) { e.preventDefault(); copyConfig(); }
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
     // Don't hijack undo inside a text field (title, textarea, config editor,
     // etc.) — let the browser's native input undo work there instead.
@@ -5299,6 +5514,7 @@ function renderChartTypeBar() {
     html += `<div class="ct-group">
       <div class="ct-group-stack">
         <div class="ct-group-label">${group.group}</div>
+        ${group.note ? `<div class="ct-group-note">${escHtml(group.note)}</div>` : ''}
         <div class="ct-cards-row">`;
     group.charts.forEach(c => {
       const isActive = state.chartType === c.type;
@@ -5501,15 +5717,15 @@ function chartMiniSvgBar(type) {
     spline:     `<svg width="48" height="33" viewBox="0 0 32 22"><path d="M2,17 C6,11 9,7 14,10 C19,13 22,4 26,5 C28,5.5 29,5 30,5" stroke="#009d80" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`,
     area:       `<svg width="48" height="33" viewBox="0 0 32 22"><polygon points="2,17 8,9 14,13 20,5 26,8 30,6 30,20 2,20" fill="#009d80" fill-opacity="0.2" stroke="#009d80" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
     areaspline: `<svg width="48" height="33" viewBox="0 0 32 22"><path d="M2,17 C6,11 9,7 14,10 C19,13 22,4 26,5 L30,5 L30,20 L2,20 Z" fill="#009d80" fill-opacity="0.2" stroke="#009d80" stroke-width="1.8" stroke-linecap="round"/></svg>`,
-    column:     `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="2" y="10" width="6" height="10" rx="1" fill="#164848"/><rect x="10" y="5" width="6" height="15" rx="1" fill="#009d80"/><rect x="18" y="13" width="6" height="7" rx="1" fill="#7ab5b5"/><rect x="26" y="7" width="4" height="13" rx="1" fill="#164848" fill-opacity="0.5"/></svg>`,
+    column:     `<svg width="32" height="24" viewBox="0 0 32 22"><rect x="3" y="10" width="7" height="10" rx="1" fill="#164848"/><rect x="13" y="5" width="7" height="15" rx="1" fill="#009d80"/><rect x="23" y="13" width="7" height="7" rx="1" fill="#7ab5b5"/></svg>`,
     bar:        `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="2" y="2" width="16" height="5" rx="1" fill="#164848"/><rect x="2" y="9" width="26" height="5" rx="1" fill="#009d80"/><rect x="2" y="16" width="11" height="5" rx="1" fill="#7ab5b5"/></svg>`,
     pie:        `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="#c8e0e0"/><path d="M16,11 L16,2 A9,9 0 0,1 23.8,15.5 Z" fill="#164848"/><path d="M16,11 L23.8,15.5 A9,9 0 0,1 8.2,15.5 Z" fill="#009d80"/></svg>`,
     donut:      `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="none" stroke="#c8e0e0" stroke-width="6"/><path d="M16,2 A9,9 0 0,1 23.8,15.5" fill="none" stroke="#164848" stroke-width="6"/><path d="M23.8,15.5 A9,9 0 0,1 8.2,15.5" fill="none" stroke="#009d80" stroke-width="6"/><circle cx="16" cy="11" r="3" fill="#fff"/></svg>`,
     scatter:    `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="6" cy="16" r="2" fill="#164848"/><circle cx="12" cy="7" r="2" fill="#009d80"/><circle cx="18" cy="13" r="2" fill="#7ab5b5"/><circle cx="24" cy="4" r="2" fill="#f0a500"/><circle cx="29" cy="10" r="2" fill="#d83949"/></svg>`,
     bubble:     `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="8" cy="15" r="5" fill="#164848" fill-opacity="0.7"/><circle cx="20" cy="9" r="7" fill="#009d80" fill-opacity="0.65"/><circle cx="28" cy="16" r="3.5" fill="#7ab5b5" fill-opacity="0.7"/></svg>`,
-    sunburst:   `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="#e0e0e0"/><path d="M16,11 L16,2 A9,9 0 0,1 25,11 Z" fill="#bbb"/><circle cx="16" cy="11" r="4" fill="#f5f5f5"/></svg>`,
-    treemap:    `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="1" y="1" width="17" height="20" rx="1" fill="#bbb"/><rect x="20" y="1" width="11" height="11" rx="1" fill="#ccc"/><rect x="20" y="14" width="11" height="7" rx="1" fill="#d8d8d8"/></svg>`,
-    packedbubble:`<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="11" cy="11" r="8" fill="#bbb" fill-opacity="0.6"/><circle cx="23" cy="9" r="6" fill="#ccc" fill-opacity="0.6"/><circle cx="21" cy="18" r="4" fill="#d8d8d8" fill-opacity="0.6"/></svg>`,
+    sunburst:   `<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="16" cy="11" r="9" fill="#c8e0e0"/><path d="M16,11 L16,2 A9,9 0 0,1 25,11 Z" fill="#164848"/><path d="M16,11 L25,11 A9,9 0 0,1 20.4,18.9 Z" fill="#009d80"/><circle cx="16" cy="11" r="4" fill="#fff"/></svg>`,
+    treemap:    `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="1" y="1" width="17" height="20" rx="1" fill="#164848"/><rect x="20" y="1" width="11" height="11" rx="1" fill="#009d80"/><rect x="20" y="14" width="11" height="7" rx="1" fill="#7ab5b5"/></svg>`,
+    packedbubble:`<svg width="48" height="33" viewBox="0 0 32 22"><circle cx="11" cy="11" r="8" fill="#164848" fill-opacity="0.75"/><circle cx="23" cy="9" r="6" fill="#009d80" fill-opacity="0.75"/><circle cx="21" cy="18" r="4" fill="#7ab5b5" fill-opacity="0.85"/></svg>`,
     map:        `<svg width="48" height="33" viewBox="0 0 32 22"><rect x="1" y="1" width="30" height="20" rx="1" fill="#e0e0e0"/><path d="M6,2 L6,20 M14,1 L14,19 M22,3 L22,21" stroke="#bbb" stroke-width="1.2"/><circle cx="16" cy="11" r="2" fill="#bbb"/></svg>`,
   };
   return icons[type] || icons.line;
@@ -5545,7 +5761,7 @@ function selectChartType(type) {
     const isDatetime = Array.isArray(firstPoint) && typeof firstPoint[0] === 'number' && firstPoint[0] > 1e11;
     if (isDatetime) {
       showToast('Pie and donut charts require categorical data, not time series.');
-      renderChartTypeBar();
+      _updateChartTypeBarActive(state.chartType);
       updateChartTypeUI();
       return;
     }
@@ -5577,9 +5793,21 @@ function selectChartType(type) {
       }
     }
   }
-  renderChartTypeBar();
+  // A full renderChartTypeBar() rebuild would replace every card's DOM node,
+  // re-triggering their n1-fade-up entrance animation on ALL of them just to
+  // change which ONE card is marked active — that full-grid flash is what
+  // read as a "jerk" on every click. Toggling the class on the existing
+  // nodes instead lets the .ct-btn transition (background/border/shadow)
+  // animate smoothly, and only on the two cards that actually changed.
+  _updateChartTypeBarActive(type);
   updateChartTypeUI();
   schedUpdate(); persist();
+}
+
+function _updateChartTypeBarActive(type) {
+  document.querySelectorAll('.ct-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.ct-btn[onclick="selectChartType('${type}')"]`);
+  if (btn) btn.classList.add('active');
 }
 
 function updateChartTypeUI() {
@@ -5634,6 +5862,13 @@ function update() {
   const isPie     = ['pie','donut'].includes(s.chartType);
   const isBubble  = hcType === 'bubble';
   const isScatter = hcType === 'scatter';
+  // Sunburst/treemap/packedbubble are all axis-less, like pie — grouped by
+  // reusing each existing series as a group and each category as a child
+  // point within it, so these work from the same data grid as every other
+  // chart type instead of needing a separate hierarchical data-entry UI.
+  const isHierarchical = ['sunburst', 'treemap'].includes(hcType);
+  const isPacked = hcType === 'packedbubble';
+  const isNoAxis = isPie || isHierarchical || isPacked;
 
   const themeColors = theme.chartSeriesColors;
 
@@ -5651,6 +5886,29 @@ function update() {
       })),
       dataLabels: { enabled: s.dataLabels },
     }];
+  } else if (isPacked) {
+    series = s.series.map((sr, i) => ({
+      type: 'packedbubble',
+      name: sr.name,
+      data: s.categories.map((cat, idx) => ({ name: cat, value: sr.data[idx] || 0 })),
+      color: sr.colorOverride ? sr.color : themeColors[i % themeColors.length],
+    }));
+  } else if (isHierarchical) {
+    const nodes = [];
+    s.series.forEach((sr, si) => {
+      const groupColor = sr.colorOverride ? sr.color : themeColors[si % themeColors.length];
+      nodes.push({ id: 'grp' + si, name: sr.name, color: groupColor });
+      s.categories.forEach((cat, ci) => {
+        nodes.push({ name: cat, parent: 'grp' + si, value: sr.data[ci] || 0 });
+      });
+    });
+    series = [{
+      type: hcType,
+      name: s.title || 'Chart',
+      data: nodes,
+      dataLabels: { enabled: s.dataLabels },
+      ...(hcType === 'treemap' ? { layoutAlgorithm: 'squarified', allowTraversingTree: true } : { allowDrillToNode: true }),
+    }];
   } else {
     series = s.series.map((sr, i) => ({
       type: hcType,
@@ -5660,7 +5918,10 @@ function update() {
         : sr.data.map((v, idx) => v === null ? null : (_manualColorOverrides[`${i}-${idx}`] ? { y: v, color: _manualColorOverrides[`${i}-${idx}`] } : v)),
       color: sr.colorOverride ? sr.color : themeColors[i % themeColors.length],
       lineWidth: (isScatter || isBubble) ? 0 : s.lineWidth,
-      dashStyle: s.dashStyle,
+      // A per-series override (set via the Series colours row) wins over the
+      // chart-wide Line style toggle — that global toggle stays the default
+      // for any series that hasn't been individually overridden.
+      dashStyle: sr.dashStyle || s.dashStyle,
       opacity: s.seriesOpacity < 1 ? s.seriesOpacity : undefined,
       marker: { enabled: (isScatter || isBubble) ? true : s.markers, radius: s.markerRadius || 4 },
       fillOpacity: ['area','areaspline'].includes(hcType) ? s.fillOpacity : undefined,
@@ -5684,7 +5945,7 @@ function update() {
     },
     title: { text: s.title || null, style: { color: headCol } },
     subtitle: { text: s.subtitle || null, style: { color: textCol } },
-    xAxis: isPie ? undefined : isBubble ? {
+    xAxis: isNoAxis ? undefined : isBubble ? {
       type: 'linear',
       tickPositions: s.categories.map((_, i) => i),
       labels: {
@@ -5708,7 +5969,7 @@ function update() {
       lineColor: s.xLine ? (s.xLineColor || '#cbc8c8') : 'transparent',
       tickInterval: s.xTickInterval ? s.xTickInterval * 365.25 * 24 * 3600 * 1000 : undefined,
     },
-    yAxis: isPie ? undefined : [
+    yAxis: isNoAxis ? undefined : [
       {
         title: { text: s.yTitle || null, style: { color: textCol } },
         min: s.yMin,
@@ -5732,7 +5993,7 @@ function update() {
       s.yAxis2 ? { opposite: true, title: { text: null }, linkedTo: 0 } : null,
     ].filter(Boolean),
     legend: {
-      enabled: s.legend && !isPie,
+      enabled: s.legend && !isNoAxis,
       verticalAlign: s.legendPos === 'top' ? 'top' : s.legendPos === 'right' ? 'middle' : 'bottom',
       align: s.legendPos === 'right' ? 'right' : 'center',
       layout: s.legendPos === 'right' ? 'vertical' : 'horizontal',
@@ -5766,7 +6027,7 @@ function update() {
       bar:    { pointPadding: s.pointPadding ?? 0.1, borderRadius: s.borderRadius || 0, borderWidth: 0 },
     },
     credits: { enabled: false },
-    exporting: { enabled: true, fallbackToExportServer: false, allowHTML: true, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS },
+    exporting: { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS },
     annotations: buildAnnotationsForChart() || [],
     series,
   };
@@ -5776,8 +6037,7 @@ function update() {
   chartInstance = window.chartInstance = Highcharts.chart(container, opts);
   container.style.height = s.chartHeight + 'px';
 
-  const cpBar = document.getElementById('color-point-bar');
-  if (cpBar) cpBar.style.display = 'flex';
+  _updateColorPointPlacement();
   _updateColorPointBtn();
   if (_colorPointMode) _attachColorPointListeners();
   _attachAnnotationInteractions();
@@ -5803,6 +6063,9 @@ function generateConfig() {
   const isLine  = ['line','spline','area','areaspline'].includes(s.chartType);
   const isArea  = ['area','areaspline'].includes(s.chartType);
   const isCol   = ['column','bar'].includes(s.chartType);
+  const isHierarchical = ['sunburst','treemap'].includes(s.chartType);
+  const isPacked = s.chartType === 'packedbubble';
+  const isNoAxis = isPie || isHierarchical || isPacked;
   const cfg = {};
 
   // ── chart ──
@@ -5816,7 +6079,7 @@ function generateConfig() {
   cfg.subtitle = { text: s.subtitle || '' };
 
   // ── xAxis ──
-  if (!isPie) {
+  if (!isNoAxis) {
     const xa = {};
     if (!s.csvUrl && s.categories.length) xa.categories = s.categories;
     if (s.xTitle) xa.title = { text: s.xTitle };
@@ -5831,7 +6094,7 @@ function generateConfig() {
   }
 
   // ── yAxis ──
-  if (!isPie) {
+  if (!isNoAxis) {
     const ya = {};
     ya.title = { text: s.yTitle || '' };
     const yLbl = {};
@@ -5887,10 +6150,12 @@ function generateConfig() {
     if (s.dataLabels) cp.dataLabels = { enabled: true };
     if (Object.keys(cp).length) po[s.chartType] = cp;
   }
+  if (s.chartType === 'treemap') po.treemap = { layoutAlgorithm: 'squarified', allowTraversingTree: true, dataLabels: { enabled: s.dataLabels } };
+  if (s.chartType === 'sunburst') po.sunburst = { allowDrillToNode: true, dataLabels: { enabled: s.dataLabels } };
   if (Object.keys(po).length) cfg.plotOptions = po;
 
   // ── legend ──
-  if (!s.legend) {
+  if (!s.legend || isNoAxis) {
     cfg.legend = { enabled: false };
   } else {
     const posMap = {
@@ -5919,7 +6184,22 @@ function generateConfig() {
   }
 
   // ── series ──
-  if (!s.csvUrl) {
+  if (!s.csvUrl && isPacked) {
+    cfg.series = s.series.map(sr => ({
+      name: sr.name,
+      data: s.categories.map((cat, idx) => ({ name: cat, value: sr.data[idx] || 0 })),
+      ...(sr.colorOverride ? { color: sr.color } : {}),
+    }));
+  } else if (!s.csvUrl && isHierarchical) {
+    const nodes = [];
+    s.series.forEach((sr, si) => {
+      nodes.push({ id: 'grp' + si, name: sr.name, ...(sr.colorOverride ? { color: sr.color } : {}) });
+      s.categories.forEach((cat, ci) => {
+        nodes.push({ name: cat, parent: 'grp' + si, value: sr.data[ci] || 0 });
+      });
+    });
+    cfg.series = [{ name: s.title || 'Chart', data: nodes }];
+  } else if (!s.csvUrl) {
     cfg.series = s.series.map((sr, si) => {
       const out = { name: sr.name, data: sr.data.map((v, pi) => {
         const ov = _manualColorOverrides[`${si}-${pi}`];
@@ -5927,6 +6207,7 @@ function generateConfig() {
         return { y: v, color: ov };
       }) };
       if (sr.colorOverride) out.color = sr.color; // only include if manually set
+      if (sr.dashStyle) out.dashStyle = sr.dashStyle; // only include if manually set
       return out;
     });
   }
@@ -6012,20 +6293,51 @@ function highlighted(text) {
 /* ═══════════════════════════════════════════
    CONFIG PANEL DRAG-TO-RESIZE
 ═══════════════════════════════════════════ */
+const PANEL_SPLIT_KEY = 'n1_panel_split';
+const PANEL_SPLIT_MIN_PREVIEW = 200;
+const PANEL_SPLIT_MIN_CODE = 150;
+
+function _applyPanelSplitHeight(h) {
+  const preview = document.getElementById('preview-card');
+  if (preview) preview.style.height = h + 'px';
+  _updateColorPointPlacement();
+}
+
+function _clampPanelSplit(h) {
+  const wrap = document.querySelector('.preview-stage-wrap');
+  const handle = document.getElementById('config-resize-handle');
+  const wrapH = wrap ? wrap.getBoundingClientRect().height : 800;
+  const handleH = handle ? handle.getBoundingClientRect().height : 12;
+  const gaps = 32; // .preview-stage-wrap gap (16px) x2
+  const maxPreview = Math.max(PANEL_SPLIT_MIN_PREVIEW, wrapH - handleH - gaps - PANEL_SPLIT_MIN_CODE);
+  return Math.max(PANEL_SPLIT_MIN_PREVIEW, Math.min(maxPreview, h));
+}
+
 function initConfigResize() {
   const handle = document.getElementById('config-resize-handle');
-  const card   = document.getElementById('config-card');
-  if (!handle || !card) return;
+  const preview = document.getElementById('preview-card');
+  if (!handle || !preview) return;
+
+  // Restore a saved split — the preview panel otherwise defaults to its
+  // natural height (driven by the chart's configured height setting).
+  try {
+    const saved = parseInt(localStorage.getItem(PANEL_SPLIT_KEY), 10);
+    if (saved) _applyPanelSplitHeight(_clampPanelSplit(saved));
+  } catch(e) {}
 
   let startY = 0, startH = 0, dragging = false;
+
+  function persist(h) {
+    try { localStorage.setItem(PANEL_SPLIT_KEY, String(h)); } catch(e) {}
+  }
 
   handle.addEventListener('mousedown', e => {
     e.preventDefault();
     startY   = e.clientY;
-    startH   = card.getBoundingClientRect().height;
+    startH   = preview.getBoundingClientRect().height;
     dragging = true;
     handle.classList.add('dragging');
-    document.body.style.cursor = 'ns-resize';
+    document.body.style.cursor = 'row-resize';
     document.body.style.userSelect = 'none';
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp, { once: true });
@@ -6033,9 +6345,9 @@ function initConfigResize() {
 
   function onMove(e) {
     if (!dragging) return;
-    const delta = startY - e.clientY;  // drag up → bigger
-    const newH  = Math.max(44, Math.min(900, startH + delta));
-    card.style.height = newH + 'px';
+    const delta = e.clientY - startY;  // drag down → preview grows
+    const newH  = _clampPanelSplit(startH + delta);
+    _applyPanelSplitHeight(newH);
   }
 
   function onUp() {
@@ -6044,22 +6356,25 @@ function initConfigResize() {
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     document.removeEventListener('mousemove', onMove);
+    persist(preview.getBoundingClientRect().height);
   }
 
   // Touch support
   handle.addEventListener('touchstart', e => {
     startY = e.touches[0].clientY;
-    startH = card.getBoundingClientRect().height;
+    startH = preview.getBoundingClientRect().height;
     handle.classList.add('dragging');
   }, { passive: true });
 
   handle.addEventListener('touchmove', e => {
-    const delta = startY - e.touches[0].clientY;
-    const newH  = Math.max(44, Math.min(900, startH + delta));
-    card.style.height = newH + 'px';
+    const delta = e.touches[0].clientY - startY;
+    _applyPanelSplitHeight(_clampPanelSplit(startH + delta));
   }, { passive: true });
 
-  handle.addEventListener('touchend', () => handle.classList.remove('dragging'));
+  handle.addEventListener('touchend', () => {
+    handle.classList.remove('dragging');
+    persist(preview.getBoundingClientRect().height);
+  });
 }
 
 let _configEditMode = false;
@@ -6240,8 +6555,11 @@ function applyConfigEdit() {
   }
   try {
     applyFullRawConfig(cfg);
-    msg.textContent = '✓ Applied';
-    msg.style.color = '#009d80';
+    // Apply is a commit, not a preview — return to the normal read-only
+    // view showing the result, instead of leaving the textarea/Cancel-Apply
+    // bar open with no visible way back to the normal state.
+    cancelConfigEdit();
+    showToast('Config applied ✓');
   } catch(e) {
     msg.textContent = '⚠ Highcharts error: ' + e.message;
     msg.style.color = '#d83949';
@@ -6295,13 +6613,35 @@ let _colorPointMode = false;
 let _colorPointHCListeners = [];
 
 function _updateColorPointBtn() {
-  const btn = document.getElementById('color-point-btn');
-  if (!btn) return;
-  btn.textContent       = _colorPointMode ? '✓ Editing on' : '✏️ Edit individual bars';
-  btn.style.background  = _colorPointMode ? '#571b39' : '#fff';
-  btn.style.color       = _colorPointMode ? '#fff'    : '#571b39';
-  btn.style.borderColor = '#571b39';
+  [document.getElementById('color-point-btn'), document.getElementById('color-point-btn-sidebar')].forEach(btn => {
+    if (!btn) return;
+    btn.textContent       = _colorPointMode ? '✓ Editing on' : '✏️ Edit individual bars';
+    btn.style.background  = _colorPointMode ? '#571b39' : '#fff';
+    btn.style.color       = _colorPointMode ? '#fff'    : '#571b39';
+    btn.style.borderColor = '#571b39';
+  });
 }
+
+// The floating button is anchored to the bottom-left of the preview panel —
+// fine normally, but if the code panel gets dragged tall enough that the
+// preview shrinks close to its minimum height, that fixed 12px offset can
+// land on top of the chart's own bars/axis instead of clear space below
+// them. Below a height threshold, hide the floating button entirely and
+// show the equivalent control in the sidebar instead, where it can never
+// overlap the chart.
+const COLOR_POINT_MIN_PREVIEW_HEIGHT = 240;
+function _updateColorPointPlacement() {
+  const bar = document.getElementById('color-point-bar');
+  const sidebarBtn = document.getElementById('color-point-btn-sidebar');
+  if (!bar || !sidebarBtn) return;
+  const applicable = ['column', 'bar'].includes(state.chartType);
+  if (!applicable) { bar.style.display = 'none'; sidebarBtn.style.display = 'none'; return; }
+  const previewCard = document.getElementById('preview-card');
+  const tooSmall = previewCard && previewCard.getBoundingClientRect().height < COLOR_POINT_MIN_PREVIEW_HEIGHT;
+  bar.style.display = tooSmall ? 'none' : 'flex';
+  sidebarBtn.style.display = tooSmall ? 'block' : 'none';
+}
+window.addEventListener('resize', _updateColorPointPlacement);
 
 function toggleColorPointMode() {
   _colorPointMode = !_colorPointMode;
@@ -6352,7 +6692,9 @@ function _openColorPicker(e, si, pi, currentColor) {
   pop.style.top = top + 'px';
   pop.style.left = left + 'px';
 
-  const safe = /^#[0-9a-fA-F]{6}$/.test(currentColor) ? currentColor.toLowerCase() : '#009d80';
+  const patternStroke = (currentColor && typeof currentColor === 'object' && currentColor.pattern) ? currentColor.pattern.path?.stroke : null;
+  const rawColor = patternStroke || currentColor;
+  const safe = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor.toLowerCase() : '#009d80';
   const point = window.chartInstance?.series?.[si]?.points?.[pi];
   const curVal = point?.y ?? '';
   const cats = _lastRawConfig?.xAxis?.categories || state.categories;
@@ -6363,6 +6705,11 @@ function _openColorPicker(e, si, pi, currentColor) {
     `<span class="cp-sw" data-c="${c}" onclick="_cpPickSwatch(this)" title="${c}" style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${c};cursor:pointer;border:2px solid ${c.toLowerCase()===safe?'#333':'transparent'}"></span>`
   ).join('');
 
+  // Pre-select the pattern that matches the current colour, if it's a
+  // Highcharts pattern object rather than a plain hex string.
+  const currentPatternD = (currentColor && typeof currentColor === 'object' && currentColor.pattern) ? currentColor.pattern.path?.d : null;
+  const initialPatternKey = Object.keys(POINT_PATTERNS).find(k => POINT_PATTERNS[k].d === currentPatternD) || 'none';
+
   pop.innerHTML = `
     <div style="font-size:11px;font-weight:700;color:#333;margin-bottom:2px">${escHtml(ptName)}</div>
     <div style="font-size:10px;color:#999;margin-bottom:10px">${escHtml(seriesName)}</div>
@@ -6372,12 +6719,66 @@ function _openColorPicker(e, si, pi, currentColor) {
     </div>
     <label style="display:block;font-size:10px;color:#888;margin-bottom:4px">Colour</label>
     <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${swatches}</div>
-    <input type="text" id="color-point-hex" value="${safe}" maxlength="7" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:4px;padding:5px 8px;font-size:11px;font-family:monospace;outline:none;margin-bottom:10px">
+    <input type="text" id="color-point-hex" value="${safe}" maxlength="7" oninput="_cpRefreshPatternSwatches()" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:4px;padding:5px 8px;font-size:11px;font-family:monospace;outline:none;margin-bottom:10px">
+    <label style="display:block;font-size:10px;color:#888;margin-bottom:4px">Pattern / style</label>
+    <div id="color-point-patterns" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px"></div>
     <button onclick="applyPointEdit(${si},${pi})" style="width:100%;padding:7px;background:#009d80;color:#fff;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:6px">Done ✓</button>
     <button onclick="resetPointColor(${si},${pi})" style="width:100%;padding:5px;background:#f5f5f5;color:#666;border:1px solid #ddd;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit">Reset to theme colour</button>`;
+  pop.dataset.pattern = initialPatternKey;
   document.body.appendChild(pop);
+  _cpRefreshPatternSwatches();
   document.removeEventListener('click', _colorPickerOutside);
   setTimeout(() => document.addEventListener('click', _colorPickerOutside), 0);
+}
+
+// Bar/column point fill patterns (Highcharts pattern-fill syntax). `d` is
+// the tile's SVG path — same path used both for the live chart fill and the
+// small preview swatch in the popover, so the swatch always matches exactly
+// what selecting it will apply.
+const POINT_PATTERNS = {
+  none:     { label: 'Solid',               d: null },
+  diagUp:   { label: 'Diagonal stripes ↗',  d: 'M 0 10 L 10 0' },
+  diagDown: { label: 'Diagonal stripes ↘',  d: 'M 0 0 L 10 10' },
+  horiz:    { label: 'Horizontal lines',     d: 'M 0 5 L 10 5' },
+  vert:     { label: 'Vertical lines',       d: 'M 5 0 L 5 10' },
+  dots:     { label: 'Dots',                 d: 'M 2 2 L 4 2 L 4 4 L 2 4 Z' },
+};
+
+function _pointPatternColor(key, color) {
+  const p = POINT_PATTERNS[key];
+  if (!p || !p.d) return color;
+  return { pattern: { path: { d: p.d, stroke: color, strokeWidth: 2, fill: key === 'dots' ? color : 'none' }, width: 10, height: 10, backgroundColor: '#e8e5ce' } };
+}
+
+function _patternSwatchSVG(key, color) {
+  const p = POINT_PATTERNS[key];
+  const id = 'cpp-' + key;
+  if (!p.d) return `<svg width="26" height="26" viewBox="0 0 26 26"><rect width="26" height="26" rx="4" fill="${color}"/></svg>`;
+  const fill = key === 'dots' ? color : 'none';
+  return `<svg width="26" height="26" viewBox="0 0 26 26">
+    <defs><pattern id="${id}" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#e8e5ce"/><path d="${p.d}" stroke="${color}" stroke-width="2" fill="${fill}"/></pattern></defs>
+    <rect width="26" height="26" rx="4" fill="url(#${id})"/>
+  </svg>`;
+}
+
+function _cpRefreshPatternSwatches() {
+  const wrap = document.getElementById('color-point-patterns');
+  const pop = document.getElementById('color-point-pop');
+  if (!wrap || !pop) return;
+  const color = document.getElementById('color-point-hex')?.value?.trim() || '#009d80';
+  const active = pop.dataset.pattern || 'none';
+  wrap.innerHTML = Object.keys(POINT_PATTERNS).map(key => `
+    <span class="cp-pat" data-pat="${key}" onclick="_cpPickPattern(this)" title="${POINT_PATTERNS[key].label}"
+      style="display:inline-block;border-radius:6px;cursor:pointer;padding:2px;border:2px solid ${key===active?'#333':'transparent'}">
+      ${_patternSwatchSVG(key, color)}
+    </span>`).join('');
+}
+
+function _cpPickPattern(el) {
+  const pop = document.getElementById('color-point-pop');
+  if (!pop) return;
+  pop.dataset.pattern = el.dataset.pat;
+  _cpRefreshPatternSwatches();
 }
 
 function _colorPickerOutside(e) {
@@ -6402,6 +6803,7 @@ function _cpPickSwatch(el) {
 function applyPointEdit(si, pi) {
   const hexVal = document.getElementById('color-point-hex')?.value?.trim();
   const numVal = document.getElementById('color-point-val')?.value;
+  const patternKey = document.getElementById('color-point-pop')?.dataset.pattern || 'none';
   const dataArr = _lastRawConfig ? _lastRawConfig.series?.[si]?.data : state.series?.[si]?.data;
   if (!Array.isArray(dataArr)) return;
   _pushUndo();
@@ -6409,8 +6811,8 @@ function applyPointEdit(si, pi) {
   const upd = {};
   if (numVal !== '' && numVal != null && !isNaN(parseFloat(numVal))) upd.y = parseFloat(numVal);
   if (/^#[0-9a-fA-F]{6}$/.test(hexVal)) {
-    upd.color = hexVal;
-    _manualColorOverrides[`${si}-${pi}`] = hexVal;
+    upd.color = _pointPatternColor(patternKey, hexVal);
+    _manualColorOverrides[`${si}-${pi}`] = upd.color;
   }
 
   // Keep the underlying data model in sync so a later full re-render keeps this.
@@ -6891,7 +7293,7 @@ function _reapplyFromRawConfig() {
     }
 
     cfg.credits = { enabled: false };
-    cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: true, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
+    cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
     cfg.annotations = buildAnnotationsForChart() || [];
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
     // Keep _lastRawConfig itself (not just the render clone) in sync with the
@@ -6913,8 +7315,7 @@ function _reapplyFromRawConfig() {
     const pre = document.getElementById('config-output');
     if (pre) pre.innerHTML = highlighted(_serializeConfig(_cleanConfigForCopy(_lastRawConfig)));
     if (_dragMode) setTimeout(_attachDragListeners, 50);
-    const cpBar = document.getElementById('color-point-bar');
-    if (cpBar) cpBar.style.display = 'flex';
+    _updateColorPointPlacement();
     _updateColorPointBtn();
     if (_colorPointMode) _attachColorPointListeners();
     _attachAnnotationInteractions();
@@ -7653,12 +8054,14 @@ async function processFile() {
 async function applyAndFinish() {
   const cfg = wizardData.parsedConfig;
   if (!cfg) { closeImportWizard(); return; }
+  if (cfg.droppedColumns?.length) showToast('Some columns could not be mapped automatically. Check your config output.');
 
   if (wizardData.csvFile) {
     const ext = wizardData.csvFile.name.split('.').pop().toLowerCase();
     const dataFile = ext === 'xlsx' || ext === 'xls'
       ? await parseXLSXFile(wizardData.csvFile)
       : parseCSV(await wizardData.csvFile.text());
+    if (dataFile.droppedColumns?.length) showToast('Some columns could not be mapped automatically. Check your config output.');
     if (dataFile.xAxisType === 'datetime') {
       // Merge into cfg rather than short-circuiting — otherwise the chart
       // type/template chosen in Step 3 never gets applied for datetime data.
@@ -7682,6 +8085,7 @@ async function applyAndFinish() {
     dismissBanner();
     closeImportWizard();
     switchTab('preview');
+    _ensureTypePanelOpen();
     showToast(n ? `Chart ready — imported ${n} annotation${n === 1 ? '' : 's'} from the file too` : 'Chart ready — paste config into Sitecore when done');
     return;
   }
@@ -7697,6 +8101,7 @@ async function applyAndFinish() {
   dismissBanner();
   closeImportWizard();
   switchTab('preview');
+  _ensureTypePanelOpen();
   showToast(n ? `Chart ready — imported ${n} annotation${n === 1 ? '' : 's'} from the file too` : 'Chart ready — paste config into Sitecore when done');
 }
 
@@ -7969,7 +8374,7 @@ function applyAIConfig(cfg) {
     if (!renderCfg.tooltip) renderCfg.tooltip = {};
     renderCfg.tooltip.outside = true;
     renderCfg.credits = { enabled: false };
-    renderCfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: true, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
+    renderCfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
     if (chartInstance) try { chartInstance.destroy(); } catch(e) {}
     const el = document.getElementById('chart-container');
     if (el) el.style.height = '500px';
@@ -8655,9 +9060,13 @@ function parseCSV(text) {
       s.data.push(isNaN(v) ? null : v);
     });
   });
-  // Allow series with no header name (e.g. a blank value-column header)
+  // Allow series with no header name (e.g. a blank value-column header). A
+  // column with no numeric values at all (e.g. free-text notes) can't become
+  // chart series data — track its header so the caller can warn instead of
+  // just losing it with no explanation.
   const filtered = series.filter(s => s.data.some(v => v !== null));
-  return { categories, series: filtered };
+  const droppedColumns = series.filter(s => !s.data.some(v => v !== null)).map(s => s.name).filter(Boolean);
+  return { categories, series: filtered, droppedColumns };
 }
 
 // ── Direct CSV upload from the Data tab toolbar ──────────────────────────────
@@ -8685,6 +9094,7 @@ function handleDirectCsvUpload(input) {
       alert('Could not parse the file. Try importing via the Import wizard for more options.');
       return;
     }
+    if (parsed.droppedColumns?.length) showToast('Some columns could not be mapped automatically. Check your config output.');
     if (_lastRawConfig) { _mergeDataIntoRawConfig(parsed); showToast('Data updated'); return; }
     applyParsedData(parsed);
   };
@@ -8817,7 +9227,8 @@ function parseTSV(text) {
   });
   // Allow series with no name (single-series pastes from title-row data)
   const filtered = series.filter(s => s.data.some(v => v !== null));
-  return filtered.length ? { categories, series: filtered, title: extractedTitle } : null;
+  const droppedColumns = series.filter(s => !s.data.some(v => v !== null)).map(s => s.name).filter(Boolean);
+  return filtered.length ? { categories, series: filtered, title: extractedTitle, droppedColumns } : null;
 }
 
 // ── Apply parsed CSV/TSV result directly without the full import wizard ───────
@@ -8899,7 +9310,8 @@ async function parseXLSXFile(file) {
 
   // Allow series with no header name (e.g. a blank value-column header)
   const filtered = series.filter(s => s.data.some(v => v !== null));
-  return { categories, series: filtered };
+  const droppedColumns = series.filter(s => !s.data.some(v => v !== null)).map(s => s.name).filter(Boolean);
+  return { categories, series: filtered, droppedColumns };
 }
 
 async function applyDataFileDirectly(file) {
@@ -8926,6 +9338,7 @@ async function applyDataFileDirectly(file) {
     return;
   }
 
+  if (data.droppedColumns?.length) showToast('Some columns could not be mapped automatically. Check your config output.');
   // Load into wizard as parsed config and jump to Review step
   wizardData.parsedConfig = { categories: data.categories, series: data.series, type: state.chartType, xAxisType: data.xAxisType };
   wizardData.source = (ext === 'xlsx' || ext === 'xls') ? 'xlsx' : 'csv';
@@ -8978,7 +9391,7 @@ async function callVision(file) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       max_tokens: 2048,
       messages: [{
         role: 'user',
@@ -9092,6 +9505,7 @@ function addAnnotation() {
     defY = Math.round(((ya.min + ya.max) / 2) * 100) / 100;
   }
   state.annotations.push({ text: `Label ${idx + 1}`, x: defX, y: defY, backgroundColor: '#EEEBDA', fontSize: 14, width: 200 });
+  _annotationExpanded.add(idx);
   renderAnnotationsSection();
   schedUpdate(); persist();
 }
@@ -9115,7 +9529,28 @@ function updateAnnotationField(i, key, val) {
   // unlike text/number fields, it's not something the user types into
   // continuously, so there's no focus to lose.
   if (key === 'backgroundColor') renderAnnotationsSection();
+  if (key === 'x') { const el = document.getElementById(`annotation-rowx-${i}`); if (el) el.textContent = `x ${_fmtAnnPos(state.annotations[i].x)}`; }
+  if (key === 'y') { const el = document.getElementById(`annotation-rowy-${i}`); if (el) el.textContent = `y ${_fmtAnnPos(state.annotations[i].y)}`; }
+  if (key === 'text') { const el = document.querySelector(`.annotation-card[data-i="${i}"] .annotation-row-preview`); if (el) { const preview = (val || '').replace(/\s+/g, ' ').trim(); el.textContent = preview || '(empty label)'; el.classList.toggle('is-empty', !preview); } }
   schedUpdate(); persist();
+}
+
+// Tracks which annotation cards are expanded (by index) across re-renders —
+// cards render collapsed to a single summary row by default to cut down on
+// sidebar clutter, and only show the full field set once clicked open.
+let _annotationExpanded = new Set();
+
+function _toggleAnnotationExpand(i, ev) {
+  if (ev) ev.stopPropagation();
+  if (_annotationExpanded.has(i)) _annotationExpanded.delete(i); else _annotationExpanded.add(i);
+  renderAnnotationsSection();
+}
+
+function _updateAnnotationCountBadge() {
+  const badge = document.getElementById('acc-count-annotations');
+  if (!badge) return;
+  const count = (state.annotations || []).length + (state.calloutArrows || []).length;
+  badge.textContent = count ? ` · ${count}` : '';
 }
 
 function renderAnnotationsSection() {
@@ -9123,6 +9558,7 @@ function renderAnnotationsSection() {
   const listEl = document.getElementById('annotations-list');
   if (!tipEl || !listEl) return;
   _updateAnnotationEditModeBtn();
+  _updateAnnotationCountBadge();
 
   const t = state.chartType;
   const isLineLike = ['line','spline','area','areaspline'].includes(t);
@@ -9135,46 +9571,56 @@ function renderAnnotationsSection() {
   tipEl.style.display = tip ? '' : 'none';
 
   const annotations = state.annotations || [];
-  listEl.innerHTML = annotations.map((a, i) => `
-    <div class="annotation-card" data-i="${i}" onmouseenter="_hoverAnnotation(${i},true)" onmouseleave="_hoverAnnotation(${i},false)">
-      <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px">
-        <label style="min-width:auto">Label text</label>
-        <textarea class="field-input" style="height:52px;resize:vertical;font-family:inherit;padding:8px 10px" placeholder="Type your annotation..." oninput="updateAnnotationField(${i},'text',this.value)">${escHtml(a.text)}</textarea>
+  if (!annotations.length) {
+    listEl.innerHTML = '<div class="lib-empty">No labels added yet. Right-click the chart to add one.</div>';
+  } else {
+    listEl.innerHTML = annotations.map((a, i) => {
+      const expanded = _annotationExpanded.has(i);
+      const preview = (a.text || '').replace(/\s+/g, ' ').trim();
+      return `
+    <div class="annotation-card annotation-card--collapsible" data-i="${i}" onmouseenter="_hoverAnnotation(${i},true)" onmouseleave="_hoverAnnotation(${i},false)">
+      <div class="annotation-row" onclick="_toggleAnnotationExpand(${i})">
+        <div class="annotation-row-preview${preview ? '' : ' is-empty'}">${preview ? escHtml(preview) : '(empty label)'}</div>
+        <div class="annotation-row-xy" id="annotation-rowx-${i}">x ${_fmtAnnPos(a.x)}</div>
+        <div class="annotation-row-xy" id="annotation-rowy-${i}">y ${_fmtAnnPos(a.y)}</div>
+        <button class="annotation-remove-btn" onclick="event.stopPropagation();removeAnnotation(${i})">🗑</button>
       </div>
-      <div class="field-row" style="margin-top:8px">
-        <label>Background colour</label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <input type="color" value="${a.backgroundColor && a.backgroundColor !== 'rgba(255,255,255,0)' ? a.backgroundColor : '#EEEBDA'}" ${a.backgroundColor === 'rgba(255,255,255,0)' ? 'disabled' : ''} style="width:28px;height:28px;border:1px solid #ddd;border-radius:4px;padding:1px;cursor:pointer" onchange="updateAnnotationField(${i},'backgroundColor',this.value)">
-          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666;min-width:auto;cursor:pointer">
-            <input type="checkbox" ${a.backgroundColor === 'rgba(255,255,255,0)' ? 'checked' : ''} onchange="updateAnnotationField(${i},'backgroundColor', this.checked ? 'rgba(255,255,255,0)' : '#EEEBDA')">
-            No background
-          </label>
+      ${expanded ? `
+      <div class="annotation-card-body">
+        <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px">
+          <label style="min-width:auto">Label text</label>
+          <textarea class="field-input" style="height:52px;resize:vertical;font-family:inherit;padding:8px 10px" placeholder="e.g. +212 bps more spread" oninput="updateAnnotationField(${i},'text',this.value)">${escHtml(a.text)}</textarea>
         </div>
-      </div>
-      <div class="field-row">
-        <label>Font size</label>
-        <input type="number" class="field-input" style="width:64px;flex:none" value="${a.fontSize}" oninput="updateAnnotationField(${i},'fontSize',this.value)">
-      </div>
-      <div class="field-row">
-        <label>Width (px)</label>
-        <input type="number" class="field-input" style="width:64px;flex:none" value="${a.width}" oninput="updateAnnotationField(${i},'width',this.value)">
-      </div>
-      <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px;margin-top:8px">
-        <label style="min-width:auto">X position (category index)</label>
-        <input type="number" class="field-input" data-annotation-x="${i}" value="${a.x}" step="any" oninput="updateAnnotationField(${i},'x',this.value)">
-      </div>
-      <div class="annotation-helper">X is the category index — 0 = first category, 1 = second, etc.</div>
-      <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px;margin-top:8px">
-        <label style="min-width:auto">Y position (value on chart)</label>
-        <input type="number" class="field-input" data-annotation-y="${i}" value="${a.y}" step="any" oninput="updateAnnotationField(${i},'y',this.value)">
-      </div>
-      <div class="annotation-helper">Y is the value on the vertical axis</div>
-      <div class="annotation-helper" id="annotation-pos-${i}">Position: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}</div>
-      <div style="text-align:right;margin-top:6px">
-        <button class="annotation-remove-btn" onclick="removeAnnotation(${i})">🗑 Remove</button>
-      </div>
+        <div class="field-row" style="margin-top:8px">
+          <label>Background colour</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="color" value="${a.backgroundColor && a.backgroundColor !== 'rgba(255,255,255,0)' ? a.backgroundColor : '#EEEBDA'}" ${a.backgroundColor === 'rgba(255,255,255,0)' ? 'disabled' : ''} style="width:28px;height:28px;border:1px solid #ddd;border-radius:4px;padding:1px;cursor:pointer" onchange="updateAnnotationField(${i},'backgroundColor',this.value)">
+            <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#666;min-width:auto;cursor:pointer">
+              <input type="checkbox" ${a.backgroundColor === 'rgba(255,255,255,0)' ? 'checked' : ''} onchange="updateAnnotationField(${i},'backgroundColor', this.checked ? 'rgba(255,255,255,0)' : '#EEEBDA')">
+              No background
+            </label>
+          </div>
+        </div>
+        <div class="field-row">
+          <label>Font size</label>
+          <input type="number" class="field-input" style="width:64px;flex:none" value="${a.fontSize}" oninput="updateAnnotationField(${i},'fontSize',this.value)">
+        </div>
+        <div class="field-row">
+          <label>Width (px)</label>
+          <input type="number" class="field-input" style="width:64px;flex:none" value="${a.width}" oninput="updateAnnotationField(${i},'width',this.value)">
+        </div>
+        <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px;margin-top:8px">
+          <label style="min-width:auto">Horizontal (x)</label>
+          <input type="number" class="field-input" data-annotation-x="${i}" value="${a.x}" step="any" oninput="updateAnnotationField(${i},'x',this.value)">
+        </div>
+        <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px;margin-top:8px">
+          <label style="min-width:auto">Vertical (y)</label>
+          <input type="number" class="field-input" data-annotation-y="${i}" value="${a.y}" step="any" oninput="updateAnnotationField(${i},'y',this.value)">
+        </div>
+      </div>` : ''}
     </div>
-  `).join('');
+  `; }).join('');
+  }
 }
 
 function _fmtAnnPos(v) {
@@ -9218,6 +9664,7 @@ function updateCalloutArrowText(j, val) {
 function renderCalloutArrowsSection() {
   const listEl = document.getElementById('calloutarrows-list');
   if (!listEl) return;
+  _updateAnnotationCountBadge();
   const arrows = state.calloutArrows || [];
   // Most charts never have any callout arrows — only show the explanatory
   // tip once one actually exists, instead of always taking up space.
@@ -9291,11 +9738,18 @@ function _importAnnotationsFromRawConfig(cfg) {
       labels.forEach(l => importedArrows.push({ text: l.text || '', x: l.point?.x || 0, y: l.point?.y || 0, shapes: [] }));
       return;
     }
+    // Shape stroke colour is set uniformly per callout arrow (not per leg) —
+    // read it from the first shape that actually has one, so a colour set by
+    // the AI chat or a pasted config survives the round-trip back into state
+    // instead of being silently dropped (previously there was no field to
+    // store it in at all, so it rendered once and vanished on the next apply).
+    const shapeColor = ann.shapes.map(sh => sh.stroke).find(c => _isValidCssColor(c));
     if (!labels.length) {
       importedArrows.push({
         text: '',
         x: ann.shapes[0]?.points?.[0]?.x || 0,
         y: ann.shapes[0]?.points?.[0]?.y || 0,
+        color: shapeColor,
         shapes: ann.shapes.map(sh => ({ points: (sh.points || []).map(p => ({ x: p.x || 0, y: p.y || 0 })) })),
       });
       return;
@@ -9309,6 +9763,7 @@ function _importAnnotationsFromRawConfig(cfg) {
       importedArrows.push({
         text: l.text || '',
         x: l.point?.x || 0, y: l.point?.y || 0,
+        color: shapeColor,
         shapes: slice.map(sh => ({ points: (sh.points || []).map(p => ({ x: p.x || 0, y: p.y || 0 })) })),
       });
     });
@@ -9390,6 +9845,7 @@ function buildCalloutArrowsConfig() {
     shapes: (a.shapes || []).map(sh => ({
       type: 'path',
       strokeWidth: 1,
+      stroke: a.color || '#000000',
       fill: 'none',
       // Imported multi-segment legs only mark one segment (the true tip) as
       // the arrow; a plain single-shape leg (sh.arrow undefined) always is.
@@ -9443,7 +9899,8 @@ function _hoverAnnotation(i, on) {
   const selector = ref.kind === 'arrow' ? `.calloutarrow-card[data-i="${ref.idx}"]` : `.annotation-card[data-i="${ref.idx}"]`;
   const card = document.querySelector(selector);
   if (card) card.classList.toggle('annotation-hl', on);
-  const el = window.chartInstance?.annotations?.[i]?.labels?.[0]?.graphic?.element;
+  const graphic = window.chartInstance?.annotations?.[i]?.labels?.[0]?.graphic;
+  const el = graphic?.div?.firstElementChild || graphic?.element;
   if (el) { el.style.outline = on ? '2px solid #009d80' : ''; el.style.outlineOffset = on ? '2px' : ''; }
 }
 
@@ -9456,8 +9913,10 @@ function _refreshAnnotationSidebarFields() {
     if (xInput) xInput.value = a.x;
     const yInput = document.querySelector(`[data-annotation-y="${i}"]`);
     if (yInput) yInput.value = a.y;
-    const posEl = document.getElementById(`annotation-pos-${i}`);
-    if (posEl) posEl.textContent = `Position: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
+    const rowxEl = document.getElementById(`annotation-rowx-${i}`);
+    if (rowxEl) rowxEl.textContent = `x ${_fmtAnnPos(a.x)}`;
+    const rowyEl = document.getElementById(`annotation-rowy-${i}`);
+    if (rowyEl) rowyEl.textContent = `y ${_fmtAnnPos(a.y)}`;
   });
   (state.calloutArrows || []).forEach((a, j) => {
     const posEl = document.getElementById(`calloutarrow-pos-${j}`);
@@ -9555,7 +10014,19 @@ function _attachAnnotationInteractions() {
 
   _detachAnnotationLabelListeners();
   (chart.annotations || []).forEach((ann, i) => {
-    const el = ann.labels?.[0]?.graphic?.element;
+    const graphic = ann.labels?.[0]?.graphic;
+    if (!graphic) return;
+    // For a useHTML label (all of ours), graphic.element is an SVG <g> that
+    // Highcharts never actually paints any visible/hit-testable content
+    // into — the real rendered text is a plain HTML <span> Highcharts
+    // renders separately inside graphic.div, which itself is a zero-size
+    // positioning anchor (so it can never be hit-tested either). A real
+    // mouse click at the label's visual position hit-tests straight through
+    // both of those to whatever SVG shape sits behind them (the chart
+    // background), so a listener on graphic.element never fires for a real
+    // drag — only for a synthetic event dispatched directly on it. The
+    // span is the only element actually under the cursor.
+    const el = graphic.div?.firstElementChild || graphic.element;
     if (!el) return;
     el.style.cursor = _annotationEditMode ? 'move' : '';
     const onEnter = () => _hoverAnnotation(i, true);
@@ -9683,6 +10154,37 @@ function _showAnnotationAddInput(clientX, clientY, x, y) {
 
 const EXPORT_MIME = { png: 'image/png', svg: 'image/svg+xml' };
 const EXPORT_WIDTH = 1000;
+// Reports which of the Highcharts modules this page actually loaded, by
+// checking for an API surface that only exists once that specific module
+// has run — not just "is Highcharts present" — so a script that 404'd or
+// got blocked shows up as failed instead of silently passing.
+function _highchartsModuleStatus() {
+  const HC = window.Highcharts;
+  const has = (fn) => { try { return !!fn(); } catch(e) { return false; } };
+  return [
+    { name: 'highcharts.js',                ok: !!HC },
+    { name: 'highcharts-more.js',           ok: has(() => HC.seriesTypes?.bubble) },
+    { name: 'modules/data.js',              ok: has(() => HC.Data) },
+    { name: 'modules/annotations.js',       ok: has(() => HC.Annotation) },
+    { name: 'modules/accessibility.js',     ok: has(() => HC.Chart?.prototype?.updateA11yEnabled || HC.A11yChartUtilities) },
+    { name: 'modules/drilldown.js',         ok: has(() => HC.Chart?.prototype?.addSeriesAsDrilldown) },
+    { name: 'modules/sunburst.js',          ok: has(() => HC.seriesTypes?.sunburst) },
+    { name: 'modules/packed-bubble.js',     ok: has(() => HC.seriesTypes?.packedbubble) },
+    { name: 'modules/treemap.js',           ok: has(() => HC.seriesTypes?.treemap) },
+    { name: 'modules/exporting.js',         ok: has(() => HC.Chart?.prototype?.exportChart) },
+    { name: 'modules/offline-exporting.js', ok: has(() => HC.Chart?.prototype?.exportChartLocal) },
+    { name: 'modules/export-data.js',       ok: has(() => HC.Chart?.prototype?.getCSV || HC.Chart?.prototype?.getDataRows) },
+  ];
+}
+
+function renderModulesStatus() {
+  const el = document.getElementById('modules-status-list');
+  if (!el) return;
+  el.innerHTML = _highchartsModuleStatus().map(m =>
+    `<div class="modules-status-row"><span style="color:${m.ok ? '#009d80' : '#d83949'}">${m.ok ? '✓' : '✗'}</span>${m.name}</div>`
+  ).join('');
+}
+
 function exportChart(type) {
   if (!chartInstance) { showToast('No chart to export'); return; }
   const chartName = (document.getElementById('chart-name-display')?.textContent || 'chart').replace(/\s+/g, '-').toLowerCase();
@@ -9696,12 +10198,19 @@ function exportChart(type) {
     // exportChart() always posts to Highcharts' online export server regardless
     // of fallbackToExportServer — that option only applies within
     // exportChartLocal(), which offline-exporting.js adds for client-side export.
-    chartInstance.exportChartLocal({
+    const exportOpts = {
       type: EXPORT_MIME[type] || EXPORT_MIME.png,
       filename: chartName,
       sourceWidth: EXPORT_WIDTH,
       sourceHeight,
-    });
+    };
+    // SVG export renders text as real <text> elements (not font-dependent
+    // rasterised glyphs) — geometricPrecision keeps that text crisp instead
+    // of the browser's default optimizeSpeed rendering.
+    const svgChartOptions = type === 'svg'
+      ? { chart: { style: { textRendering: 'geometricPrecision' } } }
+      : undefined;
+    chartInstance.exportChartLocal(exportOpts, svgChartOptions);
   } catch(e) {
     showToast('Export failed: ' + (e.message || e));
   }
@@ -10466,8 +10975,14 @@ function saveCurrentChart() {
   };
   const idx = saved.findIndex(c => c.id === id);
   if (idx >= 0) saved[idx] = entry; else saved.unshift(entry);
-  localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(saved));
+  try {
+    localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(saved));
+  } catch(e) {
+    showToast('Could not save — storage may be full');
+    return;
+  }
   renderMyCharts();
+  showToast('Chart saved ✓');
   // Brief save confirmation on button
   const btn = document.querySelector('.lib-save-btn');
   if (btn) { btn.textContent = version === 1 ? 'Saved!' : 'v' + version + ' saved!'; setTimeout(() => { btn.textContent = 'Save'; }, 1200); }
@@ -10475,7 +10990,8 @@ function saveCurrentChart() {
 
 function deleteSavedChart(id) {
   const saved = getSavedCharts().filter(c => c.id !== id);
-  localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(saved));
+  try { localStorage.setItem(SAVED_CHARTS_KEY, JSON.stringify(saved)); }
+  catch(e) { showToast('Could not save — storage may be full'); return; }
   renderMyCharts();
 }
 
@@ -10509,7 +11025,7 @@ function loadSavedChartById(id) {
       cfg.credits = { enabled: false };
       if (!cfg.chart) cfg.chart = {};
       cfg.chart.style = { fontFamily: N1_CHART_FONT };
-      cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: true, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
+      cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
       cfg.annotations = buildAnnotationsForChart() || [];
       chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
       _attachAnnotationInteractions();
@@ -10534,7 +11050,7 @@ function renderMyCharts() {
   if (!container) return;
   const saved = getSavedCharts();
   container.innerHTML = saved.length === 0
-    ? `<div class="lib-section-label">My Charts</div><div class="lib-empty">Name and save the current chart above</div>`
+    ? `<div class="lib-section-label">My Charts</div><div class="lib-empty">No charts saved yet. Build a chart and click Save.</div>`
     : `<div class="lib-section-label">My Charts</div>
        ${saved.map(c => `
          <div class="lib-saved-card" data-id="${c.id}" onclick="loadSavedChartById('${c.id}')">
@@ -10603,13 +11119,21 @@ function loadTemplate(id) {
     _clearManualColorOverrides();
     if (tpl.typeHint) state.chartType = tpl.typeHint;
     else if (tpl.rawConfig.chart?.type) state.chartType = tpl.rawConfig.chart.type;
+    // _reapplyFromRawConfig() unconditionally rebuilds xAxis/yAxis titles,
+    // rotation, dash style, etc. from `state` — without reading the
+    // template's own config into state first (as applyFullRawConfig()
+    // already does for pasted configs), every one of those fields would
+    // still hold whatever was left over from before this template loaded,
+    // silently overwriting the template's real xAxis title/etc. with stale
+    // or empty sidebar defaults.
+    syncStateFromConfig(tpl.rawConfig);
     _reapplyFromRawConfig();
     updateChartTypeUI();
     if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
     renderColourRows();
     updateEmptyState();
     persist();
-    // Stay on library panel
+    _ensureTypePanelOpen();
     return;
   }
 
@@ -10629,15 +11153,101 @@ function loadTemplate(id) {
   if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
   schedUpdate();
   persist();
-  // Stay on library panel — don't switch away
+  _ensureTypePanelOpen();
 }
 
 /* ═══════════════════════════════════════════
    RAIL NAVIGATION
 ═══════════════════════════════════════════ */
-function railSelect(panel) {
+// text/axes are right-panel scroll shortcuts, not flyout panels — only
+// these four actually show/hide the flyout, so only they participate in the
+// collapse-on-second-click toggle below.
+const FLYOUT_RAIL_PANELS = ['type', 'theme', 'library', 'ai'];
+let _lastRailPanel = 'type';
+
+function toggleFlyout(collapse) {
+  const f = document.getElementById('flyout');
+  const body = document.getElementById('app-body');
+  if (!f || !body) return;
+  const collapsing = collapse === undefined ? !f.classList.contains('collapsed') : collapse;
+  f.classList.toggle('collapsed', collapsing);
+  body.classList.toggle('flyout-collapsed', collapsing);
+  f.style.transition = 'width 0.22s ease, opacity 0.15s ease';
+  if (collapsing) {
+    f._savedWidth = f.offsetWidth || f._savedWidth || 272;
+    f.style.width = '0';
+    f.style.minWidth = '0';
+    f.style.overflow = 'hidden';
+    f.style.opacity = '0';
+    f.style.borderRightColor = 'transparent';
+  } else {
+    f.style.width = (f._savedWidth || 272) + 'px';
+    f.style.minWidth = '';
+    f.style.overflow = '';
+    f.style.opacity = '1';
+    f.style.borderRightColor = '';
+  }
+}
+
+// Explicit collapse button in the flyout header — same end result as
+// clicking the active rail icon a second time, just a more discoverable
+// control (mirrors #rp-collapse-btn on the right panel).
+function collapseFlyoutExplicit() {
+  toggleFlyout(true);
   document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
+}
+
+// Forces the Type panel open — used whenever a chart is freshly loaded
+// (page load, a library template, a finished import) so the chart-type
+// options are always visible right away, even if the flyout had been left
+// collapsed from a previous session/chart. Deliberately bypasses
+// railSelect()'s "click the active icon again to collapse" toggle, since
+// this isn't a click — it should only ever open, never close.
+function _ensureTypePanelOpen() {
+  const flyout = document.getElementById('flyout');
+  if (flyout?.classList.contains('collapsed')) toggleFlyout(false);
+  if (flyout) flyout.classList.remove('flyout-fixed-width');
+  document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('rail-type')?.classList.add('active');
+  ['flyout-panel-theme', 'flyout-panel-library', 'flyout-panel-ai'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const typePanel = document.getElementById('flyout-panel-type');
+  if (typePanel) typePanel.style.display = 'flex';
+  const flyoutTitle = document.getElementById('flyout-title');
+  if (flyoutTitle) flyoutTitle.textContent = 'Chart type';
+  _lastRailPanel = 'type';
+}
+
+function railSelect(panel) {
   const railBtn = document.getElementById('rail-' + panel);
+
+  if (FLYOUT_RAIL_PANELS.includes(panel)) {
+    _lastRailPanel = panel;
+    const flyout = document.getElementById('flyout');
+    const isOpen = flyout && !flyout.classList.contains('collapsed');
+    // Clicking the already-open panel's own icon again collapses it —
+    // gives the preview full width back without hunting for a separate
+    // close control.
+    if (railBtn?.classList.contains('active') && isOpen) {
+      toggleFlyout(true);
+      railBtn.classList.remove('active');
+      return;
+    }
+    if (!isOpen) toggleFlyout(false);
+    // Ask AI is a fixed-width chat panel by design — no drag-resize, and it
+    // always opens at its own width rather than whatever another panel was
+    // last dragged to.
+    if (flyout) {
+      const wasFixed = flyout.classList.contains('flyout-fixed-width');
+      flyout.classList.toggle('flyout-fixed-width', panel === 'ai');
+      if (panel === 'ai') flyout.style.width = '260px';
+      else if (wasFixed && isOpen) flyout.style.width = (flyout._savedWidth || 272) + 'px';
+    }
+  }
+
+  document.querySelectorAll('.rail-btn').forEach(b => b.classList.remove('active'));
   if (railBtn) railBtn.classList.add('active');
 
   const typePanel  = document.getElementById('flyout-panel-type');
@@ -11052,7 +11662,17 @@ function markClean() {
   const badge = document.getElementById('version-badge');
   if (badge) delete badge.dataset.dirty;
   const saveBtn = document.getElementById('save-btn');
-  if (saveBtn) saveBtn.classList.remove('dirty');
+  if (!saveBtn) return;
+  saveBtn.classList.remove('dirty');
+  // Brief "Saved ✓" confirmation, then settle back into the quiet grey state.
+  const label = saveBtn.querySelector('.save-btn-label');
+  saveBtn.classList.add('just-saved');
+  if (label) label.textContent = 'Saved ✓';
+  clearTimeout(saveBtn._savedTimer);
+  saveBtn._savedTimer = setTimeout(() => {
+    saveBtn.classList.remove('just-saved');
+    if (label) label.textContent = 'Save';
+  }, 2000);
 }
 
 function flashBadge() {
@@ -11474,12 +12094,17 @@ function renderCndVersionList() {
 }
 
 function loadChartVersion(chartId, versionIdx) {
-  closeTopbarDropdowns();
   const charts = getCharts();
   const chart = charts.find(c => c.id === chartId);
   if (!chart) return;
   const ver = chart.versions[versionIdx];
   if (!ver) return;
+  // Selecting a version in the list is the only thing that should switch the
+  // working chart — never do it silently out from under unsaved edits. If
+  // there ARE unsaved changes, require an explicit choice first instead of
+  // discarding them the moment a version row is clicked.
+  if (isDirty && !confirm(`Switch to v${ver.version}? Your unsaved changes to the current version will be lost.`)) return;
+  closeTopbarDropdowns();
   _currentChartId = chartId;
   _currentVersionIndex = versionIdx;
   showToast(`Loading v${ver.version}…`);
@@ -11498,7 +12123,7 @@ function loadChartVersion(chartId, versionIdx) {
       cfg.credits = { enabled: false };
       if (!cfg.chart) cfg.chart = {};
       cfg.chart.style = { fontFamily: N1_CHART_FONT };
-      cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: true, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
+      cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
       cfg.annotations = buildAnnotationsForChart() || [];
       chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
       _attachAnnotationInteractions();
@@ -11892,14 +12517,6 @@ window.applyTheme = function(key) {
   renderTimPills();
 };
 
-// Patch selectChartType to show toast (Part 9)
-const _origSelectChartType = window.selectChartType;
-window.selectChartType = function(type) {
-  if (_origSelectChartType) _origSelectChartType(type);
-  const names = { line:'Line chart', spline:'Smooth line', area:'Area chart', areaspline:'Smooth area', column:'Column chart', bar:'Bar chart', pie:'Pie chart', donut:'Donut chart', scatter:'Scatter plot', bubble:'Bubble chart' };
-  showToast(`Switched to ${names[type] || type} — check your data columns look correct`);
-};
-
 // Expose openTypePicker globally
 window.openTypePicker = openTypePicker;
 
@@ -11907,7 +12524,7 @@ window.openTypePicker = openTypePicker;
    AI CHAT — Claude-powered chart editing
 ═══════════════════════════════════════════════════════════════ */
 
-const AI_MODEL = 'claude-sonnet-4-5';
+const AI_MODEL = 'claude-sonnet-5';
 const AI_MAX_TOKENS = 4096;
 
 const AI_SYSTEM = `You are an expert Highcharts 11 configuration assistant embedded in the Ninety One Chart Builder.
@@ -11917,7 +12534,7 @@ The user will describe a change they want to make to their chart. You will be gi
 How the merge patch works (this is important — it keeps responses small and fast):
 - Only include the specific top-level keys you're changing (e.g. just "chart" and "legend" if that's all that changed) — omit every key you're not touching entirely. Do NOT return the full config back.
 - Nested objects (chart, xAxis, yAxis, tooltip, plotOptions, title, subtitle, legend) are merged key-by-key into the existing config — inside an object you're touching, only include the specific inner key(s) you're changing, not its siblings. E.g. to change only the chart type, return { chart: { type: 'bar' } } — do NOT also repeat chart.height or chart.style.
-- Arrays (annotations, yAxis.plotLines) are NOT merged — if you include one, you must return its ENTIRE new contents, since it fully replaces the existing array.
+- Arrays (annotations, yAxis.plotLines) are NOT merged — if you include one, you must return its ENTIRE new contents, since it fully replaces the existing array. When the user only wants to change an existing annotation's style (colour/width/dash) and NOT its position, copy every "points" array and "text" verbatim from the current config's annotations and change ONLY the style key (e.g. shapes[].stroke for line/arrow colour, labels[].backgroundColor for label colour) — never recompute or re-guess point coordinates for a style-only request.
 - series is a special case: if you're touching a series (color, name, dashStyle, type, stacking) WITHOUT changing its actual data values, return that series entry WITHOUT a "data" key at all — the app will keep the existing data for that series automatically. Only include "data" for a series if the user explicitly asked to change its values. This is the single most important rule — data arrays can be very large, and repeating them wastes time.
 - To remove/reset a key, set its value to null.
 
@@ -11932,12 +12549,25 @@ Rules:
 - legend.enabled controls legend visibility.
 - subtitle.text adds a subtitle below the title.
 - For stacked charts: plotOptions.series.stacking = 'normal' or 'percent'.
+- Annotation connector-line/arrow colour is shapes[].stroke (a CSS colour string); annotation label background colour is labels[].backgroundColor. These are the only colour keys annotations support.
+
+Brand palette — ONLY use these if the user explicitly asks to set/override a colour (e.g. "make series 1 dark teal"); do not use this instead of the "never hardcode series colours" rule above, since the Sitecore theme drives colours by default and hardcoding them here would fight that:
+1st: #164848 (dark teal), 2nd: #009d80 (green), 3rd: #7ab5b5 (light teal), 4th: #c8e0e0 (pale teal), 5th: #f0a500 (amber), 6th: #8a8a8a (grey).
+Full palette to pick from for any other explicit colour request: #164848, #009d80, #7ab5b5, #c8e0e0, #FBAA96, #d83949, #74908D, #f0a500, #116e62, #199e81, #f8aa96, #c1756e, #dc4354, #114141, #b2a896, #221b3b.
+
+Never output: raw JavaScript functions/callbacks, a Highcharts.chart() wrapper, var/const/let declarations, HTML or <script> tags, or a string literal containing a real line break. Always keep credits: { enabled: false } in the base config (it's already set by the app — don't remove it).
 - Return only the patch object — no variable assignment, no explanation, no markdown fences.`;
 
 let _aiMessages = [];
 
+// One shared API key for every AI feature in the app (this chat, the image-
+// to-chart vision import, and the sidebar's own key field) — they used to be
+// stored under different localStorage keys (n1_ai_key here vs n1_api_key
+// everywhere else), so connecting in one place silently left the others
+// running in mock/disconnected mode. n1_ai_key is still read as a fallback
+// so anyone who already saved a key under the old name doesn't lose it.
 function aiGetKey() {
-  try { return localStorage.getItem('n1_ai_key') || ''; } catch(e) { return ''; }
+  try { return localStorage.getItem('n1_api_key') || localStorage.getItem('n1_ai_key') || ''; } catch(e) { return ''; }
 }
 
 function aiSaveKey() {
@@ -11947,12 +12577,12 @@ function aiSaveKey() {
     showToast('Key should start with sk-ant-…');
     return;
   }
-  try { localStorage.setItem('n1_ai_key', key); } catch(e) {}
+  try { localStorage.setItem('n1_api_key', key); } catch(e) {}
   aiInitPanel();
 }
 
 function aiForgetKey() {
-  try { localStorage.removeItem('n1_ai_key'); } catch(e) {}
+  try { localStorage.removeItem('n1_api_key'); localStorage.removeItem('n1_ai_key'); } catch(e) {}
   aiInitPanel();
 }
 

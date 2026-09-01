@@ -3072,9 +3072,6 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 .welcome-option-icon { font-size: 32px; margin-bottom: 12px; }
 .welcome-option-label { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
 .welcome-option-desc { font-size: 12px; color: #888; line-height: 1.5; }
-.welcome-scratch { margin-top: 20px; font-size: 12px; color: #aaa; }
-.welcome-scratch a { color: #009d80; cursor: pointer; text-decoration: underline; background: none; border: none; font-family: inherit; font-size: inherit; }
-
 /* ═══════════════════════════════════════════
    PART 2 — CHART NAMING + VERSION CONTROL
 ═══════════════════════════════════════════ */
@@ -3356,9 +3353,6 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
         <div class="welcome-option-label">Load saved chart</div>
         <div class="welcome-option-desc">Continue working on a chart you've saved previously.</div>
       </button>
-    </div>
-    <div class="welcome-scratch">
-      <button onclick="welcomeAction('scratch')">Start from scratch</button>
     </div>
   </div>
 </div>
@@ -11936,12 +11930,6 @@ function welcomeAction(action) {
   if (action === 'paste')    { triggerPasteData(); }
   if (action === 'manual')   { startBlankDataEntry(); }
   if (action === 'library')  { openChartBrowser(); }
-  if (action === 'scratch')  {
-    state.series = []; state.categories = [];
-    state.chartType = 'column'; state.title = ''; state.subtitle = '';
-    renderGrid(); renderColourRows(); schedUpdate(); updateEmptyState();
-    updateChartTypeUI();
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════════

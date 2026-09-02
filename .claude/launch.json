@@ -3,8 +3,6 @@
   "configurations": [
     {
       "name": "Highchart Preview",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8000"],
       "port": 8000,
       "url": "http://localhost:8000"
     }

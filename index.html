@@ -15,11 +15,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/sunburst.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/packed-bubble.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/treemap.js"></script>
+<!-- Required for the point-edit popover's pattern-fill option (stripes/dots)
+     to actually render — without this, a `color: {pattern: {...}}` point
+     colour is silently ignored by core Highcharts. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/pattern-fill.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/exporting.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/offline-exporting.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.2.0/modules/export-data.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Used only at SVG-export time to convert chart text into real vector
+     paths from the bundled Visuelt .ttf files, so an exported SVG never
+     depends on the viewer having the Ninety One brand font installed. -->
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
 
 <style>
 /* ─── Reset & Base ─── */
@@ -531,7 +539,7 @@ body {
   font-family: inherit;
 }
 .rail-btn svg { width: 24px; height: 24px; }
-.rail-btn:hover { background: #f5f4f0; color: #333; }
+.rail-btn:hover { background: #f5f3ec; color: #333; }
 .rail-btn.active { background: #e8f5f1; color: #009d80; }
 
 .rail-sep {
@@ -1126,17 +1134,20 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
-  /* min-height:0 is required — flex items default to min-height:auto and refuse
-     to shrink below their content, which would block the config panel below
-     from being dragged taller. */
   min-height: 0;
-  /* The preview/config split manages its own internal scrolling (the config
-     panel's own pre#config-output scrolls) — the wrap itself must not scroll
-     as a whole, or the "split" degenerates into one long scrolling page. */
-  overflow: hidden;
+  /* The preview always renders at the chart's real configured height and
+     the config box has its own fixed height (with its own internal scroll
+     via pre#config-output) — if the two together are taller than the
+     available space, the wrap itself scrolls rather than clipping either
+     one, so nothing ever becomes invisibly unreachable. */
+  overflow-y: auto;
   padding: 20px;
   gap: 16px;
 }
+.preview-stage-wrap::-webkit-scrollbar { width: 10px; }
+.preview-stage-wrap::-webkit-scrollbar-track { background: #ececec; }
+.preview-stage-wrap::-webkit-scrollbar-thumb { background: #b0aca0; border-radius: 5px; border: 2px solid #ececec; }
+.preview-stage-wrap::-webkit-scrollbar-thumb:hover { background: #009d80; }
 
 /* ─── Chart Type Bar (inside flyout) ─── */
 #chart-type-bar-wrap {
@@ -1426,42 +1437,13 @@ body {
   padding: 20px;
   animation: n1-fade-up .3s .1s ease both;
   position: relative;
-  /* Default height comes from #chart-container's own configured-height inline
-     style plus this padding — i.e. the preview is naturally sized to the
-     chart's height setting. flex-shrink:0 keeps it from being squeezed by
-     the config panel's flex:1 below; min-height is the drag floor. */
+  /* Height comes from #chart-container's own configured-height inline style
+     plus this padding — the preview is always sized to the chart's real
+     height setting, never a manually resized value. flex-shrink:0 keeps it
+     from being squeezed by the (fixed-height) config panel below. */
   flex-shrink: 0;
   min-height: 200px;
   overflow: hidden;
-}
-
-/* ─── Config resize handle ─── */
-.config-resize-handle {
-  height: 12px;
-  cursor: row-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border-radius: 4px;
-  margin: 2px 0;
-  user-select: none;
-  transition: background .15s;
-}
-.config-resize-handle:hover,
-.config-resize-handle.dragging { background: rgba(0,157,128,.07); }
-
-.config-resize-grip {
-  display: block;
-  font-size: 13px;
-  line-height: 1;
-  letter-spacing: 2px;
-  color: #d8d6cf;
-  transition: color .15s;
-}
-.config-resize-handle:hover .config-resize-grip,
-.config-resize-handle.dragging .config-resize-grip {
-  color: #009d80;
 }
 
 /* ─── Config card ─── */
@@ -1473,11 +1455,11 @@ body {
   animation: n1-fade-up .3s .2s ease both;
   display: flex;
   flex-direction: column;
-  /* Fills all remaining height below the (fixed-height) preview by default —
-     dragging the handle overrides #preview-card's height instead, so this
-     panel always just takes what's left. */
-  flex: 1 1 auto;
-  min-height: 150px;
+  /* A fixed, comfortable height (not tied to whatever's left over after the
+     preview) — this box scrolls its own content (pre#config-output), and
+     .preview-stage-wrap scrolls as a whole if this plus a tall chart don't
+     both fit the screen, so it never needs to shrink below this. */
+  flex: 0 0 420px;
 }
 
 .config-card-head {
@@ -1557,8 +1539,14 @@ body {
 }
 #rp-expand-tab:hover { color: #333; }
 #app-body.rp-collapsed #rp-expand-tab { display: flex; }
-#right-panel::-webkit-scrollbar { width: 4px; }
-#right-panel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+/* A 4px near-invisible scrollbar made a shorter viewport look permanently
+   "cut off" at the bottom rather than scrollable — same fix as the config
+   output panel's scrollbar: wide and dark enough to actually notice. */
+#right-panel { scrollbar-width: auto; scrollbar-color: #b0aca0 #ececec; }
+#right-panel::-webkit-scrollbar { width: 10px; }
+#right-panel::-webkit-scrollbar-track { background: #ececec; }
+#right-panel::-webkit-scrollbar-thumb { background: #b0aca0; border-radius: 5px; border: 2px solid #ececec; }
+#right-panel::-webkit-scrollbar-thumb:hover { background: #009d80; }
 
 #right-panel-head {
   padding: 12px 14px;
@@ -1788,17 +1776,26 @@ body {
 pre#config-output {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #f8f8f8;
   font-family: monospace;
   font-size: 13px;
   padding: 12px;
   border-radius: 0;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-word;
   margin: 0;
-  scrollbar-width: thin;
+  /* Wider and higher-contrast than the app's usual thin/pale scrollbars —
+     this box is often short with a lot more content below the fold, so the
+     scrollbar needs to actually read as "there's more, drag here" rather
+     than disappear against the panel background. */
+  scrollbar-width: auto;
+  scrollbar-color: #b0aca0 #ececec;
 }
-pre#config-output::-webkit-scrollbar { width: 4px; }
-pre#config-output::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+pre#config-output::-webkit-scrollbar { width: 10px; }
+pre#config-output::-webkit-scrollbar-track { background: #ececec; }
+pre#config-output::-webkit-scrollbar-thumb { background: #b0aca0; border-radius: 5px; border: 2px solid #ececec; }
+pre#config-output::-webkit-scrollbar-thumb:hover { background: #009d80; }
 
 .copy-btn-small {
   position: absolute;
@@ -3242,20 +3239,6 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 /* ═══════════════════════════════════════════
    PART 6 — SITECORE WORKFLOW HELPER
 ═══════════════════════════════════════════ */
-.sitecore-helper { border-top: 1px solid #eee; flex-shrink: 0; }
-.sitecore-helper-toggle {
-  display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 14px;
-  background: none; border: none; cursor: pointer; font-size: 12px; color: #555; font-family: inherit;
-  text-align: left; transition: background .12s;
-}
-.sitecore-helper-toggle:hover { background: #f8f6f0; }
-.sitecore-helper-toggle svg { transition: transform .2s; flex-shrink: 0; }
-.sitecore-helper-toggle.open svg { transform: rotate(90deg); }
-.sitecore-helper-body { padding: 0 14px 14px; display: none; }
-.sitecore-helper-body.open { display: block; }
-.sitecore-steps { list-style: none; padding: 0; margin: 0 0 10px; counter-reset: step; }
-.sitecore-steps li { counter-increment: step; display: flex; gap: 10px; font-size: 12px; color: #555; padding: 5px 0; line-height: 1.5; }
-.sitecore-steps li::before { content: counter(step); display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: #009d80; color: #fff; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
 
 /* ═══════════════════════════════════════════
    PART 8 — SIDEBAR SECTION DISTINCTION
@@ -3272,11 +3255,13 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
   transition: background .12s; border-left: 3px solid transparent;
 }
 .accordion-header:hover { background: #f5f3ec; }
+/* Same light-teal "active" tint as .rail-btn.active, so a selected
+   accordion section and a selected rail tab read as the same state. */
 .accordion-header.open {
-  background: #fff; color: #164848; font-weight: 600;
+  background: #e8f5f1; color: #009d80; font-weight: 600;
   border-left-color: #009d80;
 }
-.accordion-header.open:hover { background: #fff; }
+.accordion-header.open:hover { background: #e8f5f1; }
 .accordion-header .chevron {
   font-size: 14px; transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1), color .3s cubic-bezier(0.4, 0, 0.2, 1); display: inline-block; color: #aaa;
 }
@@ -3623,16 +3608,14 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
             <button id="color-point-btn" onclick="toggleColorPointMode()" style="font-size:11px;font-weight:600;font-family:inherit;border:1px solid #571b39;color:#571b39;background:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;transition:all 0.15s">✏️ Edit individual bars</button>
           </div>
         </div>
-        <!-- Drag handle to resize config panel -->
-        <div class="config-resize-handle" id="config-resize-handle" title="Drag to resize">
-          <span class="config-resize-grip">⋮⋮</span>
-        </div>
-
         <div id="config-card">
           <div class="config-card-head">
             <span class="config-card-label" id="config-card-label">CMS Config — paste into Sitecore</span>
             <div class="config-card-actions" id="config-card-actions">
-              <button class="btn-ghost-light" id="config-edit-btn" onclick="toggleConfigEdit()" title="Edit config">Edit</button>
+              <button class="btn-ghost-light" id="config-edit-btn" onclick="toggleConfigEdit()" title="Edit config">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                Edit
+              </button>
               <button class="btn-ghost-light" id="config-copy-btn" onclick="copyConfig()" title="Copy config (Cmd+C)">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
               </button>
@@ -3668,23 +3651,6 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
               oninput="onConfigCsvUrlInput(this.value)">
           </div>
           <!-- Sitecore helper (Part 6) -->
-          <div class="sitecore-helper">
-            <button class="sitecore-helper-toggle" id="sitecore-toggle" onclick="toggleSitecoreHelper()">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              Next steps in Sitecore
-            </button>
-            <div class="sitecore-helper-body" id="sitecore-body">
-              <ol class="sitecore-steps">
-                <li>Go to Content Editor → your article item</li>
-                <li>Find or create a Highcharts datasource item</li>
-                <li>Name it: <strong id="sitecore-chart-name-ref">Untitled chart</strong></li>
-                <li>Paste the config into the <em>Chart Config</em> field</li>
-                <li>Save and publish</li>
-                <li>Return here to save a new version if you make changes later</li>
-              </ol>
-              <button class="copy-btn-small" onclick="copyConfig()" style="position:static;width:100%;justify-content:center">Copy config</button>
-            </div>
-          </div>
         </div>
         </div><!-- /.preview-stage-wrap -->
       </div>
@@ -3817,6 +3783,16 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
              is too short to show the floating version without it covering
              the chart itself — see _updateColorPointPlacement(). -->
         <button id="color-point-btn-sidebar" onclick="toggleColorPointMode()" style="display:none;width:100%;margin-top:8px;font-size:11px;font-weight:600;font-family:inherit;border:1px solid #571b39;color:#571b39;background:#fff;border-radius:4px;padding:6px 10px;cursor:pointer;transition:all 0.15s">✏️ Edit individual bars</button>
+
+        <!-- When bars are coloured/patterned individually, the real Highcharts
+             legend can only show one swatch for the whole series — these are
+             hand-defined swatch+label rows that replace it, e.g. "AI related"
+             vs "Broader credit index" instead of "Series 1". -->
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">Custom legend (for individually-coloured bars)</div>
+          <div id="custom-legend-list"></div>
+          <button onclick="addCustomLegendItem()" style="width:100%;margin-top:4px;font-size:11px;font-weight:600;font-family:inherit;border:1px dashed #ccc;color:#555;background:#fff;border-radius:4px;padding:6px 10px;cursor:pointer">+ Add legend item</button>
+        </div>
       </div>
     </div>
 
@@ -4188,6 +4164,11 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
         Export <span class="chevron">▸</span>
       </button>
       <div class="accordion-body" id="acc-body-export">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">Export size</div>
+        <div class="seg-group" style="margin-bottom:10px">
+          <button class="seg-btn active" data-export-size="col1" onclick="setExportSize('col1')">1 column</button>
+          <button class="seg-btn" data-export-size="full" onclick="setExportSize('full')">Full width</button>
+        </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <button class="export-action-btn" onclick="copyConfig()">📋 Copy config</button>
           <button class="export-action-btn" onclick="exportChart('png')">⬇ Download PNG</button>
@@ -4295,12 +4276,15 @@ const N1_CHART_FONT = '"Ninety One Visuelt", sans-serif';
 // solid page background (so they drop onto the article's own background) and
 // a fixed, brand-consistent width/font scale instead of whatever size the
 // live preview canvas happens to be at export time.
-const EXPORT_FONT = 'Arial, Helvetica, sans-serif';
+const EXPORT_FONT = N1_CHART_FONT;
 const EXPORT_CHART_OPTIONS = {
-  // Explicit fontFamily on every text-bearing element so exported PNG/SVG/
-  // PDF text renders the same way regardless of whether the Ninety One
-  // Visuelt font is installed in the export environment (Illustrator,
-  // Figma, a print workflow) — Arial/Helvetica is available everywhere.
+  // Explicit fontFamily on every text-bearing element, set to the real
+  // Ninety One Visuelt font rather than an Arial fallback — SVG exports
+  // convert this text into vector paths traced from the actual Visuelt
+  // font file (see _svgTextToPaths), and PNG exports rasterise it from
+  // this same page, which already has Visuelt loaded via @font-face — so
+  // there's no "is the font installed on the export machine" risk left
+  // that the Arial substitute used to hedge against.
   chart: { backgroundColor: null, style: { fontFamily: EXPORT_FONT } },
   title: { style: { fontSize: '22px', fontFamily: EXPORT_FONT } },
   subtitle: { style: { fontSize: '14px', fontFamily: EXPORT_FONT } },
@@ -4560,6 +4544,11 @@ let state = {
   xAxisType: 'category',
   pointPadding: 0.1,
   borderRadius: 0,
+  // Manually defined legend swatches — for charts where colour/pattern is
+  // set per-point (via the point-edit popover) rather than per-series, so
+  // the real Highcharts legend (which only shows one entry per series)
+  // can't describe what each colour/pattern means on its own.
+  customLegend: [],
 };
 
 let cmsAvailability = {};
@@ -4612,13 +4601,14 @@ window.addEventListener('DOMContentLoaded', () => {
   renderThemePills();
   renderColourRows();
   renderYPlotLines();
+  renderCustomLegend();
   renderGrid();
   update();
   updateChartTypeUI();
   checkColourOverrides();
   tagFieldRows();
   setTimeout(() => { initFieldHovers(); initChartClickNav(); }, 300); // after Highcharts SVG renders
-  initConfigResize();
+  _resetPanelSplitToNatural();
   // Show welcome on fresh load (no restored data)
   try {
     const saved = localStorage.getItem('n1_last_session');
@@ -4747,6 +4737,18 @@ function updateAxisColorVisibility() {
 
 let _axisColorPickerCleanup = null;
 
+// Shared by every anchor-relative swatch popover (axis colour, plot-line
+// colour, custom-legend swatch): repositions from the popover's REAL
+// rendered height/width after it's in the DOM, flipping above the anchor
+// or clamping to the viewport edge instead of running off-screen.
+function _clampPopoverToAnchor(pop, anchorRect) {
+  const h = pop.offsetHeight, w = pop.offsetWidth;
+  let top = anchorRect.bottom + 6;
+  if (top + h > window.innerHeight - 8) top = Math.max(8, anchorRect.top - h - 6);
+  pop.style.top = Math.min(top, window.innerHeight - h - 8) + 'px';
+  pop.style.left = Math.max(8, Math.min(parseFloat(pop.style.left) || anchorRect.left, window.innerWidth - w - 8)) + 'px';
+}
+
 function openAxisColorPicker(stateKey, swatchId) {
   _closeAxisColorPicker();
   const N1_SWATCHES = ['#cbc8c8','#b2a896','#009d80','#164848','#7ab5b5','#fbaa96','#fcaa28','#d83949','#571b39','#4f6266','#221b3b','#0a3323'];
@@ -4756,7 +4758,7 @@ function openAxisColorPicker(stateKey, swatchId) {
   const pop = document.createElement('div');
   pop.id = '_axisColorPicker';
   const currentColor = state[stateKey] || '#cbc8c8';
-  pop.style.cssText = `position:fixed;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.18);width:200px;`;
+  pop.style.cssText = `position:fixed;visibility:hidden;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.18);width:200px;max-height:calc(100vh - 16px);overflow-y:auto;`;
   pop.style.left = Math.min(rect.left, window.innerWidth - 216) + 'px';
   pop.style.top  = (rect.bottom + 6) + 'px';
   pop.innerHTML = `
@@ -4774,6 +4776,8 @@ function openAxisColorPicker(stateKey, swatchId) {
     <button onclick="_closeAxisColorPicker()" style="margin-top:8px;width:100%;background:#f5f5f5;border:1px solid #ccc;border-radius:4px;padding:4px;cursor:pointer;font-size:12px">Close</button>
   `;
   document.body.appendChild(pop);
+  _clampPopoverToAnchor(pop, rect);
+  pop.style.visibility = 'visible';
   const outside = e => { if (!pop.contains(e.target) && e.target.id !== swatchId) _closeAxisColorPicker(); };
   setTimeout(() => document.addEventListener('mousedown', outside), 0);
   _axisColorPickerCleanup = () => document.removeEventListener('mousedown', outside);
@@ -5070,6 +5074,8 @@ function applyTheme(key) {
   applyThemeCss(key);
   renderThemePills();
   renderColourRows();
+  renderYPlotLines();
+  renderCustomLegend();
   checkColourOverrides();
 
   if (_lastRawConfig) {
@@ -5146,6 +5152,8 @@ function syncSidebarToState() {
   const _zc = g('sb-zeroline-color'); if (_zc) { _zc.style.background = s.yZeroLineColor || '#b2a896'; _zc.title = s.yZeroLineColor || '#b2a896'; }
   const _xc = g('sb-xline-color');    if (_xc) { _xc.style.background = s.xLineColor || '#cbc8c8';    _xc.title = s.xLineColor || '#cbc8c8'; }
   updateAxisColorVisibility();
+  renderYPlotLines();
+  renderCustomLegend();
   document.querySelectorAll('[data-lw]').forEach(b => b.classList.toggle('active', +b.dataset.lw === (s.lineWidth ?? 2)));
   document.querySelectorAll('[data-dec]').forEach(b => b.classList.toggle('active', b.dataset.dec === (s.decimals == null ? 'auto' : String(s.decimals))));
   document.querySelectorAll('[data-mr]').forEach(b => b.classList.toggle('active', +b.dataset.mr === (s.markerRadius ?? 4)));
@@ -5246,8 +5254,13 @@ function renderColourRows() {
   if (!container) return;
   const theme = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
 
-  // Raw-config path: state.series empty but _lastRawConfig has series
-  if (state.series.length === 0 && _lastRawConfig?.series?.length) {
+  // Raw-config path takes priority whenever _lastRawConfig is set, full
+  // stop — not just when state.series happens to be empty. state.series is
+  // meaningless once a raw config is loaded (it's the OTHER pipeline's data
+  // model) but wasn't always reliably reset to [] at every place a chart
+  // could be switched, which is how a previous chart's series names/colours
+  // kept bleeding into whatever raw-config chart loaded next.
+  if (_lastRawConfig?.series?.length) {
     const rawSeries = _lastRawConfig.series;
     const themeColors = theme.chartSeriesColors || N1_PALETTE;
     container.innerHTML = rawSeries.map((s, i) => {
@@ -5795,6 +5808,7 @@ function selectChartType(type) {
   // animate smoothly, and only on the two cards that actually changed.
   _updateChartTypeBarActive(type);
   updateChartTypeUI();
+  _allowNextRenderAnimation();
   schedUpdate(); persist();
 }
 
@@ -5809,6 +5823,11 @@ function updateChartTypeUI() {
   document.getElementById('sidebar-chart-name').textContent = map[state.chartType] || state.chartType;
   const iconEl = document.getElementById('sidebar-chart-icon');
   if (iconEl) iconEl.innerHTML = chartSvgIconSmall(state.chartType).replace(/<svg[^>]*>/, '').replace('</svg>', '');
+  // Without this, the Type picker's own highlighted card only ever reflects
+  // whatever was last clicked there — a chart loaded any other way (a
+  // template, a saved chart, a paste) left it stuck on a stale/wrong type
+  // while the sidebar header above correctly showed the real one.
+  _updateChartTypeBarActive(state.chartType);
   updateFieldVisibility();
 }
 
@@ -5828,6 +5847,18 @@ function toggleCmsType(type, val) {
    HIGHCHARTS RENDER
 ═══════════════════════════════════════════ */
 let _pendingUndoCapture = true;
+
+// One-shot switch: the live preview normally rebuilds instantly on every
+// sidebar edit (a redraw, not a real chart load, so replaying the draw-in
+// animation on every keystroke/toggle felt wrong) — but a genuine "new
+// chart" moment (switching chart type, loading a template, finishing an
+// import) still deserves the configured animation as feedback that
+// something real just changed. Call this right before the action that
+// should animate; update()/_reapplyFromRawConfig() consume (and clear) it
+// on the very next render.
+let _animateNextRender = false;
+function _allowNextRenderAnimation() { _animateNextRender = true; }
+
 function schedUpdate() {
   // Capture the pre-edit snapshot once per burst of changes (a rapid run of
   // keystrokes/clicks collapses into one undo step), not on every call.
@@ -5907,9 +5938,17 @@ function update() {
     series = s.series.map((sr, i) => ({
       type: hcType,
       name: sr.name,
-      data: isBubble
-        ? sr.data.map((v, idx) => v === null ? null : (_manualColorOverrides[`${i}-${idx}`] ? { x: idx, y: v, z: Math.abs(v), color: _manualColorOverrides[`${i}-${idx}`] } : { x: idx, y: v, z: Math.abs(v) }))
-        : sr.data.map((v, idx) => v === null ? null : (_manualColorOverrides[`${i}-${idx}`] ? { y: v, color: _manualColorOverrides[`${i}-${idx}`] } : v)),
+      // applyPointEdit() mutates a point in place to { y, color } once a
+      // pattern/colour override is applied — v can already be that object
+      // here, not just the plain number this used to assume. Unwrapping
+      // first avoids re-wrapping into a doubly-nested { y: { y, color },
+      // color }, which Highcharts (and Sitecore) can't render as a value.
+      data: (() => {
+        const plainOf = v => (v && typeof v === 'object') ? (v.y ?? null) : v;
+        return isBubble
+          ? sr.data.map((v, idx) => { const p = plainOf(v); return p === null ? null : (_manualColorOverrides[`${i}-${idx}`] ? { x: idx, y: p, z: Math.abs(p), color: _manualColorOverrides[`${i}-${idx}`] } : { x: idx, y: p, z: Math.abs(p) }); })
+          : sr.data.map((v, idx) => { const p = plainOf(v); return p === null ? null : (_manualColorOverrides[`${i}-${idx}`] ? { y: p, color: _manualColorOverrides[`${i}-${idx}`] } : p); });
+      })(),
       color: sr.colorOverride ? sr.color : themeColors[i % themeColors.length],
       lineWidth: (isScatter || isBubble) ? 0 : s.lineWidth,
       // A per-series override (set via the Series colours row) wins over the
@@ -5927,6 +5966,13 @@ function update() {
     }));
   }
 
+  // Consumed once per render — see _allowNextRenderAnimation()'s comment.
+  const _liveAnim = _animateNextRender && s.animationDuration > 0
+    ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false;
+  _animateNextRender = false;
+
+  _applyCustomLegend(series, themeColors);
+
   const opts = {
     colors: themeColors,
     chart: {
@@ -5935,7 +5981,12 @@ function update() {
       height: s.chartHeight,
       style: { fontFamily: N1_CHART_FONT },
       zoomType: s.zoom || undefined,
-      animation: s.animationDuration > 0 ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false,
+      // The exported CMS config (generateConfig() below) always carries the
+      // real configured duration/easing, so the published chart animates as
+      // configured; this preview instance only animates when a genuine new
+      // chart was just loaded (see _allowNextRenderAnimation()), not on
+      // every routine sidebar edit.
+      animation: _liveAnim,
     },
     title: { text: s.title || null, style: { color: headCol } },
     subtitle: { text: s.subtitle || null, style: { color: textCol } },
@@ -5976,11 +6027,11 @@ function update() {
           ...(s.yZeroLine ? [{ value: 0, color: s.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 }] : []),
           ...s.yPlotLines.map(pl => ({
             value: pl.value,
-            color: pl.color || '#d83949',
+            color: _plotLineColor(pl, themeColors),
             width: 1,
             zIndex: 4,
             ...(pl.dashStyle && pl.dashStyle !== 'Solid' ? { dashStyle: pl.dashStyle } : {}),
-            label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
+            label: pl.label ? { text: pl.label, style: { color: _plotLineColor(pl, themeColors), fontSize: '11px' } } : undefined,
           })),
         ],
       },
@@ -6013,9 +6064,8 @@ function update() {
         stacking: s.stacking || undefined,
         connectNulls: s.connectNulls,
         step: s.stepLine || undefined,
-        // chart.animation alone doesn't reliably drive the series point-draw
-        // animation — Highcharts needs it set at plotOptions.series too.
-        animation: s.animationDuration > 0 ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false,
+        // Same _liveAnim as chart.animation above.
+        animation: _liveAnim,
       },
       column: { pointPadding: s.pointPadding ?? 0.1, borderRadius: s.borderRadius || 0, borderWidth: 0 },
       bar:    { pointPadding: s.pointPadding ?? 0.1, borderRadius: s.borderRadius || 0, borderWidth: 0 },
@@ -6060,6 +6110,7 @@ function generateConfig() {
   const isHierarchical = ['sunburst','treemap'].includes(s.chartType);
   const isPacked = s.chartType === 'packedbubble';
   const isNoAxis = isPie || isHierarchical || isPacked;
+  const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
   const cfg = {};
 
   // ── chart ──
@@ -6104,9 +6155,10 @@ function generateConfig() {
     const _cleanPL = [];
     if (s.yZeroLine) _cleanPL.push({ value: 0, color: s.yZeroLineColor && s.yZeroLineColor !== '#b2a896' ? s.yZeroLineColor : undefined, width: 1, zIndex: 4 });
     if (s.yPlotLines.length) s.yPlotLines.forEach(pl => {
-      const entry = { value: pl.val || pl.value, color: pl.color || '#d83949', width: 1, zIndex: 4 };
+      const plCol = _plotLineColor(pl, thm.chartSeriesColors || N1_PALETTE);
+      const entry = { value: pl.val || pl.value, color: plCol, width: 1, zIndex: 4 };
       if (pl.dashStyle && pl.dashStyle !== 'Solid') entry.dashStyle = pl.dashStyle;
-      if (pl.label) entry.label = { text: pl.label };
+      if (pl.label) entry.label = { text: pl.label, style: { color: plCol, fontSize: '11px' } };
       _cleanPL.push(entry);
     });
     if (_cleanPL.length) ya.plotLines = _cleanPL;
@@ -6196,9 +6248,16 @@ function generateConfig() {
   } else if (!s.csvUrl) {
     cfg.series = s.series.map((sr, si) => {
       const out = { name: sr.name, data: sr.data.map((v, pi) => {
-        const ov = _manualColorOverrides[`${si}-${pi}`];
-        if (v === null || !ov) return v;
-        return { y: v, color: ov };
+        // applyPointEdit() mutates the point in place to { y, color } once a
+        // pattern/colour override is applied, so v can already be that
+        // object here, not just the plain number this used to assume —
+        // wrapping it again produced a doubly-nested { y: { y, color },
+        // color } that isn't valid Highcharts point data (this is what
+        // Sitecore was failing to render at all).
+        const plain = (v && typeof v === 'object') ? (v.y ?? null) : v;
+        const ov = _manualColorOverrides[`${si}-${pi}`] || (v && typeof v === 'object' ? v.color : undefined);
+        if (plain === null || !ov) return plain;
+        return { y: plain, color: ov };
       }) };
       if (sr.colorOverride) out.color = sr.color; // only include if manually set
       if (sr.dashStyle) out.dashStyle = sr.dashStyle; // only include if manually set
@@ -6208,6 +6267,8 @@ function generateConfig() {
 
   const annotationsCfg = buildAnnotationsConfig();
   if (annotationsCfg) cfg.annotations = annotationsCfg;
+
+  _applyCustomLegend(cfg.series, thm.chartSeriesColors || N1_PALETTE);
 
   return cfg;
 }
@@ -6285,90 +6346,28 @@ function highlighted(text) {
 }
 
 /* ═══════════════════════════════════════════
-   CONFIG PANEL DRAG-TO-RESIZE
+   PREVIEW / CONFIG LAYOUT
+   Used to be a drag-to-resize split between the preview and config boxes,
+   clamped to whatever space was left in the column — but that clamp caps
+   the preview shorter than the chart's own configured height whenever the
+   config box needs its minimum room, so dragging back "up" to restore the
+   original size instead left the preview clipped and butting straight into
+   the config box. Simpler and more robust (and how Datawrapper/Flourish do
+   it): the preview always renders at the chart's real height, the config
+   box has one comfortable fixed height with its own internal scroll (see
+   pre#config-output), and .preview-stage-wrap scrolls as a whole if the two
+   together don't fit the screen — so nothing is ever invisibly clipped.
 ═══════════════════════════════════════════ */
 const PANEL_SPLIT_KEY = 'n1_panel_split';
-const PANEL_SPLIT_MIN_PREVIEW = 200;
-const PANEL_SPLIT_MIN_CODE = 150;
 
-function _applyPanelSplitHeight(h) {
+// One-time cleanup of a leftover manual-resize height from before this
+// panel became fixed-height/scrolling, plus still used whenever a
+// genuinely different chart loads (template/import/paste) so a previous
+// chart's state never bleeds into the next one's layout.
+function _resetPanelSplitToNatural() {
   const preview = document.getElementById('preview-card');
-  if (preview) preview.style.height = h + 'px';
-  _updateColorPointPlacement();
-}
-
-function _clampPanelSplit(h) {
-  const wrap = document.querySelector('.preview-stage-wrap');
-  const handle = document.getElementById('config-resize-handle');
-  const wrapH = wrap ? wrap.getBoundingClientRect().height : 800;
-  const handleH = handle ? handle.getBoundingClientRect().height : 12;
-  const gaps = 32; // .preview-stage-wrap gap (16px) x2
-  const maxPreview = Math.max(PANEL_SPLIT_MIN_PREVIEW, wrapH - handleH - gaps - PANEL_SPLIT_MIN_CODE);
-  return Math.max(PANEL_SPLIT_MIN_PREVIEW, Math.min(maxPreview, h));
-}
-
-function initConfigResize() {
-  const handle = document.getElementById('config-resize-handle');
-  const preview = document.getElementById('preview-card');
-  if (!handle || !preview) return;
-
-  // Restore a saved split — the preview panel otherwise defaults to its
-  // natural height (driven by the chart's configured height setting).
-  try {
-    const saved = parseInt(localStorage.getItem(PANEL_SPLIT_KEY), 10);
-    if (saved) _applyPanelSplitHeight(_clampPanelSplit(saved));
-  } catch(e) {}
-
-  let startY = 0, startH = 0, dragging = false;
-
-  function persist(h) {
-    try { localStorage.setItem(PANEL_SPLIT_KEY, String(h)); } catch(e) {}
-  }
-
-  handle.addEventListener('mousedown', e => {
-    e.preventDefault();
-    startY   = e.clientY;
-    startH   = preview.getBoundingClientRect().height;
-    dragging = true;
-    handle.classList.add('dragging');
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp, { once: true });
-  });
-
-  function onMove(e) {
-    if (!dragging) return;
-    const delta = e.clientY - startY;  // drag down → preview grows
-    const newH  = _clampPanelSplit(startH + delta);
-    _applyPanelSplitHeight(newH);
-  }
-
-  function onUp() {
-    dragging = false;
-    handle.classList.remove('dragging');
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', onMove);
-    persist(preview.getBoundingClientRect().height);
-  }
-
-  // Touch support
-  handle.addEventListener('touchstart', e => {
-    startY = e.touches[0].clientY;
-    startH = preview.getBoundingClientRect().height;
-    handle.classList.add('dragging');
-  }, { passive: true });
-
-  handle.addEventListener('touchmove', e => {
-    const delta = e.touches[0].clientY - startY;
-    _applyPanelSplitHeight(_clampPanelSplit(startH + delta));
-  }, { passive: true });
-
-  handle.addEventListener('touchend', () => {
-    handle.classList.remove('dragging');
-    persist(preview.getBoundingClientRect().height);
-  });
+  if (preview) preview.style.height = '';
+  try { localStorage.removeItem(PANEL_SPLIT_KEY); } catch(e) {}
 }
 
 let _configEditMode = false;
@@ -6443,88 +6442,127 @@ function syncStateFromConfig(cfg) {
   if (!cfg || typeof cfg !== 'object') return;
   const chartType = cfg.chart?.type || cfg.series?.[0]?.type;
   if (chartType) { state.chartType = chartType === 'pie' && cfg.plotOptions?.pie?.innerSize ? 'donut' : chartType; }
-  if (cfg.title?.text    != null) state.title    = cfg.title.text;
-  if (cfg.subtitle?.text != null) state.subtitle = cfg.subtitle.text;
-  if (cfg.chart?.height)          state.chartHeight = cfg.chart.height;
+  state.title      = cfg.title?.text    || '';
+  state.subtitle   = cfg.subtitle?.text || '';
+  state.chartHeight = cfg.chart?.height || 450;
   const ya = Array.isArray(cfg.yAxis) ? cfg.yAxis[0] : cfg.yAxis;
   // For col/bar charts with no explicit gridLineWidth, default to OFF
+  // rather than the usual ON.
   const _cfgIsColBar = ['column','bar'].includes(cfg.chart?.type || cfg.series?.[0]?.type);
-  if (_cfgIsColBar && ya?.gridLineWidth == null) state.gridLines = false;
   if (ya) {
-    if (ya.gridLineWidth != null) state.gridLines = ya.gridLineWidth !== 0;
-    if (ya.gridLineColor)         state.gridLineColor = ya.gridLineColor;
-    if (ya.min           != null) state.yMin = ya.min;
-    if (ya.max           != null) state.yMax = ya.max;
-    if (ya.tickInterval  != null) state.yTickInterval = ya.tickInterval;
-    if (ya.title?.text   != null) state.yTitle = ya.title.text;
-    // Detect zero plotline
-    if (Array.isArray(ya.plotLines)) {
-      const zeroPL = ya.plotLines.find(pl => pl.value === 0);
-      state.yZeroLine = !!zeroPL;
-      if (zeroPL?.color) state.yZeroLineColor = zeroPL.color;
-    }
+    // Every field below is an unconditional reset (falling back to the
+    // sidebar's own stock default when the incoming config doesn't specify
+    // one), not "only overwrite if present" — this function always runs at
+    // a genuine chart-switch boundary (template/paste/saved-chart load), so
+    // a field the new chart doesn't set must go back to its default rather
+    // than silently keep whatever the PREVIOUS chart left in state. That
+    // conditional-only pattern is exactly how a previous chart's y-axis
+    // min/max/tick interval, grid colour, etc. kept bleeding into the next
+    // one that didn't specify its own.
+    state.gridLines      = ya.gridLineWidth != null ? ya.gridLineWidth !== 0 : !_cfgIsColBar;
+    state.gridLineColor  = ya.gridLineColor || '#cbc8c8';
+    state.yMin           = ya.min ?? null;
+    state.yMax           = ya.max ?? null;
+    state.yTickInterval  = ya.tickInterval ?? null;
+    state.yTitle         = ya.title?.text ?? '';
+    // Detect zero plotline — reset every time (else branch too), same
+    // bleed reason as everything else in this function.
+    const plotLines = Array.isArray(ya.plotLines) ? ya.plotLines : [];
+    const zeroPL = plotLines.find(pl => pl.value === 0);
+    state.yZeroLine      = !!zeroPL;
+    state.yZeroLineColor = zeroPL?.color || '#b2a896';
+    // Any other plotLines (e.g. reference bands at value:50/100) become
+    // theme-linked lines in the sidebar — their pasted hex is mapped back
+    // onto the matching theme colour slot so switching themes still moves
+    // them, instead of just carrying the literal hex over verbatim.
+    const themeColors = _plotLineThemeColors();
+    state.yPlotLines = plotLines.filter(pl => pl.value !== 0).map(pl => ({
+      value: pl.value,
+      label: pl.label?.text || '',
+      dashStyle: pl.dashStyle || 'Solid',
+      colorIndex: _plotLineColorIndex(pl, themeColors),
+    }));
   }
   const xa = Array.isArray(cfg.xAxis) ? cfg.xAxis[0] : cfg.xAxis;
   if (xa) {
-    if (xa.title?.text != null)  state.xTitle = xa.title.text;
-    if (xa.lineWidth   != null)  state.xLine  = xa.lineWidth !== 0;
-    if (xa.lineColor)            state.xLineColor = xa.lineColor;
+    state.xTitle     = xa.title?.text ?? '';
+    state.xLine      = xa.lineWidth != null ? xa.lineWidth !== 0 : true;
+    state.xLineColor = xa.lineColor || '#cbc8c8';
+    // Without this, _reapplyFromRawConfig() overwrites the template's own
+    // xAxis.labels.rotation with whatever state.xRotation already held —
+    // stale from whatever chart was loaded before, since nothing else
+    // resets it for a raw-config chart — on every render. That's how a
+    // template asking for -90° rotated category labels (e.g. many long
+    // names on a narrow axis) ends up rendered at some leftover angle
+    // instead, which Highcharts then can't fit without hiding almost all
+    // of them. Default to 0 (not left as whatever it was) when the config
+    // doesn't specify one, so it never bleeds from the previous chart.
+    state.xRotation = xa.labels?.rotation ?? 0;
+    // Same bleed as xRotation, worse in effect: _reapplyFromRawConfig()
+    // uses state.xTickInterval (in YEARS) to override cfg.xAxis.tickInterval
+    // and rewrite the label format/tick positions for a datetime axis —
+    // unconditionally, regardless of whether THIS chart is even a datetime
+    // axis. Left stale from a previously-loaded datetime chart, it silently
+    // rewrote a completely unrelated category axis's ticks/format on the
+    // very next chart switch (reported as "the x-axis breaks again").
+    state.xAxisType = xa.type === 'datetime' ? 'datetime' : 'category';
+    state.xTickInterval = (xa.type === 'datetime' && xa.tickInterval != null)
+      ? xa.tickInterval / (365.25 * 24 * 3600 * 1000)
+      : null;
   }
-  const dl = cfg.plotOptions?.series?.dataLabels;
-  if (dl != null) {
-    state.dataLabels = !!dl.enabled;
-    if (dl.format) {
-      const m = dl.format.match(/\{(?:y|point\.y)\}(.*)$/);
-      state.valSuffix = m ? (m[1] || '') : '';
-    }
-  }
-  if (cfg.legend?.enabled === false) state.legend = false;
-  else if (cfg.legend?.enabled === true) state.legend = true;
-  const stacking = cfg.plotOptions?.series?.stacking
-    || cfg.plotOptions?.column?.stacking
-    || cfg.plotOptions?.bar?.stacking;
-  if (stacking) state.stacking = stacking;
+  // Column/bar templates set dataLabels on their own type-specific bucket
+  // (plotOptions.column/bar), not plotOptions.series — checking series only
+  // meant loading one of those left the sidebar's "Show values"/decimal
+  // places/value format controls showing stale defaults instead of what
+  // the chart actually has.
+  const dl = cfg.plotOptions?.series?.dataLabels
+    || cfg.plotOptions?.column?.dataLabels
+    || cfg.plotOptions?.bar?.dataLabels;
+  state.dataLabels = !!dl?.enabled;
+  // Matches both the plain {y}suffix the app itself never writes and the
+  // {y:.Nf}suffix / {point.y:.Nf}suffix form _dataLabelFormat() actually
+  // generates, so a decimal count round-trips too.
+  const dlMatch = dl?.format?.match(/\{(?:y|point\.y)(?::\.(\d+)f)?\}(.*)$/);
+  state.decimals  = dlMatch && dlMatch[1] != null ? parseInt(dlMatch[1], 10) : null;
+  state.valSuffix = dlMatch ? (dlMatch[2] || '') : '';
 
-  // Everything below mirrors a corresponding "state.X" override that
-  // _reapplyFromRawConfig() applies UNCONDITIONALLY on every re-render
-  // (not gated behind a null check, since the sidebar field always has a
-  // real default value). Without reading the pasted config's own value in
-  // here first, the very next re-render — triggered by clicking any other
-  // field — would silently stomp it back to the sidebar's stock default.
-  if (xa?.labels?.rotation != null) state.xRotation = xa.labels.rotation;
+  state.legend = cfg.legend?.enabled !== false;
+  state.stacking = cfg.plotOptions?.series?.stacking
+    || cfg.plotOptions?.column?.stacking
+    || cfg.plotOptions?.bar?.stacking
+    || '';
 
   const spo = cfg.plotOptions?.series || {};
   const typeOpts = cfg.plotOptions?.[chartType] || {};
-  if (spo.lineWidth != null)        state.lineWidth    = spo.lineWidth;
-  if (spo.dashStyle)                state.dashStyle    = spo.dashStyle;
-  if (spo.marker?.enabled != null)  state.markers      = !!spo.marker.enabled;
-  if (spo.marker?.radius != null)   state.markerRadius = spo.marker.radius;
-  if (spo.connectNulls != null)     state.connectNulls = !!spo.connectNulls;
-  if (spo.step)                     state.stepLine     = spo.step;
-  if (spo.opacity != null)          state.seriesOpacity = spo.opacity;
+  state.lineWidth     = spo.lineWidth ?? 2;
+  state.dashStyle     = spo.dashStyle || 'Solid';
+  state.markers       = !!spo.marker?.enabled;
+  state.markerRadius  = spo.marker?.radius ?? 4;
+  state.connectNulls  = !!spo.connectNulls;
+  state.stepLine      = spo.step || '';
+  state.seriesOpacity = spo.opacity ?? 1;
   const animCfg = spo.animation ?? cfg.chart?.animation;
   if (animCfg === false) {
     state.animationDuration = 0;
-  } else if (animCfg && typeof animCfg === 'object') {
-    if (animCfg.duration != null) state.animationDuration = animCfg.duration;
-    if (animCfg.easing)           state.animationEasing   = animCfg.easing;
+  } else {
+    state.animationDuration = (animCfg && typeof animCfg === 'object' && animCfg.duration != null) ? animCfg.duration : 800;
+    state.animationEasing   = (animCfg && typeof animCfg === 'object' && animCfg.easing) ? animCfg.easing : 'swing';
   }
-  if (typeOpts.pointPadding != null) state.pointPadding = typeOpts.pointPadding;
-  if (typeOpts.borderRadius != null) state.borderRadius = typeOpts.borderRadius;
+  state.pointPadding = typeOpts.pointPadding ?? 0.1;
+  state.borderRadius = typeOpts.borderRadius || 0;
   const areaOpts = cfg.plotOptions?.area || cfg.plotOptions?.areaspline;
-  if (areaOpts?.fillOpacity != null) state.fillOpacity = areaOpts.fillOpacity;
+  state.fillOpacity = areaOpts?.fillOpacity ?? 0.3;
 
-  if (cfg.chart?.zoomType) state.zoom = cfg.chart.zoomType;
+  state.zoom = cfg.chart?.zoomType || '';
 
-  if (cfg.tooltip?.enabled === false) state.tooltip = false;
-  else if (cfg.tooltip?.enabled === true) state.tooltip = true;
-  if (cfg.tooltip?.shared != null)        state.tooltipMode = cfg.tooltip.shared ? 'shared' : 'single';
-  if (cfg.tooltip?.valuePrefix != null)   state.ttPrefix    = cfg.tooltip.valuePrefix;
-  if (cfg.tooltip?.valueSuffix != null)   state.ttSuffix    = cfg.tooltip.valueSuffix;
-  if (cfg.tooltip?.valueDecimals != null) state.decimals    = cfg.tooltip.valueDecimals;
+  state.tooltip     = cfg.tooltip?.enabled !== false;
+  state.tooltipMode = cfg.tooltip?.shared ? 'shared' : 'single';
+  state.ttPrefix    = cfg.tooltip?.valuePrefix || '';
+  state.ttSuffix    = cfg.tooltip?.valueSuffix || '';
+  if (cfg.tooltip?.valueDecimals != null) state.decimals = cfg.tooltip.valueDecimals;
 
-  if (ya?.labels?.format) state.yFormat = ya.labels.format;
-  if (ya?.type === 'logarithmic') state.yScale = 'logarithmic';
+  state.yFormat = ya?.labels?.format || '';
+  state.yScale  = ya?.type === 'logarithmic' ? 'logarithmic' : 'linear';
 
   // Legend position/layout: a freshly pasted config's own layout should win
   // until the user explicitly picks a position from the sidebar dropdown.
@@ -6678,13 +6716,13 @@ function _openColorPicker(e, si, pi, currentColor) {
   _closeColorPicker();
   const pop = document.createElement('div');
   pop.id = 'color-point-pop';
-  pop.style.cssText = 'position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px;width:210px;font-family:inherit';
+  // max-height/overflow-y is a safety net for a short viewport where even a
+  // fully on-screen popover would still be taller than the window; the
+  // clamped top/left below (computed from the popover's REAL rendered size,
+  // not a guessed constant) is what actually keeps it from running off the
+  // bottom/right edge in the common case.
+  pop.style.cssText = 'position:fixed;z-index:99999;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px;width:210px;font-family:inherit;max-height:calc(100vh - 16px);overflow-y:auto;visibility:hidden';
   const cx = e.clientX ?? 100, cy = e.clientY ?? 100;
-  let top = cy + 12, left = cx + 4;
-  if (top  + 210 > window.innerHeight) top  = cy - 210;
-  if (left + 225 > window.innerWidth)  left = cx - 225;
-  pop.style.top = top + 'px';
-  pop.style.left = left + 'px';
 
   const patternStroke = (currentColor && typeof currentColor === 'object' && currentColor.pattern) ? currentColor.pattern.path?.stroke : null;
   const rawColor = patternStroke || currentColor;
@@ -6721,6 +6759,15 @@ function _openColorPicker(e, si, pi, currentColor) {
   pop.dataset.pattern = initialPatternKey;
   document.body.appendChild(pop);
   _cpRefreshPatternSwatches();
+  // Position from the popover's REAL rendered size (it varies with how many
+  // patterns/swatches are shown) rather than a guessed constant, and clamp
+  // to the viewport so it can never render partly off-screen.
+  const popH = pop.offsetHeight, popW = pop.offsetWidth;
+  const top  = Math.max(8, Math.min(cy + 12, window.innerHeight - popH - 8));
+  const left = Math.max(8, Math.min(cx + 4,  window.innerWidth  - popW - 8));
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+  pop.style.visibility = 'visible';
   document.removeEventListener('click', _colorPickerOutside);
   setTimeout(() => document.addEventListener('click', _colorPickerOutside), 0);
 }
@@ -6755,6 +6802,134 @@ function _patternSwatchSVG(key, color) {
   </svg>`;
 }
 
+// Same as _patternSwatchSVG but with a caller-supplied unique id — used for
+// the sidebar list where several rows can show the same pattern key with
+// different colours at once, which would collide on _patternSwatchSVG's
+// fixed per-key id.
+function _legendSwatchSVG(uid, key, color) {
+  const p = POINT_PATTERNS[key] || POINT_PATTERNS.none;
+  if (!p.d) return `<svg width="26" height="26" viewBox="0 0 26 26"><rect width="26" height="26" rx="4" fill="${color}"/></svg>`;
+  const fill = key === 'dots' ? color : 'none';
+  const id = 'clsw-' + uid;
+  return `<svg width="26" height="26" viewBox="0 0 26 26">
+    <defs><pattern id="${id}" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#e8e5ce"/><path d="${p.d}" stroke="${color}" stroke-width="2" fill="${fill}"/></pattern></defs>
+    <rect width="26" height="26" rx="4" fill="url(#${id})"/>
+  </svg>`;
+}
+
+/* ═══════════════════════════════════════════
+   CUSTOM LEGEND
+   Hand-defined swatch+label rows for charts whose colour/pattern meaning is
+   set per-point rather than per-series (e.g. "AI related" vs "Broader
+   credit index" bars within one series) — the real Highcharts legend can
+   only show one entry per series, so these become phantom zero-data series
+   whose only job is to contribute a legend swatch.
+═══════════════════════════════════════════ */
+function addCustomLegendItem() {
+  if (!state.customLegend) state.customLegend = [];
+  state.customLegend.push({ label: '', colorIndex: state.customLegend.length % 6, pattern: 'none' });
+  renderCustomLegend();
+  schedUpdate(); persist();
+}
+function removeCustomLegendItem(i) {
+  state.customLegend.splice(i, 1);
+  renderCustomLegend();
+  schedUpdate(); persist();
+}
+function updateCustomLegendLabel(i, val) {
+  state.customLegend[i].label = val;
+  schedUpdate(); persist();
+}
+function renderCustomLegend() {
+  const el = document.getElementById('custom-legend-list');
+  if (!el) return;
+  const themeColors = _plotLineThemeColors();
+  el.innerHTML = (state.customLegend || []).map((item, i) => {
+    const swatchId = `custom-legend-swatch-${i}`;
+    const color = _plotLineColor(item, themeColors);
+    const pattern = item.pattern || 'none';
+    return `
+    <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
+      <button id="${swatchId}" onclick="openCustomLegendSwatchPicker(${i},'${swatchId}')" title="Colour / pattern"
+        style="width:28px;height:28px;flex-shrink:0;border:none;border-radius:4px;cursor:pointer;padding:0;overflow:hidden">${_legendSwatchSVG(i, pattern, color)}</button>
+      <input value="${escHtml(item.label)}" placeholder="Label" style="flex:1;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateCustomLegendLabel(${i},this.value)">
+      <button onclick="removeCustomLegendItem(${i})" style="background:none;border:none;color:#d83949;cursor:pointer;font-size:14px;padding:0 2px">×</button>
+    </div>`;
+  }).join('');
+}
+
+let _customLegendPickerCleanup = null;
+function openCustomLegendSwatchPicker(i, swatchId) {
+  closeCustomLegendSwatchPicker();
+  const themeColors = _plotLineThemeColors();
+  const anchor = document.getElementById(swatchId);
+  if (!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const item = state.customLegend[i];
+  const currentColorIdx = _plotLineColorIndex(item, themeColors);
+  const currentPattern = item.pattern || 'none';
+  const pop = document.createElement('div');
+  pop.id = '_customLegendPicker';
+  pop.style.cssText = `position:fixed;visibility:hidden;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,0.18);width:200px;max-height:calc(100vh - 16px);overflow-y:auto;`;
+  pop.style.left = Math.min(rect.left, window.innerWidth - 216) + 'px';
+  pop.style.top  = (rect.bottom + 6) + 'px';
+  pop.innerHTML = `
+    <div style="font-size:11px;color:#888;margin-bottom:6px">Colour — theme only</div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:10px">
+      ${themeColors.map((c, ci) => `<button onclick="_clPickColor(${i},${ci})" title="${c}"
+        style="width:26px;height:26px;border-radius:4px;border:2px solid ${ci===currentColorIdx?'#009d80':'rgba(0,0,0,0.15)'};background:${c};cursor:pointer;padding:0"></button>`).join('')}
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:6px">Pattern</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">
+      ${Object.keys(POINT_PATTERNS).map(key => `<span onclick="_clPickPattern(${i},'${key}')" title="${POINT_PATTERNS[key].label}"
+        style="cursor:pointer;display:inline-block;border-radius:4px;border:2px solid ${key===currentPattern?'#009d80':'transparent'}">${_patternSwatchSVG(key, themeColors[currentColorIdx])}</span>`).join('')}
+    </div>
+  `;
+  document.body.appendChild(pop);
+  _clampPopoverToAnchor(pop, rect);
+  pop.style.visibility = 'visible';
+  const outside = e => { if (!pop.contains(e.target) && e.target.id !== swatchId) closeCustomLegendSwatchPicker(); };
+  setTimeout(() => document.addEventListener('mousedown', outside), 0);
+  _customLegendPickerCleanup = () => document.removeEventListener('mousedown', outside);
+}
+function closeCustomLegendSwatchPicker() {
+  const el = document.getElementById('_customLegendPicker');
+  if (el) el.remove();
+  if (_customLegendPickerCleanup) { _customLegendPickerCleanup(); _customLegendPickerCleanup = null; }
+}
+function _clPickColor(i, colorIndex) {
+  state.customLegend[i].colorIndex = colorIndex;
+  delete state.customLegend[i].color;
+  closeCustomLegendSwatchPicker();
+  renderCustomLegend();
+  schedUpdate(); persist();
+}
+function _clPickPattern(i, key) {
+  state.customLegend[i].pattern = key;
+  closeCustomLegendSwatchPicker();
+  renderCustomLegend();
+  schedUpdate(); persist();
+}
+
+// Mutates `series` in place: hides every real series from the legend and
+// appends one zero-data phantom series per custom-legend row so its swatch
+// (colour + pattern) and label show up instead. No-op when the list is
+// empty, so charts that don't use this feature are unaffected.
+function _applyCustomLegend(series, themeColors) {
+  const items = (state.customLegend || []).filter(it => it.label);
+  if (!items.length || !Array.isArray(series)) return;
+  series.forEach(sr => { sr.showInLegend = false; });
+  items.forEach(item => {
+    series.push({
+      name: item.label,
+      color: _pointPatternColor(item.pattern || 'none', _plotLineColor(item, themeColors)),
+      data: [],
+      showInLegend: true,
+      enableMouseTracking: false,
+    });
+  });
+}
+
 function _cpRefreshPatternSwatches() {
   const wrap = document.getElementById('color-point-patterns');
   const pop = document.getElementById('color-point-pop');
@@ -6776,7 +6951,15 @@ function _cpPickPattern(el) {
 }
 
 function _colorPickerOutside(e) {
-  if (!document.getElementById('color-point-pop')?.contains(e.target)) _closeColorPicker();
+  // Picking a pattern re-renders the pattern swatch row (innerHTML) inside
+  // the SAME click's bubble phase, which detaches the clicked <span> from
+  // the document before this listener runs — pop.contains(e.target) then
+  // sees a node that's no longer in the tree and (wrongly) reports "outside
+  // the popover", closing it before the pick could be applied. e.path()/
+  // composedPath() reflects the DOM as it was at dispatch time instead, so
+  // it still contains the popover even after that mid-bubble mutation.
+  const path = e.composedPath ? e.composedPath() : [e.target];
+  if (!path.includes(document.getElementById('color-point-pop'))) _closeColorPicker();
 }
 
 function _closeColorPicker() {
@@ -6804,9 +6987,21 @@ function applyPointEdit(si, pi) {
 
   const upd = {};
   if (numVal !== '' && numVal != null && !isNaN(parseFloat(numVal))) upd.y = parseFloat(numVal);
+  // colorClone is what gets STORED (override map + state data); upd.color is
+  // what gets handed to point.update() below. They must not be the same
+  // object reference — point.update() mutates it in place (Highcharts'
+  // pattern-fill module attaches its own toString() for internal use), and
+  // since a plain object mutation is visible through every reference to it,
+  // storing the same reference meant the override map and the point data on
+  // disk both ended up holding that live Highcharts-internal object, function
+  // value and all — which then got serialised verbatim into the exported
+  // config (a literal `toString: function(){return h}`, invalid JSON, why
+  // Sitecore couldn't render it at all).
+  let colorClone = null;
   if (/^#[0-9a-fA-F]{6}$/.test(hexVal)) {
     upd.color = _pointPatternColor(patternKey, hexVal);
-    _manualColorOverrides[`${si}-${pi}`] = upd.color;
+    colorClone = JSON.parse(JSON.stringify(upd.color));
+    _manualColorOverrides[`${si}-${pi}`] = colorClone;
   }
 
   // Keep the underlying data model in sync so a later full re-render keeps this.
@@ -6814,9 +7009,9 @@ function applyPointEdit(si, pi) {
     if (typeof dataArr[pi] === 'object' && dataArr[pi] !== null) dataArr[pi].y = upd.y;
     else dataArr[pi] = upd.y;
   }
-  if (upd.color) {
+  if (colorClone) {
     if (typeof dataArr[pi] !== 'object' || dataArr[pi] === null) dataArr[pi] = { y: dataArr[pi] };
-    dataArr[pi].color = upd.color;
+    dataArr[pi].color = colorClone;
   }
 
   try { window.chartInstance?.series[si]?.points[pi]?.update(upd, true, false); } catch(e) {}
@@ -7091,9 +7286,21 @@ function _reapplyFromRawConfig() {
   _repairDoubleWrappedPoints(_lastRawConfig.series);
   const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
   try {
-    if (chartInstance) chartInstance.destroy();
+    // Highcharts' own destroy() can intermittently throw on internal state
+    // left over from the previous instance (a Highcharts bug, not ours) —
+    // if that aborts this whole try block, the OLD chart instance stays on
+    // screen (wrong type, wrong colours, stale everything) even though
+    // state/sidebar have already moved on to the new chart. The new
+    // Highcharts.chart() call below replaces the container's contents
+    // regardless, so a failed destroy is just a harmless leaked listener,
+    // not a reason to abort rendering the new chart.
+    if (chartInstance) { try { chartInstance.destroy(); } catch(e) {} }
     const el = document.getElementById('chart-container');
     const cfg = JSON.parse(JSON.stringify(_lastRawConfig));
+    // Consumed once per render — see _allowNextRenderAnimation()'s comment.
+    const _liveAnim = _animateNextRender && state.animationDuration > 0
+      ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
+    _animateNextRender = false;
     if (el && cfg.chart?.height) el.style.height = cfg.chart.height + 'px';
     // Apply theme display colours (not stored in _lastRawConfig)
     if (!cfg.chart) cfg.chart = {};
@@ -7106,9 +7313,13 @@ function _reapplyFromRawConfig() {
         // Strip series-level colour so the theme palette drives unbucketed series —
         // unless the user manually overrode this series' colour via the swatch
         // picker (setRawSeriesColour), in which case that override must survive
-        // every re-render, not just the one right after it was set.
+        // every re-render, not just the one right after it was set. A colour
+        // OBJECT (gradient/pattern) is never a theme artifact — it's always a
+        // deliberate design choice baked into the pasted config itself (e.g. a
+        // striped-gradient series) — so it must survive re-renders the same
+        // way, even with no _colorOverride flag set.
         if (s._colorOverride) s.color = s._colorOverride;
-        else delete s.color;
+        else if (typeof s.color !== 'object') delete s.color;
         // Preserve original per-point colours from the config.
         // Apply manual overrides (from the colour picker) on top of them.
         if (Array.isArray(s.data)) {
@@ -7159,10 +7370,12 @@ function _reapplyFromRawConfig() {
       cfg.chart.height = state.chartHeight;
       if (el) el.style.height = state.chartHeight + 'px';
     }
-    // Zoom / animation
+    // Zoom / animation — the live preview instance is always instant; the
+    // real configured duration only goes into the exported config
+    // (_cleanConfigForCopy() below keeps it), since this cfg object here is
+    // only ever used to build the on-screen chart, never copied out.
     if (state.zoom)              cfg.chart.zoomType  = state.zoom;
-    if (state.animationDuration != null) cfg.chart.animation = state.animationDuration > 0
-      ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
+    cfg.chart.animation = _liveAnim;
 
     // xAxis overrides
     if (cfg.xAxis && !Array.isArray(cfg.xAxis)) {
@@ -7218,11 +7431,14 @@ function _reapplyFromRawConfig() {
       if (state.yFormat)         yaOverride.labels = { ...(yaOverride.labels || {}), format: state.yFormat, style: axStyle };
       const _allPL = [];
       if (state.yZeroLine) _allPL.push({ value: 0, color: state.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 });
-      if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => _allPL.push({
-        value: pl.value, color: pl.color || '#d83949', width: 1, zIndex: 4,
-        ...(pl.dashStyle && pl.dashStyle !== 'Solid' ? { dashStyle: pl.dashStyle } : {}),
-        label: pl.label ? { text: pl.label, style: { color: pl.color || '#d83949', fontSize: '11px' } } : undefined,
-      }));
+      if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => {
+        const plCol = _plotLineColor(pl, thm.chartSeriesColors || N1_PALETTE);
+        _allPL.push({
+          value: pl.value, color: plCol, width: 1, zIndex: 4,
+          ...(pl.dashStyle && pl.dashStyle !== 'Solid' ? { dashStyle: pl.dashStyle } : {}),
+          label: pl.label ? { text: pl.label, style: { color: plCol, fontSize: '11px' } } : undefined,
+        });
+      });
       if (_allPL.length) yaOverride.plotLines = _allPL; else delete yaOverride.plotLines;
     }
 
@@ -7263,10 +7479,8 @@ function _reapplyFromRawConfig() {
       if (state.dashStyle)           cfg.plotOptions.series.dashStyle    = state.dashStyle;
       cfg.plotOptions.series.marker       = { enabled: !!state.markers, radius: state.markerRadius ?? 4 };
       cfg.plotOptions.series.connectNulls = !!state.connectNulls;
-      // chart.animation alone doesn't reliably drive the series point-draw
-      // animation — Highcharts needs it set at plotOptions.series too.
-      cfg.plotOptions.series.animation = state.animationDuration > 0
-        ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
+      // Same _liveAnim as cfg.chart.animation above.
+      cfg.plotOptions.series.animation = _liveAnim;
       if (state.stepLine)            cfg.plotOptions.series.step        = state.stepLine;
       if (state.stacking)            cfg.plotOptions.series.stacking    = state.stacking;
       if (state.seriesOpacity < 1)   cfg.plotOptions.series.opacity     = state.seriesOpacity;
@@ -7289,6 +7503,7 @@ function _reapplyFromRawConfig() {
     cfg.credits = { enabled: false };
     cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
     cfg.annotations = buildAnnotationsForChart() || [];
+    _applyCustomLegend(cfg.series, thm.chartSeriesColors || N1_PALETTE);
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
     // Keep _lastRawConfig itself (not just the render clone) in sync with the
     // sidebar's annotation state — otherwise the editable config textarea
@@ -7314,10 +7529,27 @@ function _reapplyFromRawConfig() {
     if (_colorPointMode) _attachColorPointListeners();
     _attachAnnotationInteractions();
     _commitSettledSnapshot();
+    _reapplyRetried = false;
   } catch(e) {
     console.error('_reapplyFromRawConfig:', e);
+    // Confirmed (via live debugging): calling this function again a moment
+    // later succeeds cleanly when the first call hit this — an intermittent
+    // Highcharts internal timing issue (destroy() throwing on internal
+    // state from the previous instance), not a problem with our own config.
+    // Left uncaught-but-swallowed, that failure aborted the render entirely
+    // — the OLD chart instance just stayed on screen (wrong theme colours,
+    // wrong everything) since nothing after the throw ever ran. One retry
+    // on the next frame self-heals it instead of requiring the user to
+    // manually trigger a second render (e.g. by editing any field).
+    if (!_reapplyRetried) {
+      _reapplyRetried = true;
+      requestAnimationFrame(() => _reapplyFromRawConfig());
+    } else {
+      _reapplyRetried = false;
+    }
   }
 }
+let _reapplyRetried = false;
 
 function _serializeConfig(obj, depth) {
   depth = depth || 0;
@@ -7361,10 +7593,15 @@ function _cleanConfigForCopy(cfg) {
   // except per-point colours that the user manually overrode via the colour picker.
   if (!cfg?.series) return cfg;
   const out = JSON.parse(JSON.stringify(cfg));
+  const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
 
   out.series.forEach((s, si) => {
-    // Always strip series-level colours
-    delete s.color;
+    // Strip a plain hex/named series colour (theme-swappable — Sitecore
+    // injects its own), but NOT a gradient/pattern colour object — that's a
+    // deliberate design choice baked into the pasted config (e.g. the
+    // striped-gradient "hyperscaler issuance" look), not a theme artifact,
+    // and was being silently deleted here same as any other colour.
+    if (typeof s.color !== 'object') delete s.color;
     delete s._colorOverride;
     // Strip per-point colours from the original config; re-apply only manual overrides
     if (Array.isArray(s.data)) {
@@ -7389,9 +7626,10 @@ function _cleanConfigForCopy(cfg) {
       _cpPL.push(_ze);
     }
     if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => {
-      const _e = { value: pl.value, color: pl.color || '#d83949', width: 1, zIndex: 4 };
+      const plCol = _plotLineColor(pl, thm.chartSeriesColors || N1_PALETTE);
+      const _e = { value: pl.value, color: plCol, width: 1, zIndex: 4 };
       if (pl.dashStyle && pl.dashStyle !== 'Solid') _e.dashStyle = pl.dashStyle;
-      if (pl.label) _e.label = { text: pl.label };
+      if (pl.label) _e.label = { text: pl.label, style: { color: plCol, fontSize: '11px' } };
       _cpPL.push(_e);
     });
 
@@ -7426,10 +7664,15 @@ function _cleanConfigForCopy(cfg) {
     delete out.series;
   }
 
-  // Strip theme-injected display styles (colours, backgrounds)
+  // Strip theme-injected display styles (colours, backgrounds, font) —
+  // these are preview-only. The Visuelt fontFamily in particular is only
+  // there so the builder's own preview/export look right; the CMS config
+  // itself should never hardcode a font, since Sitecore applies its own
+  // page font via CSS rather than reading anything from this JS object.
   if (out.title?.style)    delete out.title.style;
   if (out.subtitle?.style) delete out.subtitle.style;
   if (out.chart?.backgroundColor) delete out.chart.backgroundColor;
+  if (out.chart?.style)    delete out.chart.style;
   if (out.xAxis) {
     if (out.xAxis.labels?.style) delete out.xAxis.labels.style;
     if (out.xAxis.title?.style)  delete out.xAxis.title.style;
@@ -7501,6 +7744,8 @@ function _cleanConfigForCopy(cfg) {
 
   const annotationsCfg = buildAnnotationsConfig();
   if (annotationsCfg) out.annotations = annotationsCfg; else delete out.annotations;
+
+  _applyCustomLegend(out.series, thm.chartSeriesColors || N1_PALETTE);
 
   return out;
 }
@@ -7637,7 +7882,7 @@ function renderWizardStep() {
         </div>
         <input type="file" id="file-input" accept=".pptx,.svg,.png,.jpg,.jpeg,.gif,.webp,.csv,.xlsx,.xls,image/*" style="display:none" multiple onchange="handleFilesSelect(this.files)">
         <div id="file-chips" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div>
-        <div style="margin-top:14px;border-top:1px solid #eee;padding-top:12px">
+        <div id="wiz-api-key-row" style="display:${_wizFileNeedsVisionKey(wizardData.file) ? 'block' : 'none'};margin-top:14px;border-top:1px solid #eee;padding-top:12px">
           <div style="font-size:12px;color:#888;margin-bottom:6px">Anthropic API key (for AI image reading):</div>
           <input type="password" id="wiz-api-key" class="field-input" placeholder="sk-ant-..." style="width:100%" value="${localStorage.getItem('n1_api_key')||''}">
         </div>
@@ -7971,9 +8216,23 @@ function handleFilesSelect(fileList) {
   if (zone) zone.style.borderColor = '#009d80';
 }
 
+// Only a raster image is guaranteed to go through the vision AI path
+// (see the ext checks below handleFilesSelect) — pptx/csv/xlsx are all
+// parsed directly and never touch it, and svg only falls back to it if
+// its own text-parse fails, which isn't knowable before that runs. No
+// point asking for an API key up front for a file type that will never
+// need one.
+function _wizFileNeedsVisionKey(file) {
+  if (!file) return false;
+  const ext = file.name.split('.').pop().toLowerCase();
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
+}
+
 function renderFileChips() {
   const wrap = document.getElementById('file-chips');
   if (!wrap) return;
+  const keyRow = document.getElementById('wiz-api-key-row');
+  if (keyRow) keyRow.style.display = _wizFileNeedsVisionKey(wizardData.file) ? 'block' : 'none';
   const chips = [];
   if (wizardData.file) {
     const ext = wizardData.file.name.split('.').pop().toUpperCase();
@@ -8049,6 +8308,8 @@ async function applyAndFinish() {
   const cfg = wizardData.parsedConfig;
   if (!cfg) { closeImportWizard(); return; }
   if (cfg.droppedColumns?.length) showToast('Some columns could not be mapped automatically. Check your config output.');
+  _resetPanelSplitToNatural();
+  _allowNextRenderAnimation();
 
   if (wizardData.csvFile) {
     const ext = wizardData.csvFile.name.split('.').pop().toLowerCase();
@@ -8165,6 +8426,10 @@ function applyTemplateWithImportedData(chartId, cfg) {
     });
     if (rc.xAxis) rc.xAxis.categories = newCategories;
     else rc.xAxis = { categories: newCategories };
+    // Same reason as applyAIConfig() — a source file with no legend of its
+    // own shouldn't pick up the chosen template's default legend.
+    if (cfg.legendEnabled === false) rc.legend = { enabled: false };
+    state.legend = cfg.legendEnabled !== false;
     _lastRawConfig = JSON.parse(JSON.stringify(rc));
     _clearManualColorOverrides();
     if (rc.chart?.type) { state.chartType = rc.chart.type; updateChartTypeUI(); }
@@ -8187,6 +8452,7 @@ function applyTemplateWithImportedData(chartId, cfg) {
       };
     });
     state.categories = newCategories;
+    state.legend = cfg.legendEnabled !== false;
     _lastRawConfig = null;
     syncSidebarToState();
     renderColourRows();
@@ -8346,7 +8612,7 @@ function applyAIConfig(cfg) {
     // reference lines baked into cleanCfg.yAxis.plotLines directly would be
     // wiped on the very next re-render unless mirrored into state too.
     state.yPlotLines = (cfg.referenceLines || []).map(rl => ({
-      value: rl.value, color: rl.color, dashStyle: rl.dashStyle, label: rl.label || '',
+      value: rl.value, colorIndex: _plotLineColorIndex(rl, _plotLineThemeColors()), dashStyle: rl.dashStyle, label: rl.label || '',
     }));
     // Mirror the axis type/interval the import actually computed onto state,
     // so the sidebar's "Axis type"/"Tick interval" fields match the rendered
@@ -8391,6 +8657,13 @@ function applyAIConfig(cfg) {
   if (cfg.type)       state.chartType = cfg.type;
   if (cfg.title)      state.title = cfg.title;
   if (cfg.subtitle)   state.subtitle = cfg.subtitle;
+  // A PPTX source with no legend of its own (single unnamed series, no
+  // <c:legend> node) shouldn't gain a "Series 1" legend just because this
+  // app defaults to showing one — only hide it when the source explicitly
+  // had none. Always assigned, defaulting on for a plain CSV (no
+  // legendEnabled signal either way) — otherwise a previous import's
+  // hidden legend would bleed into the next one that says nothing about it.
+  state.legend = cfg.legendEnabled !== false;
   if (cfg.categories?.length) state.categories = cfg.categories;
   if (cfg.series?.length)     state.series = cfg.series.map((s, i) => ({
     name: s.name || 'Series ' + (i+1),
@@ -8744,7 +9017,7 @@ async function parsePPTX(file) {
     const allVals = series.flatMap(s => s.data).map(v => Array.isArray(v) ? v[1] : v).filter(v => typeof v === 'number' && !isNaN(v));
     const yMax = allVals.length ? Math.max(0, ...allVals) * 1.15 : 100;
     const yMin = allVals.length ? Math.min(0, ...allVals) : 0;
-    annotationsImport = await _extractPptxAnnotations(zip, chartFiles[0], xRangeForAnnotations, [yMin, yMax], xRotationDeg);
+    annotationsImport = await _extractPptxAnnotations(zip, chartFiles[0], xRangeForAnnotations, [yMin, yMax], xRotationDeg, series.map(s => s.name));
   } catch (e) { /* annotation import is best-effort only */ }
 
   // The chart's own title is frequently deleted in favour of the slide's
@@ -8809,7 +9082,31 @@ async function _extractPptxSlideText(zip, chartPartPath) {
 // into axis coordinates is necessarily an approximation — calibrated here
 // against a real Ninety One deck. Treat results as a starting point the
 // user drags into its exact position, not a precise import.
-async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRotationDeg) {
+// True when `text` reads as a direct line-label restating a series name
+// (e.g. "Leverage loans market" for a series called "Leveraged Loans") —
+// common as a substitute for a legend, and not a real callout — rather
+// than a genuine annotation that happens to mention the series in passing.
+// Every significant word of the series name must appear (allowing a plural/
+// tense-suffix like "leveraged" vs "leverage" via prefix matching), and the
+// label can't have more than a couple of words beyond that — a real
+// sentence-length annotation ("...the high-yield market has retained a low
+// exposure") has far more of its own words than just the series name plus
+// a generic suffix like "market"/"credit", so it's never mistaken for one.
+function _isSeriesNameRestatement(text, seriesNames) {
+  const norm = s => s.toLowerCase().replace(/[-–—,.:;!?…]/g, ' ').split(/\s+/).filter(Boolean);
+  const labelWords = norm(text);
+  if (!labelWords.length) return false;
+  const wordsMatch = (a, b) => a === b || a.startsWith(b) || b.startsWith(a);
+  return (seriesNames || []).some(name => {
+    const nameWords = norm(name);
+    if (!nameWords.length) return false;
+    const matchedCount = nameWords.filter(nw => labelWords.some(lw => wordsMatch(lw, nw))).length;
+    return matchedCount === nameWords.length && (labelWords.length - matchedCount) <= 4;
+  });
+}
+
+async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRotationDeg, seriesNames) {
+  seriesNames = (seriesNames || []).filter(Boolean);
   const chartFileName = chartPartPath.split('/').pop();
   const slideNames = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n));
   let slideName = null, chartRelId = null;
@@ -8895,8 +9192,14 @@ async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRota
       if (!overlapsFrame(box)) return;
       const textRuns = kids(el, 't').map(t => t.textContent).filter(Boolean);
       if (!textRuns.length) return; // skip decoration-only shapes (e.g. legend colour swatches)
+      const text = textRuns.join('');
+      // A direct line-label restating a series name (common instead of a
+      // legend) isn't a real callout/insight — it's already shown as the
+      // chart's own legend, so importing it too just duplicates it as a
+      // stray floating textbox.
+      if (_isSeriesNameRestatement(text, seriesNames)) return;
       const cx = box.x + box.cx / 2, cy = box.y + box.cy / 2;
-      labels.push({ text: textRuns.join(''), box, anchor: toChartCoords(cx, cy) });
+      labels.push({ text, box, anchor: toChartCoords(cx, cy) });
     } else if (el.localName === 'cxnSp') {
       const box = boxOf(el);
       if (!overlapsFrame(box)) return;
@@ -9447,8 +9750,33 @@ function setDecimals(n) {
 }
 function setTooltipMode(m) { state.tooltipMode = m; schedUpdate(); persist(); }
 
+// Reference-line colours are always resolved live from the active theme's
+// palette by index, never stored as a frozen hex — this is what makes them
+// switch automatically when the user picks a different N1 theme, and keeps
+// them restricted to official brand colours (no free hex entry).
+function _plotLineThemeColors() {
+  const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
+  return thm.chartSeriesColors || N1_PALETTE;
+}
+function _plotLineColorIndex(pl, themeColors) {
+  themeColors = themeColors || _plotLineThemeColors();
+  if (pl.colorIndex != null) return pl.colorIndex % themeColors.length;
+  // Legacy plot lines saved before colorIndex existed only have a literal
+  // hex — map it back onto the closest matching theme slot so old charts
+  // still render sensibly instead of falling back to slot 0 every time.
+  if (pl.color) {
+    const idx = themeColors.findIndex(c => c.toLowerCase() === pl.color.toLowerCase());
+    if (idx !== -1) return idx;
+  }
+  return 0;
+}
+function _plotLineColor(pl, themeColors) {
+  themeColors = themeColors || _plotLineThemeColors();
+  return themeColors[_plotLineColorIndex(pl, themeColors)];
+}
+
 function addYPlotLine() {
-  state.yPlotLines.push({ value: 0, label: '', color: '#d83949' });
+  state.yPlotLines.push({ value: 0, label: '', colorIndex: 0 });
   renderYPlotLines();
   schedUpdate(); persist();
 }
@@ -9467,14 +9795,61 @@ function updateYPlotLine(i, key, val) {
 function renderYPlotLines() {
   const el = document.getElementById('y-plotlines-list');
   if (!el) return;
-  el.innerHTML = state.yPlotLines.map((pl, i) => `
+  const themeColors = _plotLineThemeColors();
+  el.innerHTML = state.yPlotLines.map((pl, i) => {
+    const swatchId = `y-plotline-swatch-${i}`;
+    const col = _plotLineColor(pl, themeColors);
+    return `
     <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
       <input type="number" value="${pl.value}" placeholder="Value" style="width:56px;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'value',this.value)">
       <input value="${escHtml(pl.label)}" placeholder="Label" style="flex:1;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'label',this.value)">
-      <input type="color" value="${pl.color}" style="width:28px;height:28px;border:1px solid #ddd;border-radius:4px;padding:1px;cursor:pointer" onchange="updateYPlotLine(${i},'color',this.value)">
+      <button id="${swatchId}" onclick="openPlotLineColorPicker(${i},'${swatchId}')" title="${col} — theme colour, updates automatically when the theme changes"
+        style="width:28px;height:28px;flex-shrink:0;border-radius:4px;border:1px solid #ddd;background:${col};cursor:pointer;padding:0"></button>
       <button onclick="removeYPlotLine(${i})" style="background:none;border:none;color:#d83949;cursor:pointer;font-size:14px;padding:0 2px">×</button>
+    </div>`;
+  }).join('');
+}
+
+let _plotLineColorPickerCleanup = null;
+function openPlotLineColorPicker(i, swatchId) {
+  closePlotLineColorPicker();
+  const themeColors = _plotLineThemeColors();
+  const anchor = document.getElementById(swatchId);
+  if (!anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const currentIdx = _plotLineColorIndex(state.yPlotLines[i], themeColors);
+  const pop = document.createElement('div');
+  pop.id = '_plotLineColorPicker';
+  pop.style.cssText = `position:fixed;visibility:hidden;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,0.18);width:168px;max-height:calc(100vh - 16px);overflow-y:auto;`;
+  pop.style.left = Math.min(rect.left, window.innerWidth - 184) + 'px';
+  pop.style.top  = (rect.bottom + 6) + 'px';
+  pop.innerHTML = `
+    <div style="font-size:11px;color:#888;margin-bottom:6px">Theme colours only</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+      ${themeColors.map((c, ci) => `<button onclick="applyPlotLineColor(${i},${ci})" title="${c}"
+        style="width:44px;height:28px;border-radius:4px;border:2px solid ${ci===currentIdx?'#009d80':'rgba(0,0,0,0.15)'};background:${c};cursor:pointer;padding:0"></button>`).join('')}
     </div>
-  `).join('');
+  `;
+  document.body.appendChild(pop);
+  _clampPopoverToAnchor(pop, rect);
+  pop.style.visibility = 'visible';
+  const outside = e => { if (!pop.contains(e.target) && e.target.id !== swatchId) closePlotLineColorPicker(); };
+  setTimeout(() => document.addEventListener('mousedown', outside), 0);
+  _plotLineColorPickerCleanup = () => document.removeEventListener('mousedown', outside);
+}
+function closePlotLineColorPicker() {
+  const el = document.getElementById('_plotLineColorPicker');
+  if (el) el.remove();
+  if (_plotLineColorPickerCleanup) { _plotLineColorPickerCleanup(); _plotLineColorPickerCleanup = null; }
+}
+function applyPlotLineColor(i, colorIndex) {
+  const pl = state.yPlotLines[i];
+  if (!pl) return;
+  pl.colorIndex = colorIndex;
+  delete pl.color;
+  closePlotLineColorPicker();
+  renderYPlotLines();
+  schedUpdate(); persist();
 }
 
 /* ═══════════════════════════════════════════
@@ -9802,6 +10177,10 @@ function buildAnnotationsConfig() {
       text: a.text || '',
       backgroundColor: a.backgroundColor || '#EEEBDA',
       borderWidth: 0,
+      // Highcharts' annotation label defaults to shape:'callout' — a speech-
+      // bubble connector stem/triangle pointing at the anchor point. Nobody
+      // asked for that on a plain text label; it should just be a box.
+      shape: 'rect',
       // A useHTML label is plain text in the browser's eyes, so without
       // this the browser's native click-drag text selection makes it look
       // like the label itself can be dragged around on the live page —
@@ -9826,6 +10205,10 @@ function buildCalloutArrowsConfig() {
       borderWidth: 0,
       shadow: false,
       useHTML: true,
+      // Same as the plain text label above — this label already has its
+      // own explicit connector line via `shapes` below; Highcharts' default
+      // callout shape would draw a second, redundant pointer on top of it.
+      shape: 'rect',
       // Same reason as the plain text labels — stops the live page's
       // native text-selection drag from looking like the label moves.
       style: { fontSize: '13px', textOutline: 'none', userSelect: 'none', WebkitUserSelect: 'none' },
@@ -10147,7 +10530,87 @@ function _showAnnotationAddInput(clientX, clientY, x, y) {
 }
 
 const EXPORT_MIME = { png: 'image/png', svg: 'image/svg+xml' };
-const EXPORT_WIDTH = 1000;
+// Fixed pixel widths so a chart dropped into the CMS at a given layout slot
+// always exports at that slot's real canvas size — matching the ninetyone.com
+// article-grid measurements (1000px = single column, 1541px = full bleed)
+// instead of whatever width the live preview canvas happens to be.
+const EXPORT_SIZE_PRESETS = {
+  col1: { label: '1 column', width: 1000 },
+  full: { label: 'Full width', width: 1541 },
+};
+let _exportSizeKey = 'col1';
+function setExportSize(key) {
+  if (!EXPORT_SIZE_PRESETS[key]) return;
+  _exportSizeKey = key;
+  document.querySelectorAll('[data-export-size]').forEach(b => b.classList.toggle('active', b.dataset.exportSize === key));
+}
+
+// SVG-export text-to-path conversion — loads the real bundled Visuelt font
+// files (not a substitute) so exported SVGs render correctly with zero
+// dependency on the viewer's installed fonts, matching how the design team's
+// own outlined ("OL" layer) reference files are built.
+let _exportFontsPromise = null;
+function _loadExportFonts() {
+  if (!_exportFontsPromise) {
+    _exportFontsPromise = Promise.all([
+      fetch('fonts/NinetyOneVisuelt-Regular.ttf').then(r => r.arrayBuffer()),
+      fetch('fonts/NinetyOneVisuelt-Medium.ttf').then(r => r.arrayBuffer()),
+    ]).then(([regBuf, boldBuf]) => ({
+      regular: window.opentype.parse(regBuf),
+      bold: window.opentype.parse(boldBuf),
+    }));
+  }
+  return _exportFontsPromise;
+}
+
+function _parseExportFontSizePx(styleText, fallback) {
+  const m = /font-size:\s*([\d.]+)(px|em)/.exec(styleText || '');
+  if (!m) return fallback;
+  const val = parseFloat(m[1]);
+  return m[2] === 'em' ? val * 16 : val;
+}
+
+// Walks every <text> in the exported SVG and replaces it with real glyph
+// <path> outlines traced from the bundled font — the SVG then has no <text>
+// elements at all, so it looks identical everywhere it's opened.
+function _svgTextToPaths(svgString, fonts) {
+  const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  Array.from(doc.querySelectorAll('text')).forEach(textEl => {
+    const style = textEl.getAttribute('style') || '';
+    const isBold = /font-weight:\s*(bold|[67]00)/.test(style);
+    const font = isBold ? fonts.bold : fonts.regular;
+    const fontSize = _parseExportFontSizePx(style, 12);
+    const fillMatch = /fill:\s*([^;]+)/.exec(style);
+    const fill = fillMatch ? fillMatch[1].trim() : (textEl.getAttribute('fill') || '#000000');
+    const anchor = textEl.getAttribute('text-anchor') || 'start';
+    const baseX = parseFloat(textEl.getAttribute('x')) || 0;
+    const baseY = parseFloat(textEl.getAttribute('y')) || 0;
+    const g = doc.createElementNS(SVG_NS, 'g');
+    ['transform', 'data-z-index', 'class', 'aria-hidden'].forEach(attr => {
+      if (textEl.hasAttribute(attr)) g.setAttribute(attr, textEl.getAttribute(attr));
+    });
+    const tspans = textEl.querySelectorAll('tspan');
+    const runs = tspans.length ? Array.from(tspans) : [textEl];
+    runs.forEach(node => {
+      const str = node.textContent || '';
+      if (!str.trim()) return;
+      const x = node.hasAttribute('x') ? parseFloat(node.getAttribute('x')) : baseX;
+      const y = node.hasAttribute('y') ? parseFloat(node.getAttribute('y')) : baseY;
+      try {
+        const width = font.getAdvanceWidth(str, fontSize);
+        const drawX = anchor === 'middle' ? x - width / 2 : anchor === 'end' ? x - width : x;
+        const path = font.getPath(str, drawX, y, fontSize);
+        const pathEl = doc.createElementNS(SVG_NS, 'path');
+        pathEl.setAttribute('d', path.toPathData(2));
+        pathEl.setAttribute('fill', fill);
+        g.appendChild(pathEl);
+      } catch (e) { /* skip this run rather than fail the whole export */ }
+    });
+    textEl.replaceWith(g);
+  });
+  return new XMLSerializer().serializeToString(doc);
+}
 // Reports which of the Highcharts modules this page actually loaded, by
 // checking for an API surface that only exists once that specific module
 // has run — not just "is Highcharts present" — so a script that 404'd or
@@ -10165,6 +10628,7 @@ function _highchartsModuleStatus() {
     { name: 'modules/sunburst.js',          ok: has(() => HC.seriesTypes?.sunburst) },
     { name: 'modules/packed-bubble.js',     ok: has(() => HC.seriesTypes?.packedbubble) },
     { name: 'modules/treemap.js',           ok: has(() => HC.seriesTypes?.treemap) },
+    { name: 'modules/pattern-fill.js',      ok: has(() => HC.patterns) },
     { name: 'modules/exporting.js',         ok: has(() => HC.Chart?.prototype?.exportChart) },
     { name: 'modules/offline-exporting.js', ok: has(() => HC.Chart?.prototype?.exportChartLocal) },
     { name: 'modules/export-data.js',       ok: has(() => HC.Chart?.prototype?.getCSV || HC.Chart?.prototype?.getDataRows) },
@@ -10179,32 +10643,47 @@ function renderModulesStatus() {
   ).join('');
 }
 
-function exportChart(type) {
+async function exportChart(type) {
   if (!chartInstance) { showToast('No chart to export'); return; }
   const chartName = (document.getElementById('chart-name-display')?.textContent || 'chart').replace(/\s+/g, '-').toLowerCase();
+  const exportWidth = EXPORT_SIZE_PRESETS[_exportSizeKey].width;
+  // sourceWidth alone doesn't scale height proportionally — Highcharts keeps
+  // the chart's original absolute height, which distorts the aspect ratio
+  // when the live preview's width differs from the fixed export width.
+  // Compute sourceHeight from the chart's current aspect ratio instead.
+  const aspect = (chartInstance.chartHeight || 1) / (chartInstance.chartWidth || 1);
+  const sourceHeight = Math.round(exportWidth * aspect);
+
+  if (type === 'svg') {
+    try {
+      const fonts = await _loadExportFonts();
+      // getSVG() only respects size via exporting.sourceWidth/sourceHeight —
+      // plain chart.width/height are silently ignored on a responsive chart.
+      const svgOptions = Highcharts.merge(EXPORT_CHART_OPTIONS, { exporting: { sourceWidth: exportWidth, sourceHeight } });
+      const rawSvg = chartInstance.getSVG(svgOptions);
+      const finalSvg = _svgTextToPaths(rawSvg, fonts);
+      const blob = new Blob([finalSvg], { type: 'image/svg+xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = chartName + '.svg';
+      a.click();
+    } catch (e) {
+      showToast('Export failed: ' + (e.message || e));
+    }
+    return;
+  }
+
   try {
-    // sourceWidth alone doesn't scale height proportionally — Highcharts keeps
-    // the chart's original absolute height, which distorts the aspect ratio
-    // when the live preview's width differs from the fixed export width.
-    // Compute sourceHeight from the chart's current aspect ratio instead.
-    const aspect = (chartInstance.chartHeight || 1) / (chartInstance.chartWidth || 1);
-    const sourceHeight = Math.round(EXPORT_WIDTH * aspect);
     // exportChart() always posts to Highcharts' online export server regardless
     // of fallbackToExportServer — that option only applies within
     // exportChartLocal(), which offline-exporting.js adds for client-side export.
     const exportOpts = {
       type: EXPORT_MIME[type] || EXPORT_MIME.png,
       filename: chartName,
-      sourceWidth: EXPORT_WIDTH,
+      sourceWidth: exportWidth,
       sourceHeight,
     };
-    // SVG export renders text as real <text> elements (not font-dependent
-    // rasterised glyphs) — geometricPrecision keeps that text crisp instead
-    // of the browser's default optimizeSpeed rendering.
-    const svgChartOptions = type === 'svg'
-      ? { chart: { style: { textRendering: 'geometricPrecision' } } }
-      : undefined;
-    chartInstance.exportChartLocal(exportOpts, svgChartOptions);
+    chartInstance.exportChartLocal(exportOpts);
   } catch(e) {
     showToast('Export failed: ' + (e.message || e));
   }
@@ -10710,6 +11189,181 @@ const CHART_TEMPLATES = [
       stacking: '', zoom: '', chartHeight: 420, innerSize: 60,
     }
   },
+  {
+    id: 'ex16-col-creditspread',
+    name: 'Credit Spread (dual axis)',
+    desc: 'Column, linked rating sub-axis, gradient fill, multi-arrow annotations',
+    section: 'Column & Bar',
+    typeHint: 'column',
+    preview: `<svg viewBox="0 0 120 54" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="54" fill="#f8f8f8"/><line x1="0" y1="46" x2="120" y2="46" stroke="#ccc" stroke-width="0.5"/><rect x="2" y="42" width="8" height="4" fill="#009d80"/><rect x="14" y="40" width="8" height="6" fill="#009d80"/><rect x="26" y="37" width="8" height="9" fill="#009d80"/><rect x="38" y="33" width="8" height="13" fill="#009d80"/><rect x="50" y="30" width="8" height="16" fill="#fbaa96"/><rect x="62" y="26" width="8" height="20" fill="#fbaa96"/><rect x="74" y="22" width="8" height="24" fill="#009d80"/><rect x="86" y="18" width="8" height="28" fill="#009d80"/><rect x="98" y="4"  width="8" height="42" fill="#009d80"/><path d="M40 20 L40 6 L60 6" fill="none" stroke="#809a96" stroke-width="1"/></svg>`,
+    rawConfig: {
+      chart: {
+        type: 'column',
+        height: 700,
+        spacingBottom: 100,
+        animation: { duration: 800, easing: 'swing' },
+      },
+      title: { text: '' },
+      subtitle: { text: '' },
+      tooltip: {
+        shared: true,
+        headerFormat: '<strong>{point.key}</strong><br />',
+        pointFormat: '{point.y} bps<br />',
+        footerFormat: '',
+      },
+      xAxis: [{
+        categories: ['Microsoft 10y', 'Google 10y', 'Amazon 10y', 'Meta 10y', 'BBB corp index', 'BB high yield index', 'Oracle 10y', 'Microsoft-backed DC', 'Meta-backed DC', 'Google-backed DC', 'CoreWeave asset-backed loan', 'CoreWeave'],
+        labels: { rotation: -90, useHTML: true, style: { width: '150px', textAlign: 'right' } },
+        lineWidth: 1,
+      }, {
+        linkedTo: 0,
+        categories: ['AAA', 'AA', 'AA', 'AA', 'Credit<br />rating', 'Credit<br />rating', 'BBB', 'BBB', 'A', 'BB', 'BB', 'B'],
+        labels: { rotation: 0, align: 'center', y: 20 },
+        lineWidth: 0,
+        tickLength: 0,
+      }],
+      yAxis: {
+        title: { text: 'Credit spread, bps', margin: 5 },
+        max: 920,
+        tickInterval: 100,
+        gridLineWidth: 0,
+        plotLines: [{ value: 0, width: 1, zIndex: 4 }],
+      },
+      plotOptions: {
+        column: { grouping: false, borderWidth: 0, pointPadding: 0.18, groupPadding: 0.08, borderRadius: 0 },
+        series: { animation: { duration: 800, easing: 'swing' } },
+      },
+      legend: { align: 'bottom', symbolRadius: 0, symbolHeight: 20, symbolWidth: 30, y: 60 },
+      annotations: [{
+        draggable: '',
+        zIndex: 1,
+        labelOptions: {
+          backgroundColor: '#e8e5ce',
+          borderWidth: 0,
+          shadow: false,
+          useHTML: true,
+          style: { fontSize: '13px', textOutline: 'none', textAlign: 'center' },
+        },
+        labels: [
+          { point: { xAxis: 0, yAxis: 0, x: 4.2, y: 830 }, text: 'Google-backed data centre credit has<br /><strong>+210 bps</strong> more spread than Google bond', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+          { point: { xAxis: 0, yAxis: 0, x: 4.0, y: 550 }, text: 'Microsoft: <strong>+ 212 bps</strong>', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+          { point: { xAxis: 0, yAxis: 0, x: 4.6, y: 390 }, text: 'Meta: <strong>+ 129 bps</strong>', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+        ],
+        shapes: [
+          { type: 'path', strokeWidth: 1, fill: 'none', stroke: '#809a96', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 2.6, y: 880 }, { xAxis: 0, yAxis: 0, x: 1, y: 880 }, { xAxis: 0, yAxis: 0, x: 1, y: 110 }] },
+          { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.8, y: 880 }, { xAxis: 0, yAxis: 0, x: 9, y: 880 }, { xAxis: 0, yAxis: 0, x: 9, y: 380 }] },
+          { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 3.0, y: 600 }, { xAxis: 0, yAxis: 0, x: 0, y: 600 }, { xAxis: 0, yAxis: 0, x: 0, y: 80 }] },
+          { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.0, y: 600 }, { xAxis: 0, yAxis: 0, x: 7, y: 600 }, { xAxis: 0, yAxis: 0, x: 7, y: 320 }] },
+          { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 3.9, y: 440 }, { xAxis: 0, yAxis: 0, x: 3, y: 440 }, { xAxis: 0, yAxis: 0, x: 3, y: 165 }] },
+          { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.3, y: 440 }, { xAxis: 0, yAxis: 0, x: 8, y: 440 }, { xAxis: 0, yAxis: 0, x: 8, y: 325 }] },
+        ],
+      }],
+      series: [
+        {
+          name: 'AI related',
+          color: '#009d80',
+          data: [null, null, null, null, null, null, null, 276.03, 278.38, 324.11, 424, 782.58],
+        },
+        {
+          name: 'AI related – hyperscaler issuance',
+          color: {
+            linearGradient: { x1: 0, y1: 0, x2: 1, y2: 0 },
+            stops: [
+              [0, '#009d80'], [0.125, '#009d80'], [0.125, '#026e62'], [0.25, '#026e62'],
+              [0.25, '#009d80'], [0.375, '#009d80'], [0.375, '#026e62'], [0.5, '#026e62'],
+              [0.5, '#009d80'], [0.625, '#009d80'], [0.625, '#026e62'], [0.75, '#026e62'],
+              [0.75, '#009d80'], [0.875, '#009d80'], [0.875, '#026e62'], [1, '#026e62'],
+            ],
+          },
+          data: [63.74, 113.67, 122.84, 148.92, null, null, 256.32, null, null, null, null, null],
+        },
+        {
+          name: 'Broader credit index',
+          color: '#fbaa96',
+          data: [null, null, null, null, 135, 181, null, null, null, null, null, null],
+        },
+      ],
+      responsive: {
+        rules: [
+          {
+            condition: { maxWidth: 768 },
+            chartOptions: {
+              chart: { height: 700 },
+              tooltip: { style: { zIndex: 9999 } },
+              annotations: [{
+                draggable: '',
+                zIndex: 1,
+                labelOptions: {
+                  backgroundColor: '#e8e5ce',
+                  borderWidth: 0,
+                  shadow: false,
+                  useHTML: true,
+                  style: { fontSize: '13px', textOutline: 'none', textAlign: 'center' },
+                },
+                labels: [
+                  { point: { xAxis: 0, yAxis: 0, x: 4.2, y: 830 }, text: 'Google-backed DC has<br /><strong>+210 bps</strong><br />more spread than<br />Google bond', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+                  { point: { xAxis: 0, yAxis: 0, x: 4.0, y: 550 }, text: 'Microsoft:<br /><strong>+ 212 bps</strong>', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+                  { point: { xAxis: 0, yAxis: 0, x: 4.6, y: 390 }, text: 'Meta:<br /><strong>+ 129 bps</strong>', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+                ],
+                shapes: [
+                  { type: 'path', strokeWidth: 1, fill: 'none', stroke: '#809a96', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 2.6, y: 880 }, { xAxis: 0, yAxis: 0, x: 1, y: 880 }, { xAxis: 0, yAxis: 0, x: 1, y: 110 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.8, y: 880 }, { xAxis: 0, yAxis: 0, x: 9, y: 880 }, { xAxis: 0, yAxis: 0, x: 9, y: 380 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 3.0, y: 600 }, { xAxis: 0, yAxis: 0, x: 0, y: 600 }, { xAxis: 0, yAxis: 0, x: 0, y: 80 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.0, y: 600 }, { xAxis: 0, yAxis: 0, x: 7, y: 600 }, { xAxis: 0, yAxis: 0, x: 7, y: 320 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 3.9, y: 440 }, { xAxis: 0, yAxis: 0, x: 3, y: 440 }, { xAxis: 0, yAxis: 0, x: 3, y: 165 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.3, y: 440 }, { xAxis: 0, yAxis: 0, x: 8, y: 440 }, { xAxis: 0, yAxis: 0, x: 8, y: 325 }] },
+                ],
+              }],
+              xAxis: [
+                { labels: { rotation: -45, style: { fontSize: '10px', width: '300px' } } },
+                // linkedTo must be repeated here — Highcharts' responsive-rules
+                // merge drops the linked axis entirely at this breakpoint
+                // otherwise (confirmed live: xAxis.length silently becomes 1).
+                { labels: { enabled: false }, linkedTo: 0 },
+              ],
+              spacingBottom: 80,
+              plotOptions: { column: { pointPadding: 0.1, groupPadding: 0.05 } },
+            },
+          },
+          {
+            condition: { maxWidth: 500 },
+            chartOptions: {
+              chart: { height: 750 },
+              tooltip: { zIndex: 9999, style: { zIndex: 9999 } },
+              annotations: [{
+                draggable: '',
+                zIndex: 1,
+                labelOptions: {
+                  backgroundColor: '#e8e5ce',
+                  borderWidth: 0,
+                  shadow: false,
+                  useHTML: true,
+                  style: { fontSize: '13px', textOutline: 'none', textAlign: 'center' },
+                },
+                labels: [
+                  { point: { xAxis: 0, yAxis: 0, x: 4.2, y: 830 }, text: 'Google-backed DC has<br /><strong>+210 bps</strong><br />more spread than<br />Google bond', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+                  { point: { xAxis: 0, yAxis: 0, x: 4.0, y: 550 }, text: 'Microsoft:<br /><strong>+ 212 bps</strong>', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+                  { point: { xAxis: 0, yAxis: 0, x: 4.6, y: 390 }, text: 'Meta:<br /><strong>+ 129 bps</strong>', align: 'center', verticalAlign: 'middle', backgroundColor: '#e8e5ce' },
+                ],
+                shapes: [
+                  { type: 'path', strokeWidth: 1, fill: 'none', stroke: '#809a96', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 2.6, y: 880 }, { xAxis: 0, yAxis: 0, x: 1, y: 880 }, { xAxis: 0, yAxis: 0, x: 1, y: 110 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.8, y: 880 }, { xAxis: 0, yAxis: 0, x: 9, y: 880 }, { xAxis: 0, yAxis: 0, x: 9, y: 380 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 3.0, y: 600 }, { xAxis: 0, yAxis: 0, x: 0, y: 600 }, { xAxis: 0, yAxis: 0, x: 0, y: 80 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.0, y: 600 }, { xAxis: 0, yAxis: 0, x: 7, y: 600 }, { xAxis: 0, yAxis: 0, x: 7, y: 320 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 3.9, y: 440 }, { xAxis: 0, yAxis: 0, x: 3, y: 440 }, { xAxis: 0, yAxis: 0, x: 3, y: 165 }] },
+                  { type: 'path', strokeWidth: 1, stroke: '#809a96', fill: 'none', markerEnd: 'arrow', points: [{ xAxis: 0, yAxis: 0, x: 5.3, y: 440 }, { xAxis: 0, yAxis: 0, x: 8, y: 440 }, { xAxis: 0, yAxis: 0, x: 8, y: 325 }] },
+                ],
+              }],
+              xAxis: [
+                { labels: { style: { fontSize: '9px' } } },
+                { labels: { enabled: false }, linkedTo: 0 },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  },
   /* ── Pie & Donut ─────────────────────────── */
   {
     id: 'ex13-pie',
@@ -10956,11 +11610,18 @@ function saveCurrentChart() {
   const existing = saved.find(c => c.title === title);
   const version = existing ? existing.version + 1 : 1;
   const id = existing ? existing.id : 'chart_' + Date.now();
+  const savedState = JSON.parse(JSON.stringify(state));
+  // For a raw-config chart, state.series/categories belong to the OTHER
+  // (state-driven) pipeline and can hold stale leftovers from whatever was
+  // loaded before this chart — baking that into the save is exactly how a
+  // previous chart's series names/colours later bled into this one on
+  // reload. The real series data lives in rawConfig below.
+  if (_lastRawConfig) { savedState.series = []; savedState.categories = []; }
   const entry = {
     id, title, version,
     savedAt: new Date().toISOString(),
     chartType: state.chartType,
-    state: JSON.parse(JSON.stringify(state)),
+    state: savedState,
     // Pasted/raw-config charts (annotations, gradients, dual axes, responsive
     // rules, etc.) live in _lastRawConfig, not state.series — without this,
     // "My Charts" silently dropped everything but the sidebar's own fields.
@@ -11003,27 +11664,35 @@ function loadSavedChartById(id) {
   if (card) card.classList.add('loaded');
   Object.assign(state, entry.state);
   state.series = entry.state.series.map(s => ({ ...s }));
-  if (entry.theme && N1_THEMES[entry.theme]) {
-    selectedTheme = entry.theme;
-    applyThemeCss(selectedTheme);
-  }
+  // Saved charts always reopen on the default N1 theme — a per-chart saved
+  // theme used to override the reset above, which is exactly the
+  // "background changes on its own" behaviour that shouldn't happen.
   if (entry.rawConfig) {
     // Raw-config chart (annotations, gradients, dual axes, responsive
     // rules, etc.) — restore it the same way loadChartVersion() does,
     // instead of falling through to the empty state-driven render.
+    // state.series is the OTHER pipeline's data model and must be empty
+    // here regardless of what entry.state happened to hold — a non-empty
+    // leftover (from whatever chart was open right before this got saved)
+    // is exactly how one chart's series names/colours kept bleeding into
+    // the next raw-config chart loaded after it.
+    state.series = [];
+    state.categories = [];
     _lastRawConfig = JSON.parse(JSON.stringify(entry.rawConfig));
+    // entry.state was a snapshot from whenever this chart was last saved —
+    // it can drift from the raw config itself (e.g. chart type changed
+    // afterwards without resaving), which is how the sidebar ended up
+    // showing "Column chart" for what's actually a rendered line chart.
+    // Re-derive from the actual config being loaded, same as loadTemplate().
+    syncStateFromConfig(_lastRawConfig);
+    _importAnnotationsFromRawConfig(_lastRawConfig);
     _clearManualColorOverrides();
-    try {
-      if (chartInstance) chartInstance.destroy();
-      const cfg = JSON.parse(JSON.stringify(_lastRawConfig));
-      cfg.credits = { enabled: false };
-      if (!cfg.chart) cfg.chart = {};
-      cfg.chart.style = { fontFamily: N1_CHART_FONT };
-      cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
-      cfg.annotations = buildAnnotationsForChart() || [];
-      chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
-      _attachAnnotationInteractions();
-    } catch(e) {}
+    _resetPanelSplitToNatural();
+    _allowNextRenderAnimation();
+    // Reuse the single render pipeline (theme colours, sidebar overrides,
+    // custom legend, plot lines, annotations) instead of a second hand-built
+    // Highcharts.chart() call that skips all of that.
+    _reapplyFromRawConfig();
   } else {
     _lastRawConfig = null;
   }
@@ -11033,7 +11702,12 @@ function loadSavedChartById(id) {
   renderColourRows();
   checkColourOverrides();
   if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
-  if (!entry.rawConfig) schedUpdate();
+  // A genuine chart switch renders immediately, not through the 80ms
+  // debounce meant for routine field edits — debounced via schedUpdate()
+  // here left the very first paint showing whatever chartInstance already
+  // existed (wrong theme background, wrong everything) until some later,
+  // unrelated field edit finally triggered a real update() call.
+  if (!entry.rawConfig) update();
   persist();
   const input = document.getElementById('lib-save-title');
   if (input) input.value = entry.title;
@@ -11121,13 +11795,21 @@ function loadTemplate(id) {
     // silently overwriting the template's real xAxis title/etc. with stale
     // or empty sidebar defaults.
     syncStateFromConfig(tpl.rawConfig);
+    // Without this, annotations left over from whatever chart was loaded
+    // before stay in state.annotations/calloutArrows (they're keyed by
+    // nothing template-specific) and get rebuilt straight onto this new
+    // chart by buildAnnotationsForChart() below — sets them to match this
+    // template exactly (empty if it has none of its own), same as pasting
+    // a config already does via applyFullRawConfig().
+    _importAnnotationsFromRawConfig(_lastRawConfig);
+    _resetPanelSplitToNatural();
+    _allowNextRenderAnimation();
     _reapplyFromRawConfig();
     updateChartTypeUI();
     if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
     renderColourRows();
     updateEmptyState();
     persist();
-    _ensureTypePanelOpen();
     return;
   }
 
@@ -11139,15 +11821,24 @@ function loadTemplate(id) {
   _lastRawConfig = null;
   Object.assign(state, tpl.state);
   state.series = tpl.state.series.map(s => ({ ...s }));
+  // Same reason as the rawConfig branch above — these templates never
+  // define their own annotations, so without this reset whatever was
+  // annotated on the previously-loaded chart would carry straight over.
+  state.annotations = [];
+  state.calloutArrows = [];
+  _resetPanelSplitToNatural();
   syncSidebarToState();
   updateChartTypeUI();
   updateFieldVisibility();
   renderColourRows();
   checkColourOverrides();
   if (typeof pickerActiveGroup !== 'undefined') renderPickerBody();
-  schedUpdate();
+  _allowNextRenderAnimation();
+  // A genuine chart switch renders immediately — see the matching comment
+  // in loadSavedChartById() for why the debounce meant for routine field
+  // edits isn't the right call here.
+  update();
   persist();
-  _ensureTypePanelOpen();
 }
 
 /* ═══════════════════════════════════════════
@@ -12106,7 +12797,7 @@ function loadChartVersion(chartId, versionIdx) {
     _lastRawConfig = JSON.parse(JSON.stringify(ver.rawConfig));
     _clearManualColorOverrides();
     try {
-      if (chartInstance) chartInstance.destroy();
+      if (chartInstance) { try { chartInstance.destroy(); } catch(e) {} }
       const cfg = JSON.parse(JSON.stringify(_lastRawConfig));
       cfg.credits = { enabled: false };
       if (!cfg.chart) cfg.chart = {};
@@ -12427,15 +13118,6 @@ function onConfigCsvUrlInput(val) {
 /* ═══════════════════════════════════════════════════════════════
    PART 6 — SITECORE HELPER
 ═══════════════════════════════════════════════════════════════ */
-function toggleSitecoreHelper() {
-  const btn = document.getElementById('sitecore-toggle');
-  const body = document.getElementById('sitecore-body');
-  if (!btn || !body) return;
-  const open = body.classList.toggle('open');
-  btn.classList.toggle('open', open);
-  try { localStorage.setItem('n1_sitecore_helper_open', open ? '1' : '0'); } catch(e) {}
-}
-
 /* ═══════════════════════════════════════════════════════════════
    PART 7 — THEME IN TYPE MODAL (tim-pills)
 ═══════════════════════════════════════════════════════════════ */

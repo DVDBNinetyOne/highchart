@@ -4711,6 +4711,10 @@ function onField(key, val) {
   if (key === 'yMin' || key === 'yMax' || key === 'yTickInterval' || key === 'xTickInterval') val = val === '' ? null : parseFloat(val);
   if (key === 'chartHeight') val = parseInt(val) || 450;
   state[key] = val;
+  // Easing has no visible effect unless a render actually animates — animation
+  // is deliberately off for routine sidebar edits (_allowNextRenderAnimation()'s
+  // comment), so this one field gets a one-shot re-animate to show the change.
+  if (key === 'animationEasing') _allowNextRenderAnimation();
   schedUpdate();
   persist();
 }
@@ -4951,6 +4955,11 @@ function toggleRightPanel() {
 function setDashStyle(ds) {
   state.dashStyle = ds;
   document.querySelectorAll('[data-ds]').forEach(b => b.classList.toggle('active', b.dataset.ds === ds));
+  // Unlike most routine sidebar edits (animation deliberately suppressed —
+  // see _allowNextRenderAnimation()'s comment), a line-style change is
+  // otherwise invisible on a chart that's already idle, so this field gets
+  // the one-shot re-animate to actually show the new dash pattern.
+  _allowNextRenderAnimation();
   schedUpdate(); persist();
 }
 
@@ -5378,6 +5387,7 @@ function setSeriesDashStyle(i, ds) {
   if (!state.series[i]) return;
   state.series[i].dashStyle = ds;
   renderColourRows();
+  _allowNextRenderAnimation();
   schedUpdate(); persist();
 }
 
@@ -5385,6 +5395,7 @@ function setRawSeriesDashStyle(i, ds) {
   if (!_lastRawConfig?.series?.[i]) return;
   _lastRawConfig.series[i].dashStyle = ds;
   renderColourRows();
+  _allowNextRenderAnimation();
   _reapplyFromRawConfig();
 }
 
@@ -6134,7 +6145,9 @@ function generateConfig() {
     if (Object.keys(lblOpts).length) xa.labels = lblOpts;
     if (s.xTickInterval != null) xa.tickInterval = s.xTickInterval * 365.25 * 24 * 3600 * 1000;
     xa.lineWidth = s.xLine ? 1 : 0;
-    if (s.xLine && s.xLineColor && s.xLineColor !== '#cbc8c8') xa.lineColor = s.xLineColor;
+    // Same reason as gridLineColor/zero-line colour above — no Sitecore-side
+    // default to fall back to, so always export it when the line is on.
+    if (s.xLine) xa.lineColor = s.xLineColor || '#cbc8c8';
     cfg.xAxis = xa;
   }
 
@@ -6150,10 +6163,17 @@ function generateConfig() {
     if (s.yMax !== null) ya.max = s.yMax;
     if (s.yTickInterval != null) ya.tickInterval = s.yTickInterval;
     ya.gridLineWidth = s.gridLines ? 1 : 0;
-    if (s.gridLines && s.gridLineColor && s.gridLineColor !== '#cbc8c8') ya.gridLineColor = s.gridLineColor;
+    // Unlike the background/font stripping elsewhere (those really do have
+    // a Sitecore-side default to fall back to), grid line colour has no such
+    // equivalent — omitting it whenever it matched the N1 default grey left
+    // grid lines uncoloured on the actual page, so always export it.
+    if (s.gridLines && s.gridLineColor) ya.gridLineColor = s.gridLineColor;
     if (s.yScale === 'logarithmic') ya.type = 'logarithmic';
     const _cleanPL = [];
-    if (s.yZeroLine) _cleanPL.push({ value: 0, color: s.yZeroLineColor && s.yZeroLineColor !== '#b2a896' ? s.yZeroLineColor : undefined, width: 1, zIndex: 4 });
+    // Same reason as gridLineColor above — no Sitecore-side default to fall
+    // back to, so always export it rather than omitting it whenever it
+    // matched the app's own default grey.
+    if (s.yZeroLine) _cleanPL.push({ value: 0, color: s.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 });
     if (s.yPlotLines.length) s.yPlotLines.forEach(pl => {
       const plCol = _plotLineColor(pl, thm.chartSeriesColors || N1_PALETTE);
       const entry = { value: pl.val || pl.value, color: plCol, width: 1, zIndex: 4 };
@@ -6193,7 +6213,10 @@ function generateConfig() {
   if (isCol) {
     const cp = {};
     if (s.stacking) cp.stacking = s.stacking;
-    if (s.dataLabels) cp.dataLabels = { enabled: true };
+    // crop/overflow: see the matching comment in _reapplyFromRawConfig() —
+    // keeps a label near the axis max outside the bar instead of flipped
+    // inside it.
+    if (s.dataLabels) cp.dataLabels = { enabled: true, crop: false, overflow: 'allow' };
     if (Object.keys(cp).length) po[s.chartType] = cp;
   }
   if (s.chartType === 'treemap') po.treemap = { layoutAlgorithm: 'squarified', allowTraversingTree: true, dataLabels: { enabled: s.dataLabels } };
@@ -6445,6 +6468,13 @@ function syncStateFromConfig(cfg) {
   state.title      = cfg.title?.text    || '';
   state.subtitle   = cfg.subtitle?.text || '';
   state.chartHeight = cfg.chart?.height || 450;
+  // A CSV URL left over in state from a previous chart makes every render
+  // path (generateConfig, _cleanConfigForCopy) strip this chart's own real
+  // inline series data and replace it with a data.csvURL reference instead
+  // — silently discarding whatever was just pasted/imported. Reset it here
+  // like every other field above: to the new config's own csvURL if it set
+  // one, otherwise back to empty.
+  state.csvUrl = cfg.data?.csvURL || '';
   const ya = Array.isArray(cfg.yAxis) ? cfg.yAxis[0] : cfg.yAxis;
   // For col/bar charts with no explicit gridLineWidth, default to OFF
   // rather than the usual ON.
@@ -7492,6 +7522,15 @@ function _reapplyFromRawConfig() {
       cfg.plotOptions[shapeKey].pointPadding = state.pointPadding ?? 0.1;
       cfg.plotOptions[shapeKey].borderRadius = state.borderRadius  || 0;
       cfg.plotOptions[shapeKey].borderWidth  = 0;
+      // A label on a bar close to the axis max has too little headroom
+      // above it to fit — Highcharts' default overflow:'justify' then
+      // flips the label back inside the bar (overlapping the fill) instead
+      // of leaving it outside. Letting it overflow the plot area keeps it
+      // outside the bar, which reads far better than overlap.
+      if (cfg.plotOptions[shapeKey].dataLabels?.enabled) {
+        cfg.plotOptions[shapeKey].dataLabels.crop = false;
+        cfg.plotOptions[shapeKey].dataLabels.overflow = 'allow';
+      }
     }
     if (['area','areaspline'].includes(chartType) && state.fillOpacity != null) {
       if (!cfg.plotOptions.area) cfg.plotOptions.area = {};
@@ -7603,11 +7642,17 @@ function _cleanConfigForCopy(cfg) {
     // and was being silently deleted here same as any other colour.
     if (typeof s.color !== 'object') delete s.color;
     delete s._colorOverride;
-    // Strip per-point colours from the original config; re-apply only manual overrides
+    // Per-point colour is never theme-injected (nothing in the render
+    // pipeline sets it from the theme palette) — it only ever comes from
+    // the source config/template's own data (e.g. per-point pos/neg
+    // colouring reapplied by _reapplyPerPointColors when a template's data
+    // is swapped for freshly-imported values) or a manual override from the
+    // point-edit picker. Unconditionally deleting it here was dropping the
+    // former from the exported CMS code even though the live preview still
+    // rendered it correctly. A manual override still wins when both exist.
     if (Array.isArray(s.data)) {
       s.data.forEach((pt, pi) => {
         if (typeof pt === 'object' && pt !== null) {
-          delete pt.color;
           const override = _manualColorOverrides[`${si}-${pi}`];
           if (override) pt.color = override;
         }
@@ -7621,8 +7666,10 @@ function _cleanConfigForCopy(cfg) {
   if (_ya) {
     const _cpPL = [];
     if (state.yZeroLine) {
-      const _ze = { value: 0, width: 1, zIndex: 4 };
-      if (state.yZeroLineColor && state.yZeroLineColor !== '#b2a896') _ze.color = state.yZeroLineColor;
+      // Same reason as gridLineColor above — no Sitecore-side default to
+      // fall back to, so always export it rather than omitting it whenever
+      // it matched the app's own default grey.
+      const _ze = { value: 0, color: state.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 };
       _cpPL.push(_ze);
     }
     if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => {
@@ -7640,7 +7687,9 @@ function _cleanConfigForCopy(cfg) {
     if (state.yMax  != null)     _yaNew.max = state.yMax;
     if (state.yTickInterval != null) _yaNew.tickInterval = state.yTickInterval;
     _yaNew.gridLineWidth = state.gridLines ? 1 : 0;
-    if (state.gridLines && state.gridLineColor && state.gridLineColor !== '#cbc8c8') _yaNew.gridLineColor = state.gridLineColor;
+    // See generateConfig()'s matching comment — grid line colour has no
+    // Sitecore-side default to fall back to, so always export it.
+    if (state.gridLines && state.gridLineColor) _yaNew.gridLineColor = state.gridLineColor;
     const _fmt = state.yFormat || (state.valSuffix ? `{value}${state.valSuffix}` : null);
     if (_fmt) _yaNew.labels = { ...(_ya.labels || {}), format: _fmt };
     else if (_ya.labels && Object.keys(_ya.labels).some(k => k !== 'style')) {
@@ -7678,7 +7727,12 @@ function _cleanConfigForCopy(cfg) {
     if (out.xAxis.title?.style)  delete out.xAxis.title.style;
     delete out.xAxis.tickColor;
     out.xAxis.lineWidth = state.xLine ? 1 : 0;
-    if (state.xLine && state.xLineColor && state.xLineColor !== '#cbc8c8') out.xAxis.lineColor = state.xLineColor;
+    // Same reason as gridLineColor/zero-line colour above — omitting this
+    // whenever it matched the app's default grey left Highcharts falling
+    // back to ITS OWN default (a much darker line) on the real Sitecore
+    // page, even though the live preview here always sets it explicitly and
+    // never showed the problem.
+    if (state.xLine) out.xAxis.lineColor = state.xLineColor || '#cbc8c8';
     else delete out.xAxis.lineColor;
   }
   ;(Array.isArray(out.yAxis) ? out.yAxis : [out.yAxis]).forEach(ax => {
@@ -7734,6 +7788,12 @@ function _cleanConfigForCopy(cfg) {
     out.plotOptions[_chartType].pointPadding = state.pointPadding ?? 0.1;
     out.plotOptions[_chartType].borderRadius = state.borderRadius  || 0;
     out.plotOptions[_chartType].borderWidth  = 0;
+    // See the matching comment in _reapplyFromRawConfig() — keeps a label
+    // near the axis max outside the bar instead of flipped inside it.
+    if (out.plotOptions[_chartType].dataLabels?.enabled) {
+      out.plotOptions[_chartType].dataLabels.crop = false;
+      out.plotOptions[_chartType].dataLabels.overflow = 'allow';
+    }
   }
   if (['area','areaspline'].includes(_chartType) && state.fillOpacity != null) {
     if (!out.plotOptions.area) out.plotOptions.area = {};
@@ -8046,7 +8106,12 @@ function _getWiz3TemplateList() {
 
 function _findWiz3Template(id) {
   const saved = getSavedCharts().find(c => c.id === id);
-  if (saved) return { kind: 'saved', name: saved.title, state: saved.state, rawConfig: null };
+  // saveCurrentChart() already stores a saved chart's real rawConfig (plot
+  // options, fixed axis ranges, responsive rules, tooltip format, etc.)
+  // right alongside its state snapshot — hardcoding null here discarded all
+  // of that and forced every saved-chart-as-template through the weaker
+  // state-driven render path, which only knows generic sidebar fields.
+  if (saved) return { kind: 'saved', name: saved.title, state: saved.state, rawConfig: saved.rawConfig || null };
   const tpl = CHART_TEMPLATES.find(t => t.id === id);
   if (tpl) return { kind: 'builtin', name: tpl.name, state: tpl.state, rawConfig: tpl.rawConfig };
   return null;
@@ -8433,6 +8498,17 @@ function applyTemplateWithImportedData(chartId, cfg) {
     _lastRawConfig = JSON.parse(JSON.stringify(rc));
     _clearManualColorOverrides();
     if (rc.chart?.type) { state.chartType = rc.chart.type; updateChartTypeUI(); }
+    // _reapplyFromRawConfig() unconditionally rebuilds title/yAxis min-max-
+    // tickInterval/dataLabels/tooltip decimals etc. from state, not from rc —
+    // without reading the template's own config into state first (same as
+    // loadTemplate()/applyFullRawConfig() already do), every one of those
+    // fields would sit on whatever state held from before this template was
+    // picked (defaults, most likely), silently overwriting the template's
+    // real title/axis range/data-label format/etc. with them. The whole
+    // point of "import CSV into a saved template" is that only the data
+    // (series/categories) changes — everything else stays as saved.
+    syncStateFromConfig(rc);
+    _importAnnotationsFromRawConfig(_lastRawConfig);
     // Render through the shared raw-config path so theme background/title/axis
     // colours get injected the same way every other raw-config chart does —
     // rendering directly here left the chart on Highcharts' plain white default.
@@ -8506,6 +8582,12 @@ function _dtTicksFromAnchor(firstTs, lastTs, stepMonths) {
 ═══════════════════════════════════════════ */
 function applyAIConfig(cfg) {
   if (!cfg) return;
+
+  // This function always means "here is real inline data to render" (file
+  // import, pasted config/data, template fill) — a CSV URL left in state
+  // from an earlier chart would otherwise make the CMS export silently
+  // strip this data and reference that stale URL instead.
+  state.csvUrl = '';
 
   // Datetime CSV import — bypass state machine, build a raw config directly
   if ((cfg.xAxisType === 'datetime' || Array.isArray(cfg.series?.[0]?.data?.[0])) && cfg.series?.length) {
@@ -8745,6 +8827,7 @@ function highchartsConfigToInternal(hc) {
   const xa = Array.isArray(hc.xAxis) ? hc.xAxis[0] : hc.xAxis;
   if (xa?.categories?.length) out.categories = xa.categories;
   if (xa?.title?.text) out.xTitle = xa.title.text;
+  if (xa?.type === 'datetime') out.xAxisType = 'datetime';
 
   // yAxis
   const ya = Array.isArray(hc.yAxis) ? hc.yAxis[0] : hc.yAxis;
@@ -8768,11 +8851,16 @@ function highchartsConfigToInternal(hc) {
   // Chart height
   if (hc.chart?.height) out.chartHeight = Number(hc.chart.height);
 
-  // Series — normalise point objects {y, name} and xy-pairs [x,y]
+  // Series — normalise point objects {y, name} and xy-pairs [x,y]. A
+  // datetime x-axis needs the [timestamp, value] pairs kept intact (that's
+  // the only place the x-values live) — collapsing them to just the value
+  // here was silently dropping every timestamp, so a pasted datetime config
+  // lost its whole x-axis and rendered a blank chart downstream.
   if (hc.series?.length) {
     out.series = hc.series.map((s, i) => {
       const data = (s.data || []).map(d => {
         if (d === null || d === undefined) return null;
+        if (out.xAxisType === 'datetime') return Array.isArray(d) ? d : null;
         if (typeof d === 'number') return d;
         if (Array.isArray(d)) return d[1] ?? null;   // [x, y]
         if (typeof d === 'object') return d.y ?? null;
@@ -8786,7 +8874,7 @@ function highchartsConfigToInternal(hc) {
       };
     });
     // Derive categories from point names if not set in xAxis
-    if (!out.categories?.length && hc.series[0]?.data?.length) {
+    if (out.xAxisType !== 'datetime' && !out.categories?.length && hc.series[0]?.data?.length) {
       const pts = hc.series[0].data;
       if (pts.every(d => typeof d === 'object' && d !== null && !Array.isArray(d) && d.name)) {
         out.categories = pts.map(d => d.name);
@@ -9313,9 +9401,28 @@ function parseSVG(svgText) {
 ═══════════════════════════════════════════ */
 function parseCSV(text) {
   const lines = text.trim().split('\n').map(l => l.split(',').map(c => c.trim().replace(/^"|"$/g,'')));
-  if (lines.length < 2) return {};
-  const headers = lines[0];
-  const dataRows = lines.slice(1).filter(r => (r[0] || '').trim());
+  if (lines.length < 1) return {};
+
+  // Detect whether row 0 is a real header row or already a data row (e.g. a
+  // headerless "label,value" export) — a header row's non-label cells read
+  // as text ("Brent Crude Oil"), a data row's read as numbers ("23.60%").
+  // Without this check a headerless file loses its first category entirely:
+  // that row gets consumed as "headers" and its value cell becomes the
+  // series name instead.
+  const isNumericLike = s => s !== '' && !isNaN(parseFloat(s.replace('%', '')));
+  const row0DataCols = lines[0].slice(1).filter(c => c !== '');
+  const row0IsData = row0DataCols.length > 0 && row0DataCols.every(isNumericLike);
+
+  let headers, dataRows;
+  if (row0IsData) {
+    const numCols = lines[0].length - 1;
+    headers = [''].concat(Array.from({ length: numCols }, () => ''));
+    dataRows = lines.filter(r => (r[0] || '').trim());
+  } else {
+    if (lines.length < 2) return {};
+    headers = lines[0];
+    dataRows = lines.slice(1).filter(r => (r[0] || '').trim());
+  }
 
   // Detect date-formatted first column → produce datetime [ts, value] pairs
   // Supports: M/D/YYYY, MM/DD/YYYY, YYYY-MM-DD, D Mon YYYY, Mon D YYYY
@@ -10590,22 +10697,63 @@ function _svgTextToPaths(svgString, fonts) {
     ['transform', 'data-z-index', 'class', 'aria-hidden'].forEach(attr => {
       if (textEl.hasAttribute(attr)) g.setAttribute(attr, textEl.getAttribute(attr));
     });
-    const tspans = textEl.querySelectorAll('tspan');
-    const runs = tspans.length ? Array.from(tspans) : [textEl];
-    runs.forEach(node => {
-      const str = node.textContent || '';
-      if (!str.trim()) return;
-      const x = node.hasAttribute('x') ? parseFloat(node.getAttribute('x')) : baseX;
-      const y = node.hasAttribute('y') ? parseFloat(node.getAttribute('y')) : baseY;
+
+    const addPath = (str, x, y, pathFill, stroke, strokeWidth) => {
+      if (!str || !str.trim()) return;
       try {
         const width = font.getAdvanceWidth(str, fontSize);
         const drawX = anchor === 'middle' ? x - width / 2 : anchor === 'end' ? x - width : x;
         const path = font.getPath(str, drawX, y, fontSize);
         const pathEl = doc.createElementNS(SVG_NS, 'path');
         pathEl.setAttribute('d', path.toPathData(2));
-        pathEl.setAttribute('fill', fill);
+        if (stroke) {
+          pathEl.setAttribute('fill', 'none');
+          pathEl.setAttribute('stroke', stroke);
+          pathEl.setAttribute('stroke-width', strokeWidth || 2);
+          pathEl.setAttribute('stroke-linejoin', 'round');
+        } else {
+          pathEl.setAttribute('fill', pathFill);
+        }
         g.appendChild(pathEl);
       } catch (e) { /* skip this run rather than fail the whole export */ }
+    };
+
+    // Highcharts' data-label contrast trick renders each label TWICE at the
+    // same position: a <tspan class="highcharts-text-outline"> stroked in
+    // black for a halo, then a zero-width-space tspan whose sole purpose is
+    // to reset the x-cursor, followed by the real text as a plain (non-tspan)
+    // text node using the outer <text>'s fill. Walking only <tspan> elements
+    // (the old logic) picked up the outline tspan — rendered with the wrong
+    // (outer) fill, losing its stroke — and never rendered the plain text
+    // node at all, since querySelectorAll('tspan') doesn't match it. Handle
+    // this shape explicitly so both the outline and the real label survive.
+    const outlineTspan = textEl.querySelector(':scope > tspan.highcharts-text-outline');
+    if (outlineTspan) {
+      let outlineStr = '';
+      outlineTspan.childNodes.forEach(c => { if (c.nodeType === 3) outlineStr += c.textContent; });
+      const outlineStyle = outlineTspan.getAttribute('style') || '';
+      const strokeMatch = /stroke:\s*([^;]+)/.exec(outlineStyle);
+      const stroke = strokeMatch ? strokeMatch[1].trim() : (outlineTspan.getAttribute('stroke') || '#000000');
+      const swMatch = /stroke-width:\s*([\d.]+)/.exec(outlineStyle + ' ' + (outlineTspan.getAttribute('stroke-width') || ''));
+      const strokeWidth = swMatch ? parseFloat(swMatch[1]) : 2;
+      // The real, visible text is whatever plain-text child follows the
+      // outline tspan — same string, same position (that's the whole point
+      // of the x-reset), just filled instead of stroked.
+      let realStr = '';
+      Array.from(textEl.childNodes).forEach(node => { if (node.nodeType === 3) realStr += node.textContent; });
+      addPath(outlineStr, baseX, baseY, null, stroke, strokeWidth);
+      addPath(realStr || outlineStr, baseX, baseY, fill, null, null);
+      textEl.replaceWith(g);
+      return;
+    }
+
+    const tspans = textEl.querySelectorAll('tspan');
+    const runs = tspans.length ? Array.from(tspans) : [textEl];
+    runs.forEach(node => {
+      const str = node.textContent || '';
+      const x = node.hasAttribute('x') ? parseFloat(node.getAttribute('x')) : baseX;
+      const y = node.hasAttribute('y') ? parseFloat(node.getAttribute('y')) : baseY;
+      addPath(str, x, y, fill, null, null);
     });
     textEl.replaceWith(g);
   });
@@ -13077,8 +13225,25 @@ function _mergeDataIntoRawConfig(parsed) {
     const newData = _reapplyPerPointColors(tSeries.data, s.data);
     return { ...tSeries, name: s.name || tSeries.name, data: newData };
   });
-  if (rc.xAxis) rc.xAxis.categories = newCategories;
+  // xAxis may be a single object or an array (e.g. a template with a linked
+  // secondary axis) — categories always live on xAxis[0] in Highcharts, never
+  // on the array object itself, so writing rc.xAxis.categories when xAxis is
+  // an array silently did nothing.
+  const xa0 = Array.isArray(rc.xAxis) ? rc.xAxis[0] : rc.xAxis;
+  if (xa0) xa0.categories = newCategories;
   else rc.xAxis = { categories: newCategories };
+  // A fixed min/max/tickInterval left over from the previous dataset can put
+  // very differently-scaled new data far outside the visible range — the
+  // chart still renders, just with the line flat/off-screen, which reads as
+  // "no chart" after switching to Preview. Clear it in the raw config...
+  (Array.isArray(rc.yAxis) ? rc.yAxis : rc.yAxis ? [rc.yAxis] : []).forEach(ya => {
+    delete ya.min; delete ya.max; delete ya.tickInterval; delete ya.tickPositions;
+  });
+  // ...and in state, since _reapplyFromRawConfig() re-applies state.yMin/
+  // yMax/yTickInterval on top of the raw config's own yAxis on every render
+  // (see syncStateFromConfig) — clearing only the raw config left the old
+  // fixed scale coming straight back from state.
+  state.yMin = null; state.yMax = null; state.yTickInterval = null;
   _clearManualColorOverrides();
   _reapplyFromRawConfig();
   renderRawDataPreview();

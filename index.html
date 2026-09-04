@@ -4036,6 +4036,7 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
         </div>
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0">
           <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px">Reference lines</div>
+          <div style="font-size:10px;color:#999;margin-bottom:6px">A line with a label shows its text in the margin to the right — turn on Edit mode (below, in Text labels) and drag it to reposition.</div>
           <div id="y-plotlines-list"></div>
           <button onclick="addYPlotLine()" style="font-size:11px;color:#009d80;background:none;border:1px dashed #009d80;border-radius:4px;padding:4px 10px;cursor:pointer;width:100%;margin-top:4px">+ Add reference line</button>
         </div>
@@ -5998,6 +5999,8 @@ function update() {
       // chart was just loaded (see _allowNextRenderAnimation()), not on
       // every routine sidebar edit.
       animation: _liveAnim,
+      ...(_annotationsMarginRight() ? { marginRight: _annotationsMarginRight() } : {}),
+      ...(_plotLinesSpacingRight() ? { spacingRight: _plotLinesSpacingRight() } : {}),
     },
     title: { text: s.title || null, style: { color: headCol } },
     subtitle: { text: s.subtitle || null, style: { color: textCol } },
@@ -6039,10 +6042,10 @@ function update() {
           ...s.yPlotLines.map(pl => ({
             value: pl.value,
             color: _plotLineColor(pl, themeColors),
-            width: 1,
+            width: pl.lineWidth || 1,
             zIndex: 4,
             ...(pl.dashStyle && pl.dashStyle !== 'Solid' ? { dashStyle: pl.dashStyle } : {}),
-            label: pl.label ? { text: pl.label, style: { color: _plotLineColor(pl, themeColors), fontSize: '11px' } } : undefined,
+            ...(pl.label ? { label: _plotLineLabelOptions(pl, themeColors) } : {}),
           })),
         ],
       },
@@ -6058,6 +6061,8 @@ function update() {
     tooltip: {
       enabled: s.tooltip,
       outside: true,
+      useHTML: true,
+      style: { zIndex: 9999 },
       shared: s.tooltipMode === 'shared',
       valuePrefix: s.ttPrefix || undefined,
       valueSuffix: s.ttSuffix || undefined,
@@ -6090,6 +6095,7 @@ function update() {
   const container = document.getElementById('chart-container');
   if (chartInstance) { try { chartInstance.destroy(); } catch(e){} chartInstance = window.chartInstance = null; }
   chartInstance = window.chartInstance = Highcharts.chart(container, opts);
+  _fixPinnedAnnotationPositions();
   container.style.height = s.chartHeight + 'px';
 
   _updateColorPointPlacement();
@@ -6129,6 +6135,10 @@ function generateConfig() {
   if (s.zoom) cfg.chart.zooming = { type: s.zoom };
   cfg.chart.animation = s.animationDuration > 0
     ? { duration: s.animationDuration, easing: s.animationEasing || 'swing' } : false;
+  const _pinMargin = _annotationsMarginRight();
+  if (_pinMargin) cfg.chart.marginRight = _pinMargin;
+  const _plMargin = _plotLinesSpacingRight();
+  if (_plMargin) cfg.chart.spacingRight = _plMargin;
 
   // ── title / subtitle ──
   cfg.title    = { text: s.title || '' };
@@ -6176,9 +6186,9 @@ function generateConfig() {
     if (s.yZeroLine) _cleanPL.push({ value: 0, color: s.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 });
     if (s.yPlotLines.length) s.yPlotLines.forEach(pl => {
       const plCol = _plotLineColor(pl, thm.chartSeriesColors || N1_PALETTE);
-      const entry = { value: pl.val || pl.value, color: plCol, width: 1, zIndex: 4 };
+      const entry = { value: pl.val || pl.value, color: plCol, width: pl.lineWidth || 1, zIndex: 4 };
       if (pl.dashStyle && pl.dashStyle !== 'Solid') entry.dashStyle = pl.dashStyle;
-      if (pl.label) entry.label = { text: pl.label, style: { color: plCol, fontSize: '11px' } };
+      if (pl.label) entry.label = _plotLineLabelOptions(pl, thm.chartSeriesColors || N1_PALETTE);
       _cleanPL.push(entry);
     });
     if (_cleanPL.length) ya.plotLines = _cleanPL;
@@ -6227,24 +6237,39 @@ function generateConfig() {
   if (!s.legend || isNoAxis) {
     cfg.legend = { enabled: false };
   } else {
+    // right/left need layout:'vertical' explicitly — Highcharts defaults to
+    // 'horizontal', which would export a side-position legend as a single
+    // horizontal row on the real Sitecore page, diverging from how the
+    // live preview here actually renders it (see update()'s matching
+    // legend object, and the equivalent posMaps in _reapplyFromRawConfig
+    // and _cleanConfigForCopy, which already set this).
     const posMap = {
-      bottom: { align: 'center', verticalAlign: 'bottom' },
-      top:    { align: 'center', verticalAlign: 'top' },
-      right:  { align: 'right',  verticalAlign: 'middle' },
-      left:   { align: 'left',   verticalAlign: 'middle' },
+      bottom: { align: 'center', verticalAlign: 'bottom', layout: 'horizontal' },
+      top:    { align: 'center', verticalAlign: 'top', layout: 'horizontal' },
+      right:  { align: 'right',  verticalAlign: 'middle', layout: 'vertical' },
+      left:   { align: 'left',   verticalAlign: 'middle', layout: 'vertical' },
     };
-    cfg.legend = posMap[s.legendPos] || { align: 'center', verticalAlign: 'bottom' };
+    cfg.legend = posMap[s.legendPos] || { align: 'center', verticalAlign: 'bottom', layout: 'horizontal' };
   }
 
   // ── tooltip ──
   if (!s.tooltip) {
     cfg.tooltip = { enabled: false };
   } else {
-    const tt = {};
+    // outside/useHTML/zIndex: a labelled reference line renders its label as
+    // a useHTML plotLine label (see _plotLineLabelOptions) living in the
+    // page's normal DOM, not the chart's SVG — without an explicit z-index
+    // race won here, a hovered tooltip can end up ghosting/blending behind
+    // that label instead of cleanly covering it, confirmed live. outside:true
+    // moves the tooltip to its own layer at the document body (escaping any
+    // clipping ancestor); useHTML + the explicit zIndex make sure it still
+    // wins the stacking race even inside a CMS page with its own z-index/
+    // transform context around the embedded chart.
+    const tt = { outside: true, useHTML: true, style: { zIndex: 9999 } };
     if (s.tooltipMode === 'shared') tt.shared = true;
     if (s.ttPrefix) tt.valuePrefix = s.ttPrefix;
     if (s.ttSuffix) tt.valueSuffix = s.ttSuffix;
-    if (Object.keys(tt).length) cfg.tooltip = tt;
+    cfg.tooltip = tt;
   }
 
   // ── data (CSV) ──
@@ -6493,7 +6518,30 @@ function syncStateFromConfig(cfg) {
     state.gridLineColor  = ya.gridLineColor || '#cbc8c8';
     state.yMin           = ya.min ?? null;
     state.yMax           = ya.max ?? null;
-    state.yTickInterval  = ya.tickInterval ?? null;
+    // A tickInterval that doesn't match the axis's own min/max produces an
+    // absurd tick count — e.g. a tickInterval of 2 copy-pasted from a
+    // percentage-scale chart, now applied to a 0–300 US$bn range, asks for
+    // 150 tick labels crammed into one axis, rendering as an unreadable
+    // dense smear rather than a real bug in the chart data. Fall back to
+    // Highcharts' own auto-calculated interval instead of taking a value
+    // that's clearly mismatched to this axis's range at face value.
+    const _rawYTickInterval = ya.tickInterval ?? null;
+    // When the axis has no explicit min/max, Highcharts scales to the
+    // data's own range instead — so the sanity check below needs that same
+    // range, not just whatever min/max the config happened to specify, or
+    // a chart with no min/max at all (very common) skipped this check
+    // entirely and still rendered thousands of ticks.
+    let _yEffMin = state.yMin, _yEffMax = state.yMax;
+    if ((_yEffMin == null || _yEffMax == null) && Array.isArray(cfg.series)) {
+      const allVals = cfg.series.flatMap(s => (s.data || []).map(v => (v && typeof v === 'object') ? v.y : v)).filter(v => typeof v === 'number' && !isNaN(v));
+      if (allVals.length) {
+        if (_yEffMin == null) _yEffMin = Math.min(...allVals, 0); // Highcharts includes 0 by default for most series types
+        if (_yEffMax == null) _yEffMax = Math.max(...allVals);
+      }
+    }
+    const _yTickCount = (_rawYTickInterval && _yEffMin != null && _yEffMax != null)
+      ? (_yEffMax - _yEffMin) / _rawYTickInterval : null;
+    state.yTickInterval  = (_yTickCount != null && (_yTickCount > 60 || _yTickCount <= 0)) ? null : _rawYTickInterval;
     state.yTitle         = ya.title?.text ?? '';
     // Detect zero plotline — reset every time (else branch too), same
     // bleed reason as everything else in this function.
@@ -6506,12 +6554,21 @@ function syncStateFromConfig(cfg) {
     // onto the matching theme colour slot so switching themes still moves
     // them, instead of just carrying the literal hex over verbatim.
     const themeColors = _plotLineThemeColors();
-    state.yPlotLines = plotLines.filter(pl => pl.value !== 0).map(pl => ({
-      value: pl.value,
-      label: pl.label?.text || '',
-      dashStyle: pl.dashStyle || 'Solid',
-      colorIndex: _plotLineColorIndex(pl, themeColors),
-    }));
+    state.yPlotLines = plotLines.filter(pl => pl.value !== 0).map(pl => {
+      // A previously-exported config's label.text is our own
+      // `<div style="width:...px;...">` wrapper (see _plotLineLabelOptions),
+      // not plain text — reading it verbatim here left the sidebar's Label
+      // field showing literal markup once a copied config got pasted back
+      // in, and re-wrapped it again on the next render. Unwrap it back to
+      // the plain text + width that produced it.
+      const { label, width } = _unwrapPlotLineLabel(pl.label?.text);
+      return {
+        value: pl.value,
+        label, width,
+        dashStyle: pl.dashStyle || 'Solid',
+        colorIndex: _plotLineColorIndex(pl, themeColors),
+      };
+    });
   }
   const xa = Array.isArray(cfg.xAxis) ? cfg.xAxis[0] : cfg.xAxis;
   if (xa) {
@@ -6641,6 +6698,15 @@ function applyFullRawConfig(cfg) {
   // Store as raw config and re-render via _reapplyFromRawConfig so the
   // active theme colours and sidebar state overrides are applied correctly.
   _lastRawConfig = JSON.parse(JSON.stringify(cfg));
+  // update() only takes the raw-config render path when state.series is
+  // empty — leftover series/categories from whatever was loaded earlier in
+  // the session (state-driven chart, a previous import, etc.) made it take
+  // the state-driven path instead on the very next re-render (any sidebar
+  // edit, or toggling annotation edit mode), silently rebuilding a
+  // completely different chart from that stale data and discarding this
+  // config's axis range, plot lines, and annotations entirely.
+  state.series = [];
+  state.categories = [];
   // Any annotations already in the config would otherwise be silently
   // discarded, since the render pipeline always rebuilds `annotations` from
   // state — pull them into the sidebar instead so they're visible and
@@ -7406,6 +7472,14 @@ function _reapplyFromRawConfig() {
     // only ever used to build the on-screen chart, never copied out.
     if (state.zoom)              cfg.chart.zoomType  = state.zoom;
     cfg.chart.animation = _liveAnim;
+    // Reserve room for any right-margin-pinned annotation labels. Leaves
+    // the raw config's own marginRight (if any) untouched when nothing is
+    // pinned — existing charts with no pinned annotations render exactly
+    // as before.
+    const _pinMargin = _annotationsMarginRight();
+    if (_pinMargin) cfg.chart.marginRight = _pinMargin;
+    const _plMargin = _plotLinesSpacingRight();
+    if (_plMargin) cfg.chart.spacingRight = _plMargin;
 
     // xAxis overrides
     if (cfg.xAxis && !Array.isArray(cfg.xAxis)) {
@@ -7464,9 +7538,9 @@ function _reapplyFromRawConfig() {
       if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => {
         const plCol = _plotLineColor(pl, thm.chartSeriesColors || N1_PALETTE);
         _allPL.push({
-          value: pl.value, color: plCol, width: 1, zIndex: 4,
+          value: pl.value, color: plCol, width: pl.lineWidth || 1, zIndex: 4,
           ...(pl.dashStyle && pl.dashStyle !== 'Solid' ? { dashStyle: pl.dashStyle } : {}),
-          label: pl.label ? { text: pl.label, style: { color: plCol, fontSize: '11px' } } : undefined,
+          ...(pl.label ? { label: _plotLineLabelOptions(pl, thm.chartSeriesColors || N1_PALETTE) } : {}),
         });
       });
       if (_allPL.length) yaOverride.plotLines = _allPL; else delete yaOverride.plotLines;
@@ -7493,6 +7567,11 @@ function _reapplyFromRawConfig() {
     // Tooltip
     if (!cfg.tooltip) cfg.tooltip = {};
     cfg.tooltip.outside  = true;
+    // See the matching comment in generateConfig()'s tooltip block — fixes
+    // a labelled reference line's useHTML plotLine label ghosting under a
+    // hovered tooltip instead of being cleanly covered by it.
+    cfg.tooltip.useHTML  = true;
+    cfg.tooltip.style    = { zIndex: 9999 };
     cfg.tooltip.enabled  = state.tooltip !== false;
     if (state.tooltipMode)              cfg.tooltip.shared        = state.tooltipMode === 'shared';
     if (state.ttPrefix != null)         cfg.tooltip.valuePrefix   = state.ttPrefix || undefined;
@@ -7544,6 +7623,7 @@ function _reapplyFromRawConfig() {
     cfg.annotations = buildAnnotationsForChart() || [];
     _applyCustomLegend(cfg.series, thm.chartSeriesColors || N1_PALETTE);
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+    _fixPinnedAnnotationPositions();
     // Keep _lastRawConfig itself (not just the render clone) in sync with the
     // sidebar's annotation state — otherwise the editable config textarea
     // shows a config with no annotations even though the preview has them,
@@ -7674,9 +7754,9 @@ function _cleanConfigForCopy(cfg) {
     }
     if (state.yPlotLines?.length) state.yPlotLines.forEach(pl => {
       const plCol = _plotLineColor(pl, thm.chartSeriesColors || N1_PALETTE);
-      const _e = { value: pl.value, color: plCol, width: 1, zIndex: 4 };
+      const _e = { value: pl.value, color: plCol, width: pl.lineWidth || 1, zIndex: 4 };
       if (pl.dashStyle && pl.dashStyle !== 'Solid') _e.dashStyle = pl.dashStyle;
-      if (pl.label) _e.label = { text: pl.label, style: { color: plCol, fontSize: '11px' } };
+      if (pl.label) _e.label = _plotLineLabelOptions(pl, thm.chartSeriesColors || N1_PALETTE);
       _cpPL.push(_e);
     });
 
@@ -7759,13 +7839,24 @@ function _cleanConfigForCopy(cfg) {
       ? { duration: state.animationDuration, easing: state.animationEasing || 'swing' } : false;
   }
   if (state.zoom) out.chart.zoomType = state.zoom; else delete out.chart.zoomType;
+  const _pinMarginOut = _annotationsMarginRight();
+  if (_pinMarginOut) out.chart.marginRight = _pinMarginOut;
+  const _plMarginOut = _plotLinesSpacingRight();
+  if (_plMarginOut) out.chart.spacingRight = _plMarginOut;
 
   if (!out.tooltip) out.tooltip = {};
   out.tooltip.enabled = state.tooltip !== false;
+  out.tooltip.outside = true;
+  // See the matching comment in generateConfig()'s tooltip block — fixes
+  // a labelled reference line's useHTML plotLine label ghosting under a
+  // hovered tooltip instead of being cleanly covered by it.
+  out.tooltip.useHTML = true;
+  out.tooltip.style   = { zIndex: 9999 };
   if (state.tooltipMode)      out.tooltip.shared        = state.tooltipMode === 'shared';
   if (state.ttPrefix != null) out.tooltip.valuePrefix   = state.ttPrefix || undefined;
   if (state.ttSuffix != null) out.tooltip.valueSuffix   = state.ttSuffix || undefined;
   if (state.decimals  != null) out.tooltip.valueDecimals = state.decimals;
+  delete out.tooltip.positioner;
 
   const _chartType = out.chart.type || 'line';
   const _isSeriesType = !['pie','sunburst','treemap','packedbubble'].includes(_chartType);
@@ -8405,6 +8496,11 @@ async function applyAndFinish() {
     dismissBanner();
     closeImportWizard();
     switchTab('preview');
+    // Safety reflow — the chart was just built by
+    // applyTemplateWithImportedData() above, possibly while
+    // #preview-tab-content was still display:none (the wizard/Data tab was
+    // active); re-measure now that switchTab() has made it visible.
+    chartInstance?.reflow();
     _ensureTypePanelOpen();
     showToast(n ? `Chart ready — imported ${n} annotation${n === 1 ? '' : 's'} from the file too` : 'Chart ready — paste config into Sitecore when done');
     return;
@@ -8421,6 +8517,9 @@ async function applyAndFinish() {
   dismissBanner();
   closeImportWizard();
   switchTab('preview');
+  // Safety reflow — see the matching comment in the chosenTemplateId
+  // branch above.
+  chartInstance?.reflow();
   _ensureTypePanelOpen();
   showToast(n ? `Chart ready — imported ${n} annotation${n === 1 ? '' : 's'} from the file too` : 'Chart ready — paste config into Sitecore when done');
 }
@@ -8432,11 +8531,47 @@ async function applyAndFinish() {
 // resulting chart's full annotation set, so it replaces whatever was left
 // over from a previously-imported/edited chart rather than piling onto it.
 function _mergeImportedAnnotations(imp) {
-  state.annotations = imp?.labels?.length ? imp.labels.map(l => ({
+  const labels = imp?.labels || [];
+  // A text box whose y sits close to an existing reference line's value is
+  // almost always explaining that threshold (e.g. "Commodities expensive
+  // relative to equities" next to a plot line at 100), not pointing at a
+  // specific data point — importing it as a free-floating annotation loses
+  // that connection and leaves it data-anchored at whatever x the source
+  // slide happened to place it at. Attaching it as the line's own pinned
+  // label instead keeps it tied to the threshold and immune to axis
+  // changes. "Close" is relative to the chart's own visible y-range (15%
+  // of it), not a fixed number — the same absolute gap means very
+  // different things on a 0–10 chart vs a 0–10,000 one.
+  const plotLines = state.yPlotLines || [];
+  const yAxis = chartInstance?.yAxis?.[0];
+  const axisRange = yAxis ? Math.abs(yAxis.max - yAxis.min) : 0;
+  const tolerance = axisRange * 0.15;
+  const usedPlotLineIdx = new Set();
+  const floating = [];
+  labels.forEach(l => {
+    let bestIdx = -1, bestDist = Infinity;
+    if (axisRange > 0) {
+      plotLines.forEach((pl, i) => {
+        if (usedPlotLineIdx.has(i)) return;
+        const d = Math.abs((l.y ?? 0) - pl.value);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      });
+    }
+    if (bestIdx !== -1 && bestDist <= tolerance) {
+      // Any labelled reference line automatically gets the margin + pin
+      // treatment now (see _plotLineLabelOptions) — no separate flag needed.
+      plotLines[bestIdx].label = l.text || '';
+      usedPlotLineIdx.add(bestIdx);
+    } else {
+      floating.push(l);
+    }
+  });
+  state.annotations = floating.map(l => ({
     text: l.text, x: l.x, y: l.y, backgroundColor: '#EEEBDA', fontSize: 14, width: 200,
-  })) : [];
+  }));
   state.calloutArrows = imp?.arrows?.length ? imp.arrows : [];
-  const count = state.annotations.length + state.calloutArrows.length;
+  const count = state.annotations.length + state.calloutArrows.length + usedPlotLineIdx.size;
+  renderYPlotLines();
   renderAnnotationsSection();
   renderCalloutArrowsSection();
   schedUpdate(); persist();
@@ -8591,6 +8726,14 @@ function applyAIConfig(cfg) {
 
   // Datetime CSV import — bypass state machine, build a raw config directly
   if ((cfg.xAxisType === 'datetime' || Array.isArray(cfg.series?.[0]?.data?.[0])) && cfg.series?.length) {
+    // update() only takes the raw-config render path when state.series is
+    // empty — leftover series/categories from anything rendered earlier in
+    // the session made the very next re-render (e.g. _mergeImportedAnnotations()'s
+    // schedUpdate(), or any sidebar edit) silently fall through to the
+    // stale state-driven path instead, discarding this import entirely.
+    // Same fix as applyFullRawConfig().
+    state.series = [];
+    state.categories = [];
     const thm = N1_THEMES[selectedTheme] || N1_THEMES['springbok-cream_ocean-teal'];
     const seriesColors = thm.chartSeriesColors || N1_PALETTE;
     // Datetime x-axis only makes sense for line-family/column/bar — fall back to line for anything else.
@@ -9106,7 +9249,7 @@ async function parsePPTX(file) {
     const yMax = allVals.length ? Math.max(0, ...allVals) * 1.15 : 100;
     const yMin = allVals.length ? Math.min(0, ...allVals) : 0;
     annotationsImport = await _extractPptxAnnotations(zip, chartFiles[0], xRangeForAnnotations, [yMin, yMax], xRotationDeg, series.map(s => s.name));
-  } catch (e) { /* annotation import is best-effort only */ }
+  } catch (e) { console.warn('[pptx-annotations] threw during extraction — annotation import skipped:', e); }
 
   // The chart's own title is frequently deleted in favour of the slide's
   // title/body placeholder text (as here) — fall back to reading those.
@@ -9206,7 +9349,7 @@ async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRota
     const rel = Array.from(relDoc.getElementsByTagName('Relationship')).find(r => (r.getAttribute('Target') || '').includes(chartFileName));
     if (rel) { slideName = sn; chartRelId = rel.getAttribute('Id'); break; }
   }
-  if (!slideName) return null;
+  if (!slideName) { console.warn('[pptx-annotations] no slide references this chart part —', chartFileName); return null; }
 
   const slideXml = await zip.files[slideName].async('text');
   const doc = new DOMParser().parseFromString(slideXml, 'application/xml');
@@ -9219,7 +9362,7 @@ async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRota
     const chartEl = firstKid(f, 'chart');
     if (chartEl && chartEl.getAttribute('r:id') === chartRelId) chartFrame = f;
   });
-  if (!chartFrame) return null;
+  if (!chartFrame) { console.warn('[pptx-annotations] no graphicFrame matched chartRelId', chartRelId, '— found', frames.length, 'frame(s) on', slideName); return null; }
   // Scope to the frame's own <p:xfrm> — searching the whole subtree for any
   // localName 'ext' also matches the unrelated <a:extLst><a:ext uri="..."/>
   // (a Microsoft extension marker with no cx/cy) that sits earlier in
@@ -9227,12 +9370,12 @@ async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRota
   const fXfrm = firstKid(chartFrame, 'xfrm');
   const fOff = firstKid(fXfrm, 'off');
   const fExt = firstKid(fXfrm, 'ext');
-  if (!fOff || !fExt) return null;
+  if (!fOff || !fExt) { console.warn('[pptx-annotations] chart graphicFrame has no xfrm/off/ext'); return null; }
   const frame = {
     x: parseFloat(fOff.getAttribute('x')), y: parseFloat(fOff.getAttribute('y')),
     cx: parseFloat(fExt.getAttribute('cx')), cy: parseFloat(fExt.getAttribute('cy')),
   };
-  if ([frame.x, frame.y, frame.cx, frame.cy].some(isNaN)) return null;
+  if ([frame.x, frame.y, frame.cx, frame.cy].some(isNaN)) { console.warn('[pptx-annotations] chart frame xfrm has non-numeric x/y/cx/cy', frame); return null; }
 
   // Heuristic insets (fractions of the chart frame) for where the plotted
   // area actually sits within it — left/bottom are generous because y-axis
@@ -9274,18 +9417,20 @@ async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRota
 
   const labels = [];
   const connectors = [];
+  let spCount = 0, overlapMisses = 0, noTextSkips = 0, restatementSkips = 0;
   topLevel.forEach(el => {
     if (el.localName === 'sp') {
+      spCount++;
       const box = boxOf(el);
-      if (!overlapsFrame(box)) return;
+      if (!overlapsFrame(box)) { overlapMisses++; return; }
       const textRuns = kids(el, 't').map(t => t.textContent).filter(Boolean);
-      if (!textRuns.length) return; // skip decoration-only shapes (e.g. legend colour swatches)
+      if (!textRuns.length) { noTextSkips++; return; } // skip decoration-only shapes (e.g. legend colour swatches)
       const text = textRuns.join('');
       // A direct line-label restating a series name (common instead of a
       // legend) isn't a real callout/insight — it's already shown as the
       // chart's own legend, so importing it too just duplicates it as a
       // stray floating textbox.
-      if (_isSeriesNameRestatement(text, seriesNames)) return;
+      if (_isSeriesNameRestatement(text, seriesNames)) { restatementSkips++; return; }
       const cx = box.x + box.cx / 2, cy = box.y + box.cy / 2;
       labels.push({ text, box, anchor: toChartCoords(cx, cy) });
     } else if (el.localName === 'cxnSp') {
@@ -9294,7 +9439,10 @@ async function _extractPptxAnnotations(zip, chartPartPath, xRange, yRange, xRota
       connectors.push({ box, start: toChartCoords(box.x, box.y), end: toChartCoords(box.cx2, box.cy2) });
     }
   });
-  if (!labels.length && !connectors.length) return null;
+  if (!labels.length && !connectors.length) {
+    console.warn('[pptx-annotations] found the chart frame but extracted 0 labels/connectors —', spCount, 'top-level shape(s) on the slide,', overlapMisses, "didn't overlap the chart frame,", noTextSkips, 'had no text,', restatementSkips, 'were series-name restatements');
+    return null;
+  }
 
   // A single arrow "leg" is usually drawn as TWO separate connector shapes
   // chained end-to-end (a short horizontal elbow near the label, then a long
@@ -9882,6 +10030,74 @@ function _plotLineColor(pl, themeColors) {
   return themeColors[_plotLineColorIndex(pl, themeColors)];
 }
 
+// Reverses the old <div style="width:...px;..."> wrapper a previous
+// version of this feature used, so a chart saved/exported back then still
+// imports its plain label text correctly instead of literal markup.
+function _unwrapPlotLineLabel(text) {
+  const m = /^\s*<div\s+style="width:(\d+)px;[^"]*">([\s\S]*)<\/div>\s*$/i.exec(text || '');
+  return m ? { label: m[2], width: parseFloat(m[1]) } : { label: text || '', width: null };
+}
+
+// Reference-line labels render as a native `yAxis.plotLines[].label`, with
+// useHTML:true so the text is plain HTML inside a fixed-width <div> — that
+// gets genuine CSS text-align:left and width-driven wrapping for free,
+// unlike plain SVG text (a plotLine label's SVG text-anchor can only ever
+// be 'end' when align:'right', which is required for adaptive margin
+// positioning — text-anchor:end has no left-justification, full stop).
+// align:'right' + a fixed x still lands the box adaptively in the reserved
+// margin regardless of the chart's actual rendered width, since x is an
+// offset from the axis's own right edge, not an absolute canvas position.
+// The one tradeoff: a useHTML label lives in the page's normal DOM next to
+// (not inside) the chart's SVG, so its stacking against a hovered tooltip
+// depends on z-index rather than SVG paint order — see the `tooltip.outside
+// / useHTML / style.zIndex` trio set in every render pipeline, which forces
+// the tooltip to win that race regardless of the surrounding page's own
+// stacking context.
+const REFLINE_LABEL_WIDTH = 170;
+const REFLINE_LABEL_GAP = 28;
+
+// Builds the useHTML label options object for one labelled reference line.
+// The visible text goes inside a fixed-width div (text-align:left) so it
+// wraps and left-justifies independent of the outer align:'right' box
+// positioning; _unwrapPlotLineLabel() reverses this same wrapper on import
+// so the sidebar's Label field shows plain text, not markup.
+function _plotLineLabelOptions(pl, colors) {
+  const plCol = _plotLineColor(pl, colors);
+  return {
+    useHTML: true,
+    align: 'right',
+    verticalAlign: 'middle',
+    x: REFLINE_LABEL_GAP + (pl.offsetX || 0),
+    y: pl.offsetY || 0,
+    // Highcharts' own label CSS forces white-space:nowrap, overflow:hidden
+    // and text-overflow:ellipsis on the OUTER useHTML wrapper it creates
+    // (confirmed live) — without overriding those here, the inner div's
+    // width:170px only ever constrains truncation, never actual wrapping,
+    // regardless of the inner div's own CSS. overflow:visible lets wrapped
+    // lines spill past the outer box's single-line-measured height instead
+    // of being clipped vertically.
+    style: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset' },
+    text: `<div style="width:${REFLINE_LABEL_WIDTH}px;text-align:left;color:${plCol};font-size:${pl.fontSize ?? 12}px;font-weight:${pl.bold ? 500 : 400};line-height:1.3;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
+  };
+}
+
+// Reserved width (px) around the whole chart for a reference line's label
+// sitting in the margin to the right of the plot area — chart.spacingRight
+// pads the OUTSIDE of the chart so the label has room instead of clipping
+// against the chart's own edge.
+function _plotLinesSpacingRight() {
+  const labelled = (state.yPlotLines || []).filter(pl => pl.label);
+  if (!labelled.length) return 0;
+  // The +40 (not the offset itself) covers a reasonable "Move left/right"
+  // nudge without clipping — growing this 1:1 with offsetX instead would
+  // shrink the plot by the exact amount the label moves, since x is
+  // measured from plotRight, which is itself chartWidth minus this value:
+  // the two cancel out and the label's on-screen position never actually
+  // changes. A genuinely extreme nudge can still clip, same as dragging
+  // any element far enough off-canvas elsewhere.
+  return REFLINE_LABEL_WIDTH + REFLINE_LABEL_GAP + 40;
+}
+
 function addYPlotLine() {
   state.yPlotLines.push({ value: 0, label: '', colorIndex: 0 });
   renderYPlotLines();
@@ -9895,7 +10111,22 @@ function removeYPlotLine(i) {
 }
 
 function updateYPlotLine(i, key, val) {
-  state.yPlotLines[i][key] = key === 'value' ? parseFloat(val) : val;
+  state.yPlotLines[i][key] = ['value', 'fontSize', 'offsetX', 'offsetY', 'lineWidth'].includes(key) ? parseFloat(val) : val;
+  // dashStyle/lineWidth come from the Solid/Dashed/Dotted and Thin/Med/Thick
+  // segmented buttons — the chart genuinely updates without this, but the
+  // clicked button never shows as active, since nothing rebuilds this
+  // panel's markup otherwise. Every other key here is a live text/number
+  // input, where re-rendering mid-keystroke would reset focus and cursor
+  // position, so this only fires for the button-driven fields.
+  if (key === 'dashStyle' || key === 'lineWidth') renderYPlotLines();
+  schedUpdate(); persist();
+}
+
+function toggleYPlotLineBold(i) {
+  const pl = state.yPlotLines[i];
+  if (!pl) return;
+  pl.bold = !pl.bold;
+  renderYPlotLines();
   schedUpdate(); persist();
 }
 
@@ -9907,12 +10138,50 @@ function renderYPlotLines() {
     const swatchId = `y-plotline-swatch-${i}`;
     const col = _plotLineColor(pl, themeColors);
     return `
-    <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
-      <input type="number" value="${pl.value}" placeholder="Value" style="width:56px;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'value',this.value)">
-      <input value="${escHtml(pl.label)}" placeholder="Label" style="flex:1;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'label',this.value)">
-      <button id="${swatchId}" onclick="openPlotLineColorPicker(${i},'${swatchId}')" title="${col} — theme colour, updates automatically when the theme changes"
-        style="width:28px;height:28px;flex-shrink:0;border-radius:4px;border:1px solid #ddd;background:${col};cursor:pointer;padding:0"></button>
-      <button onclick="removeYPlotLine(${i})" style="background:none;border:none;color:#d83949;cursor:pointer;font-size:14px;padding:0 2px">×</button>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;gap:4px;align-items:center">
+        <input type="number" value="${pl.value}" placeholder="Value" style="width:56px;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'value',this.value)">
+        <input value="${escHtml(pl.label)}" placeholder="Label" style="flex:1;height:28px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit" onchange="updateYPlotLine(${i},'label',this.value)">
+        <button id="${swatchId}" onclick="openPlotLineColorPicker(${i},'${swatchId}')" title="${col} — theme colour, updates automatically when the theme changes"
+          style="width:28px;height:28px;flex-shrink:0;border-radius:4px;border:1px solid #ddd;background:${col};cursor:pointer;padding:0"></button>
+        <button onclick="removeYPlotLine(${i})" style="background:none;border:none;color:#d83949;cursor:pointer;font-size:14px;padding:0 2px">×</button>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:4px">
+        <div class="seg-group" style="flex:1.4">
+          <button class="seg-btn${(!pl.dashStyle || pl.dashStyle === 'Solid') ? ' active' : ''}" onclick="updateYPlotLine(${i},'dashStyle','Solid')">Solid</button>
+          <button class="seg-btn${pl.dashStyle === 'Dash' ? ' active' : ''}" onclick="updateYPlotLine(${i},'dashStyle','Dash')">Dashed</button>
+          <button class="seg-btn${pl.dashStyle === 'Dot' ? ' active' : ''}" onclick="updateYPlotLine(${i},'dashStyle','Dot')">Dotted</button>
+        </div>
+        <div class="seg-group" style="flex:1">
+          <button class="seg-btn${(!pl.lineWidth || pl.lineWidth === 1) ? ' active' : ''}" onclick="updateYPlotLine(${i},'lineWidth','1')">Thin</button>
+          <button class="seg-btn${pl.lineWidth === 2 ? ' active' : ''}" onclick="updateYPlotLine(${i},'lineWidth','2')">Med</button>
+          <button class="seg-btn${pl.lineWidth === 3 ? ' active' : ''}" onclick="updateYPlotLine(${i},'lineWidth','3')">Thick</button>
+        </div>
+      </div>
+      ${pl.label ? `
+      <div style="margin-top:4px;padding:6px 8px;background:#fafafa;border-radius:4px">
+        <div style="font-size:10px;color:#888;margin-bottom:4px">Label style (shown in margin) — use &lt;br&gt; in the label text above for line breaks</div>
+        <div style="display:flex;gap:6px;align-items:flex-end">
+          <div style="flex:1">
+            <label style="display:block;font-size:10px;color:#666;margin-bottom:2px">Font size</label>
+            <input type="number" value="${pl.fontSize ?? 12}" style="width:100%;height:26px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit;box-sizing:border-box" onchange="updateYPlotLine(${i},'fontSize',this.value)">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:#666;margin-bottom:2px">Bold</label>
+            <button onclick="toggleYPlotLineBold(${i})" title="Font weight 500" style="width:28px;height:26px;flex-shrink:0;border-radius:4px;border:1px solid ${pl.bold ? '#009d80' : '#ddd'};background:${pl.bold ? '#009d80' : '#fff'};color:${pl.bold ? '#fff' : '#888'};cursor:pointer;padding:0;font-weight:600;font-size:11px">B</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:flex-end;margin-top:6px">
+          <div style="flex:1">
+            <label style="display:block;font-size:10px;color:#666;margin-bottom:2px">Move left/right (px)</label>
+            <input type="number" value="${pl.offsetX ?? 0}" style="width:100%;height:26px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit;box-sizing:border-box" onchange="updateYPlotLine(${i},'offsetX',this.value)">
+          </div>
+          <div style="flex:1">
+            <label style="display:block;font-size:10px;color:#666;margin-bottom:2px">Move up/down (px)</label>
+            <input type="number" value="${pl.offsetY ?? 0}" style="width:100%;height:26px;border:1px solid #ddd;border-radius:4px;font-size:11px;padding:0 6px;font-family:inherit;box-sizing:border-box" onchange="updateYPlotLine(${i},'offsetY',this.value)">
+          </div>
+        </div>
+      </div>` : ''}
     </div>`;
   }).join('');
 }
@@ -9997,6 +10266,7 @@ function removeAnnotation(i) {
 // list itself, so focus/cursor position in the text field isn't disturbed.
 function updateAnnotationField(i, key, val) {
   if (!state.annotations?.[i]) return;
+  const a = state.annotations[i];
   state.annotations[i][key] = ['x','y','fontSize','width'].includes(key)
     ? (val === '' ? 0 : parseFloat(val))
     : val;
@@ -10274,12 +10544,53 @@ function toggleAnnotationEditMode() {
 // have no meaningful category/axis position for a point-anchored label).
 // Each annotation is its own array entry (not multiple labels on one
 // annotation) so it can be positioned/moved independently on the chart.
+// Reserved width (px) for annotations pinned to the right margin — kept as
+// one constant so the chart.marginRight injection (_annotationsMarginRight)
+// and the pixel math below always agree.
+const ANNOTATION_MARGIN_RIGHT = 160;
+
+// Non-zero only once at least one annotation opts into margin-pinning —
+// every existing chart with no pinned annotations gets 0 here, so
+// chart.marginRight is left exactly as it already was for them.
+function _annotationsMarginRight() {
+  return (state.annotations || []).some(a => a.pinRight) ? ANNOTATION_MARGIN_RIGHT : 0;
+}
+
+// A pinned annotation's pixel x is computed from window.chartInstance's
+// CURRENT plotWidth — but at the moment the render functions build their
+// config object, that's either the previous chart (about to be replaced,
+// stale by one render) or, worse, already-destroyed (chartInstance.destroy()
+// runs before the new config is built in some paths), where plotWidth reads
+// as undefined and falls back to a wrong default. Once Highcharts.chart()
+// returns, window.chartInstance is the real, just-laid-out new chart, so a
+// cheap follow-up update() with freshly-rebuilt annotations always lands on
+// the correct pixel position. No-op (and no extra render) when nothing is
+// pinned.
+function _fixPinnedAnnotationPositions() {
+  if (!_annotationsMarginRight() || !chartInstance) return;
+  // redraw:true (the default, but explicit here) — a caller further down
+  // reads the label's graphic DOM element to attach drag listeners right
+  // after this returns, and that element doesn't exist until Highcharts
+  // actually paints it, which a deferred (redraw:false) update doesn't do.
+  chartInstance.update({ annotations: buildAnnotationsForChart() || [] }, true);
+}
+
 function buildAnnotationsConfig() {
   if (!ANNOTATIONS_SUPPORTED_TYPES.includes(state.chartType)) return null;
   const list = state.annotations || [];
   const labelAnns = list.map(a => ({
     labels: [{
-      useHTML: true,
+      // Deliberately NOT useHTML. Confirmed live: a useHTML annotation
+      // label's actual text still renders as an HTML <span> living outside
+      // the chart's own SVG entirely (only its background box stays
+      // native SVG) — same stacking problem the reference-line labels had,
+      // where a hovered tooltip's z-order against it depends on whatever
+      // context the surrounding page happens to put the chart in, rather
+      // than being self-contained. Plain SVG text (confirmed live) genuinely
+      // auto-wraps within `width` on its own — this isn't the same
+      // limitation plot-line labels have — so nothing is lost by dropping
+      // useHTML here, and it gains the same robust DOM-order stacking
+      // against the tooltip that a native annotation always had.
       point: { xAxis: 0, yAxis: 0, x: a.x || 0, y: a.y || 0 },
       text: a.text || '',
       backgroundColor: a.backgroundColor || '#EEEBDA',
@@ -10288,11 +10599,9 @@ function buildAnnotationsConfig() {
       // bubble connector stem/triangle pointing at the anchor point. Nobody
       // asked for that on a plain text label; it should just be a box.
       shape: 'rect',
-      // A useHTML label is plain text in the browser's eyes, so without
-      // this the browser's native click-drag text selection makes it look
-      // like the label itself can be dragged around on the live page —
-      // it can't (there's no draggable property here at all), it's just
-      // a text-selection highlight following the cursor.
+      // Browsers let click-drag text-select native SVG text too, not just
+      // HTML — without this it still looks like the label itself can be
+      // dragged around on the live page even though it can't.
       style: { fontSize: (a.fontSize || 14) + 'px', width: a.width || 200, userSelect: 'none', WebkitUserSelect: 'none' },
     }],
   }));
@@ -10311,7 +10620,10 @@ function buildCalloutArrowsConfig() {
       backgroundColor: 'rgba(255,255,255,0)',
       borderWidth: 0,
       shadow: false,
-      useHTML: true,
+      // Deliberately NOT useHTML — same reason as the plain text label
+      // above (see its comment): a useHTML label's text lives outside the
+      // chart's own SVG, subject to the surrounding page's own z-index
+      // context against the tooltip, unlike plain SVG text.
       // Same as the plain text label above — this label already has its
       // own explicit connector line via `shapes` below; Highcharts' default
       // callout shape would draw a second, redundant pointer on top of it.
@@ -10432,6 +10744,21 @@ function _beginAnnotationDragTrack(i, e) {
   };
 }
 
+// Same raw pixel-tracking approach as annotation labels, for a reference
+// line's own label — it's already positioned in plain pixels (offsetX/
+// offsetY on top of the fixed margin base, see _plotLineLabelOptions), so
+// there's no axis value conversion at all, just like a pinned annotation.
+function _beginPlotLineDragTrack(i, e) {
+  if (!_annotationEditMode) return;
+  const pl = state.yPlotLines?.[i];
+  if (!pl) return;
+  _annDragTrack = {
+    kind: 'plotline', idx: i,
+    startClientX: e.clientX, startClientY: e.clientY,
+    startX: pl.offsetX || 0, startY: pl.offsetY || 0,
+  };
+}
+
 let _annotationDragSyncArmed = false;
 function _armAnnotationDragSync() {
   if (_annotationDragSyncArmed) return;
@@ -10441,20 +10768,33 @@ function _armAnnotationDragSync() {
     const drag = _annDragTrack;
     _annDragTrack = null;
     const chart = window.chartInstance;
-    const xAxis = chart?.xAxis?.[0], yAxis = chart?.yAxis?.[0];
-    if (!xAxis || !yAxis) return;
     const dxPx = e.clientX - drag.startClientX;
     const dyPx = e.clientY - drag.startClientY;
     if (!dxPx && !dyPx) return; // a plain click, not a drag
+    const round2 = (v) => Math.round(v * 100) / 100;
+    if (drag.kind === 'plotline') {
+      const pl = state.yPlotLines?.[drag.idx];
+      if (!pl) return;
+      _pushUndo();
+      pl.offsetX = round2(drag.startX + dxPx);
+      pl.offsetY = round2(drag.startY + dyPx);
+      renderYPlotLines();
+      schedUpdate();
+      persist();
+      _refreshConfigOutputOnly();
+      _commitSettledSnapshot();
+      return;
+    }
+    const xAxis = chart?.xAxis?.[0], yAxis = chart?.yAxis?.[0];
+    if (!xAxis || !yAxis) return;
+    const a = drag.kind === 'arrow' ? state.calloutArrows?.[drag.idx] : state.annotations?.[drag.idx];
+    if (!a) return;
+    _pushUndo();
     // toValue() is linear in pixels for both linear and datetime axes, so
     // the value-per-pixel rate at any two points gives the exact delta —
     // this avoids needing to know the label's pixel-to-point offset at all.
     const dxVal = xAxis.toValue(dxPx, true) - xAxis.toValue(0, true);
     const dyVal = yAxis.toValue(dyPx, true) - yAxis.toValue(0, true);
-    const a = drag.kind === 'arrow' ? state.calloutArrows?.[drag.idx] : state.annotations?.[drag.idx];
-    if (!a) return;
-    _pushUndo();
-    const round2 = (v) => Math.round(v * 100) / 100;
     a.x = round2(drag.startX + dxVal);
     a.y = round2(drag.startY + dyVal);
     if (drag.kind === 'arrow' && drag.startShapes) {
@@ -10500,16 +10840,11 @@ function _attachAnnotationInteractions() {
   (chart.annotations || []).forEach((ann, i) => {
     const graphic = ann.labels?.[0]?.graphic;
     if (!graphic) return;
-    // For a useHTML label (all of ours), graphic.element is an SVG <g> that
-    // Highcharts never actually paints any visible/hit-testable content
-    // into — the real rendered text is a plain HTML <span> Highcharts
-    // renders separately inside graphic.div, which itself is a zero-size
-    // positioning anchor (so it can never be hit-tested either). A real
-    // mouse click at the label's visual position hit-tests straight through
-    // both of those to whatever SVG shape sits behind them (the chart
-    // background), so a listener on graphic.element never fires for a real
-    // drag — only for a synthetic event dispatched directly on it. The
-    // span is the only element actually under the cursor.
+    // These labels are plain SVG now (not useHTML — see buildAnnotationsConfig()),
+    // so graphic.element is the real <g> containing both the box and the
+    // visible text, genuinely hit-testable on its own. graphic.div only
+    // exists for a useHTML label (none of ours anymore), kept here purely
+    // as a defensive fallback in case that ever changes back.
     const el = graphic.div?.firstElementChild || graphic.element;
     if (!el) return;
     el.style.cursor = _annotationEditMode ? 'move' : '';
@@ -10533,6 +10868,26 @@ function _attachAnnotationInteractions() {
       el.removeEventListener('mousedown', onDown);
     });
   });
+
+  // Reference-line labels are a useHTML yAxis.plotLines[].label (see
+  // _plotLineLabelOptions) — plb.label.element is the real DOM node
+  // Highcharts positions for a useHTML label (confirmed live: a plain
+  // <span>, not a separate .div property as older Highcharts docs
+  // suggest); our own markup's outer div is its first child. Matched back
+  // to state.yPlotLines by the plot line's own value rather than array
+  // index, since plotLinesAndBands can include the zero-line and isn't
+  // guaranteed to be in the same order.
+  (chart.yAxis || []).forEach(axis => (axis.plotLinesAndBands || []).forEach(plb => {
+    const el = plb.label?.element?.firstElementChild;
+    if (!el) return;
+    const val = plb.options?.value;
+    const i = (state.yPlotLines || []).findIndex(pl => pl.label && pl.value === val);
+    if (i === -1) return;
+    el.style.cursor = _annotationEditMode ? 'move' : '';
+    const onDown = (e) => _beginPlotLineDragTrack(i, e);
+    el.addEventListener('mousedown', onDown);
+    _annotationLabelListeners.push(() => el.removeEventListener('mousedown', onDown));
+  }));
 }
 
 function _closeAnnotationContextMenu() {
@@ -12950,9 +13305,12 @@ function loadChartVersion(chartId, versionIdx) {
       cfg.credits = { enabled: false };
       if (!cfg.chart) cfg.chart = {};
       cfg.chart.style = { fontFamily: N1_CHART_FONT };
+      const _pinMarginVer = _annotationsMarginRight();
+      if (_pinMarginVer) cfg.chart.marginRight = _pinMarginVer;
       cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
       cfg.annotations = buildAnnotationsForChart() || [];
       chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
+      _fixPinnedAnnotationPositions();
       _attachAnnotationInteractions();
     } catch(e) {}
   } else {

@@ -10176,8 +10176,19 @@ function _plotLineLabelOptions(pl, colors) {
     // Sitecore page that its own site-wide CSS (likely a blanket rule on
     // paragraph/text elements) overrides an inline font-size here despite
     // inline style normally winning on specificity alone — only !important
-    // reliably beats an !important rule on the other side.
-    text: `<div style="width:${REFLINE_LABEL_WIDTH}px !important;text-align:left !important;color:${plCol} !important;font-size:${pl.fontSize ?? 12}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.3 !important;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
+    // reliably beats an !important rule on the other side. white-space/
+    // overflow/text-overflow are ALSO set here now, not just in the outer
+    // `style:{}` object above — confirmed live that the outer object is
+    // applied via a JS style-property assignment Highcharts makes
+    // internally (same mechanism proven to silently drop axis-label
+    // !important values), so on a page with a matching wildcard override
+    // for those properties too, the outer style can get overridden right
+    // back to Highcharts' own nowrap/hidden default even though this
+    // function requests otherwise — exactly what caused unwrapped
+    // overflowing text on the live Sitecore page. This inner div's own
+    // style is real HTML parsed via innerHTML, so !important here is
+    // reliable regardless of what happens to the outer wrapper's style.
+    text: `<div style="width:${REFLINE_LABEL_WIDTH}px !important;text-align:left !important;color:${plCol} !important;font-size:${pl.fontSize ?? 12}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.3 !important;white-space:normal !important;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
   };
 }
 
@@ -10209,8 +10220,22 @@ function _plotLinesSpacingRight() {
 // label width/gap/font-size and matching spacingRight via one `responsive`
 // rule, with no risk of the desktop and mobile labels rendering together.
 const REFLINE_MOBILE_MAX_WIDTH = 500;
-const REFLINE_LABEL_WIDTH_MOBILE = 110;
-const REFLINE_LABEL_GAP_MOBILE = 16;
+const REFLINE_LABEL_WIDTH_MOBILE = 100;
+// Near-zero on purpose — the desktop gap (28px, a comfortable buffer) eats
+// too much of a mobile-width chart. Accepting that a short label can touch
+// the plot's edge (per direct instruction) in exchange for a genuinely
+// wide plot area, rather than reserving real breathing room like desktop.
+const REFLINE_LABEL_GAP_MOBILE = 4;
+
+// Manual <br> line breaks (typed into the Label field, preserved verbatim
+// on desktop — see _plotLineLabelOptions) read as awkwardly early/cramped
+// once the box shrinks to mobile width; stripping them here lets the
+// browser's own word-wrap choose break points naturally within whatever
+// width is actually available, rather than honoring breaks chosen for a
+// much wider desktop box.
+function _stripBrTags(label) {
+  return (label || '').replace(/<br\s*\/?>/gi, ' ');
+}
 
 function _plotLineLabelOptionsMobile(pl, colors) {
   const plCol = _plotLineColor(pl, colors);
@@ -10225,14 +10250,17 @@ function _plotLineLabelOptionsMobile(pl, colors) {
     y: pl.offsetY || 0,
     style: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset' },
     // !important — see the matching comment in _plotLineLabelOptions().
-    text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px !important;text-align:left !important;color:${plCol} !important;font-size:${Math.min(pl.fontSize ?? 12, 11)}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.25 !important;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
+    text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px !important;text-align:left !important;color:${plCol} !important;font-size:${Math.min(pl.fontSize ?? 12, 11)}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.25 !important;white-space:normal !important;user-select:none;-webkit-user-select:none;">${_stripBrTags(pl.label)}</div>`,
   };
 }
 
 function _plotLinesSpacingRightMobile() {
   const labelled = (state.yPlotLines || []).filter(pl => pl.label);
   if (!labelled.length) return 0;
-  return REFLINE_LABEL_WIDTH_MOBILE + REFLINE_LABEL_GAP_MOBILE + 24;
+  // +8, not desktop's +40 — same near-zero-margin tradeoff as the gap
+  // above; a "Move left/right" nudge can clip sooner on mobile than
+  // desktop as a result, same as dragging any element far off-canvas.
+  return REFLINE_LABEL_WIDTH_MOBILE + REFLINE_LABEL_GAP_MOBILE + 8;
 }
 
 // Rebuilds the full yAxis.plotLines[] array (zero-line included) with the

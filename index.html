@@ -4101,6 +4101,32 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       </div>
     </div>
 
+    <!-- Accordion: Mobile -->
+    <div class="accordion-section">
+      <button class="accordion-header" onclick="toggleAccordion('mobile')">
+        Mobile <span class="chevron">▸</span>
+      </button>
+      <div class="accordion-body" id="acc-body-mobile">
+        <div style="font-size:10px;color:#999;margin-bottom:8px">Applies automatically under 500px wide — via Highcharts' own responsive rules, not custom code, since Sitecore can't run any JS we'd add here.</div>
+        <div class="field-row">
+          <label>Reference line labels</label>
+          <span style="font-size:11px;color:#888">Auto-resized</span>
+        </div>
+        <div class="field-row">
+          <label>Hide legend</label>
+          <button class="toggle-pill" id="toggle-mob-legend" onclick="toggleMobileSetting('hideLegend')"></button>
+        </div>
+        <div class="field-row">
+          <label>Thin out x-axis dates</label>
+          <button class="toggle-pill" id="toggle-mob-xlabels" onclick="toggleMobileSetting('reduceXAxisLabels')"></button>
+        </div>
+        <div class="field-row">
+          <label>Smaller fonts</label>
+          <button class="toggle-pill" id="toggle-mob-fonts" onclick="toggleMobileSetting('smallerFonts')"></button>
+        </div>
+      </div>
+    </div>
+
     <!-- Accordion: Advanced -->
     <div class="accordion-section">
       <button class="accordion-header" onclick="toggleAccordion('advanced')">
@@ -4550,6 +4576,10 @@ let state = {
   // the real Highcharts legend (which only shows one entry per series)
   // can't describe what each colour/pattern means on its own.
   customLegend: [],
+  // Opt-in overrides applied only under the mobile responsive breakpoint
+  // (see _mobileResponsive()) — off by default so an existing chart's
+  // mobile rendering doesn't change just because this feature shipped.
+  mobile: { hideLegend: false, reduceXAxisLabels: false, smallerFonts: false },
 };
 
 let cmsAvailability = {};
@@ -4727,6 +4757,16 @@ function toggleSetting(key) {
   const el = document.getElementById('toggle-'+(idMap[key] || key.toLowerCase()));
   if (el) el.classList.toggle('on', state[mapping[key]]);
   updateAxisColorVisibility();
+  schedUpdate();
+  persist();
+}
+
+function toggleMobileSetting(key) {
+  if (!state.mobile) state.mobile = { hideLegend: false, reduceXAxisLabels: false, smallerFonts: false };
+  state.mobile[key] = !state.mobile[key];
+  const idMap = { hideLegend: 'toggle-mob-legend', reduceXAxisLabels: 'toggle-mob-xlabels', smallerFonts: 'toggle-mob-fonts' };
+  const el = document.getElementById(idMap[key]);
+  if (el) el.classList.toggle('on', state.mobile[key]);
   schedUpdate();
   persist();
 }
@@ -6090,7 +6130,7 @@ function update() {
     exporting: { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS },
     annotations: buildAnnotationsForChart() || [],
     series,
-    ...(_plotLinesResponsive(themeColors) ? { responsive: _plotLinesResponsive(themeColors) } : {}),
+    ...(_mobileResponsive(themeColors) ? { responsive: _mobileResponsive(themeColors) } : {}),
   };
 
   const container = document.getElementById('chart-container');
@@ -6317,7 +6357,7 @@ function generateConfig() {
   const annotationsCfg = buildAnnotationsConfig();
   if (annotationsCfg) cfg.annotations = annotationsCfg;
 
-  const _plResponsive = _plotLinesResponsive(thm.chartSeriesColors || N1_PALETTE);
+  const _plResponsive = _mobileResponsive(thm.chartSeriesColors || N1_PALETTE);
   if (_plResponsive) cfg.responsive = _plResponsive;
 
   _applyCustomLegend(cfg.series, thm.chartSeriesColors || N1_PALETTE);
@@ -7625,7 +7665,7 @@ function _reapplyFromRawConfig() {
     cfg.credits = { enabled: false };
     cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
     cfg.annotations = buildAnnotationsForChart() || [];
-    const _plResponsive = _plotLinesResponsive(thm.chartSeriesColors || N1_PALETTE);
+    const _plResponsive = _mobileResponsive(thm.chartSeriesColors || N1_PALETTE);
     if (_plResponsive) cfg.responsive = _plResponsive; else delete cfg.responsive;
     _applyCustomLegend(cfg.series, thm.chartSeriesColors || N1_PALETTE);
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
@@ -7902,7 +7942,7 @@ function _cleanConfigForCopy(cfg) {
   const annotationsCfg = buildAnnotationsConfig();
   if (annotationsCfg) out.annotations = annotationsCfg; else delete out.annotations;
 
-  const _plResponsiveOut = _plotLinesResponsive(thm.chartSeriesColors || N1_PALETTE);
+  const _plResponsiveOut = _mobileResponsive(thm.chartSeriesColors || N1_PALETTE);
   if (_plResponsiveOut) out.responsive = _plResponsiveOut; else delete out.responsive;
 
   _applyCustomLegend(out.series, thm.chartSeriesColors || N1_PALETTE);
@@ -10096,7 +10136,12 @@ function _plotLineLabelOptions(pl, colors) {
     // lines spill past the outer box's single-line-measured height instead
     // of being clipped vertically.
     style: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset' },
-    text: `<div style="width:${REFLINE_LABEL_WIDTH}px;text-align:left;color:${plCol};font-size:${pl.fontSize ?? 12}px;font-weight:${pl.bold ? 500 : 400};line-height:1.3;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
+    // !important on the text-facing properties: confirmed on the live
+    // Sitecore page that its own site-wide CSS (likely a blanket rule on
+    // paragraph/text elements) overrides an inline font-size here despite
+    // inline style normally winning on specificity alone — only !important
+    // reliably beats an !important rule on the other side.
+    text: `<div style="width:${REFLINE_LABEL_WIDTH}px !important;text-align:left !important;color:${plCol} !important;font-size:${pl.fontSize ?? 12}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.3 !important;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
   };
 }
 
@@ -10143,7 +10188,8 @@ function _plotLineLabelOptionsMobile(pl, colors) {
     x: REFLINE_LABEL_GAP_MOBILE + REFLINE_LABEL_WIDTH_MOBILE + (pl.offsetX || 0),
     y: pl.offsetY || 0,
     style: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset' },
-    text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px;text-align:left;color:${plCol};font-size:${Math.min(pl.fontSize ?? 12, 11)}px;font-weight:${pl.bold ? 500 : 400};line-height:1.25;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
+    // !important — see the matching comment in _plotLineLabelOptions().
+    text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px !important;text-align:left !important;color:${plCol} !important;font-size:${Math.min(pl.fontSize ?? 12, 11)}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.25 !important;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
   };
 }
 
@@ -10171,19 +10217,37 @@ function _mobileYPlotLines(colors) {
 }
 
 // Single `responsive` block shared by every render/export pipeline — null
-// when there's nothing labelled, so a chart with no reference lines never
-// gets an empty/no-op responsive key.
-function _plotLinesResponsive(colors) {
-  if (!(state.yPlotLines || []).some(pl => pl.label)) return null;
-  return {
-    rules: [{
-      condition: { maxWidth: REFLINE_MOBILE_MAX_WIDTH },
-      chartOptions: {
-        chart: { spacingRight: _plotLinesSpacingRightMobile() },
-        yAxis: [{ plotLines: _mobileYPlotLines(colors) }],
-      },
-    }],
-  };
+// when nothing would actually change under the breakpoint, so a plain
+// chart with no reference lines and no Mobile-panel toggles on never gets
+// an empty/no-op responsive key. Everything here is plain config data
+// (no functions/callbacks) — Sitecore can't run custom JS, so the mobile
+// behavior has to travel entirely as Highcharts' own responsive rule.
+function _mobileResponsive(colors) {
+  const m = state.mobile || {};
+  const hasRefLines = (state.yPlotLines || []).some(pl => pl.label);
+  if (!hasRefLines && !m.hideLegend && !m.reduceXAxisLabels && !m.smallerFonts) return null;
+
+  const chartOptions = {};
+  if (hasRefLines) {
+    chartOptions.chart = { spacingRight: _plotLinesSpacingRightMobile() };
+    chartOptions.yAxis = [{ plotLines: _mobileYPlotLines(colors) }];
+  }
+  if (m.hideLegend) chartOptions.legend = { enabled: false };
+  if (m.reduceXAxisLabels) chartOptions.xAxis = { labels: { step: 2 } };
+  if (m.smallerFonts) {
+    // Plain values, no !important here — Highcharts applies these via a
+    // direct element.style.fontSize = value JS assignment (not by parsing
+    // an HTML string), and a browser silently REJECTS the whole assignment
+    // when the value string ends in "!important" that way — unlike the
+    // reference-line label's `text:` markup above, which is real HTML
+    // parsed via innerHTML, where !important works correctly.
+    chartOptions.title = { style: { fontSize: '16px' } };
+    chartOptions.subtitle = { style: { fontSize: '11px' } };
+    if (!chartOptions.yAxis) chartOptions.yAxis = [{}];
+    chartOptions.yAxis[0].labels = { style: { fontSize: '10px' } };
+    chartOptions.xAxis = { ...(chartOptions.xAxis || {}), labels: { ...(chartOptions.xAxis?.labels || {}), style: { fontSize: '10px' } } };
+  }
+  return { rules: [{ condition: { maxWidth: REFLINE_MOBILE_MAX_WIDTH }, chartOptions }] };
 }
 
 function addYPlotLine() {

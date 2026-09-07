@@ -7879,6 +7879,12 @@ function _cleanConfigForCopy(cfg) {
     // still strictly better than leaving nothing at all, and fixes the
     // problem outright wherever that specific rule doesn't apply.
     if (out.xAxis.labels) out.xAxis.labels.style = { fontSize: '11px' }; else out.xAxis.labels = { style: { fontSize: '11px' } };
+    // Bug: this function (the actual "copy/export" pipeline) never wrote
+    // state.xRotation into the output at all — only the live preview's
+    // _reapplyFromRawConfig() did. So rotating x-axis labels in the
+    // sidebar changed the on-screen preview but silently never reached the
+    // config you actually copy/paste into Sitecore.
+    if (state.xRotation) out.xAxis.labels.rotation = state.xRotation; else delete out.xAxis.labels.rotation;
     if (out.xAxis.title?.style)  delete out.xAxis.title.style;
     delete out.xAxis.tickColor;
     out.xAxis.lineWidth = state.xLine ? 1 : 0;

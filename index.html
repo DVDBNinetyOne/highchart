@@ -6090,6 +6090,7 @@ function update() {
     exporting: { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS },
     annotations: buildAnnotationsForChart() || [],
     series,
+    ...(_plotLinesResponsive(themeColors) ? { responsive: _plotLinesResponsive(themeColors) } : {}),
   };
 
   const container = document.getElementById('chart-container');
@@ -6315,6 +6316,9 @@ function generateConfig() {
 
   const annotationsCfg = buildAnnotationsConfig();
   if (annotationsCfg) cfg.annotations = annotationsCfg;
+
+  const _plResponsive = _plotLinesResponsive(thm.chartSeriesColors || N1_PALETTE);
+  if (_plResponsive) cfg.responsive = _plResponsive;
 
   _applyCustomLegend(cfg.series, thm.chartSeriesColors || N1_PALETTE);
 
@@ -7621,6 +7625,8 @@ function _reapplyFromRawConfig() {
     cfg.credits = { enabled: false };
     cfg.exporting = { enabled: true, fallbackToExportServer: false, allowHTML: false, sourceWidth: 1200, sourceHeight: 600, scale: 2, buttons: { contextButton: { enabled: false } }, chartOptions: EXPORT_CHART_OPTIONS };
     cfg.annotations = buildAnnotationsForChart() || [];
+    const _plResponsive = _plotLinesResponsive(thm.chartSeriesColors || N1_PALETTE);
+    if (_plResponsive) cfg.responsive = _plResponsive; else delete cfg.responsive;
     _applyCustomLegend(cfg.series, thm.chartSeriesColors || N1_PALETTE);
     chartInstance = window.chartInstance = Highcharts.chart('chart-container', cfg);
     _fixPinnedAnnotationPositions();
@@ -7895,6 +7901,9 @@ function _cleanConfigForCopy(cfg) {
 
   const annotationsCfg = buildAnnotationsConfig();
   if (annotationsCfg) out.annotations = annotationsCfg; else delete out.annotations;
+
+  const _plResponsiveOut = _plotLinesResponsive(thm.chartSeriesColors || N1_PALETTE);
+  if (_plResponsiveOut) out.responsive = _plResponsiveOut; else delete out.responsive;
 
   _applyCustomLegend(out.series, thm.chartSeriesColors || N1_PALETTE);
 
@@ -10096,6 +10105,72 @@ function _plotLinesSpacingRight() {
   // changes. A genuinely extreme nudge can still clip, same as dragging
   // any element far enough off-canvas elsewhere.
   return REFLINE_LABEL_WIDTH + REFLINE_LABEL_GAP + 40;
+}
+
+// Narrow-chart variant of the reference-line label/margin — a fixed 170px
+// label plus ~200px of reserved margin (see _plotLinesSpacingRight) eats an
+// unreasonable share of a mobile-width chart, squeezing the plot area down
+// to almost nothing. Confirmed live that a Highcharts responsive rule
+// targeting yAxis.plotLines[] REPLACES that array cleanly by index (unlike
+// chart.annotations[], which merges additively and duplicates content —
+// see the removed _refLineAnnotations mobile attempt), so this is safe to
+// ship: at MAX_WIDTH or narrower, every render pipeline swaps in a smaller
+// label width/gap/font-size and matching spacingRight via one `responsive`
+// rule, with no risk of the desktop and mobile labels rendering together.
+const REFLINE_MOBILE_MAX_WIDTH = 500;
+const REFLINE_LABEL_WIDTH_MOBILE = 110;
+const REFLINE_LABEL_GAP_MOBILE = 16;
+
+function _plotLineLabelOptionsMobile(pl, colors) {
+  const plCol = _plotLineColor(pl, colors);
+  return {
+    useHTML: true,
+    align: 'right',
+    verticalAlign: 'middle',
+    x: REFLINE_LABEL_GAP_MOBILE + (pl.offsetX || 0),
+    y: pl.offsetY || 0,
+    style: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset' },
+    text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px;text-align:left;color:${plCol};font-size:${Math.min(pl.fontSize ?? 12, 11)}px;font-weight:${pl.bold ? 500 : 400};line-height:1.25;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
+  };
+}
+
+function _plotLinesSpacingRightMobile() {
+  const labelled = (state.yPlotLines || []).filter(pl => pl.label);
+  if (!labelled.length) return 0;
+  return REFLINE_LABEL_WIDTH_MOBILE + REFLINE_LABEL_GAP_MOBILE + 24;
+}
+
+// Rebuilds the full yAxis.plotLines[] array (zero-line included) with the
+// mobile label variant — a responsive rule replaces the WHOLE array by
+// index, so this has to mirror every pipeline's own zero-line/dashStyle/
+// lineWidth logic, not just the labelled entries.
+function _mobileYPlotLines(colors) {
+  const out = [];
+  if (state.yZeroLine) out.push({ value: 0, color: state.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 });
+  (state.yPlotLines || []).forEach(pl => {
+    const plCol = _plotLineColor(pl, colors);
+    const entry = { value: pl.value, color: plCol, width: pl.lineWidth || 1, zIndex: 4 };
+    if (pl.dashStyle && pl.dashStyle !== 'Solid') entry.dashStyle = pl.dashStyle;
+    if (pl.label) entry.label = _plotLineLabelOptionsMobile(pl, colors);
+    out.push(entry);
+  });
+  return out;
+}
+
+// Single `responsive` block shared by every render/export pipeline — null
+// when there's nothing labelled, so a chart with no reference lines never
+// gets an empty/no-op responsive key.
+function _plotLinesResponsive(colors) {
+  if (!(state.yPlotLines || []).some(pl => pl.label)) return null;
+  return {
+    rules: [{
+      condition: { maxWidth: REFLINE_MOBILE_MAX_WIDTH },
+      chartOptions: {
+        chart: { spacingRight: _plotLinesSpacingRightMobile() },
+        yAxis: [{ plotLines: _mobileYPlotLines(colors) }],
+      },
+    }],
+  };
 }
 
 function addYPlotLine() {

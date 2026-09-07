@@ -7573,8 +7573,15 @@ function _reapplyFromRawConfig() {
     // as before.
     const _pinMargin = _annotationsMarginRight();
     if (_pinMargin) cfg.chart.marginRight = _pinMargin;
+    // Only fill in an auto-calculated spacingRight when the pasted config
+    // didn't already specify one of its own — confirmed live this was
+    // unconditionally clobbering a value the user deliberately typed into
+    // the pasted config every single render, making a manual edit look
+    // like it "reverts" immediately after Apply. _lastRawConfig itself is
+    // never written back to here, so the pasted value stays intact across
+    // renders once respected this way.
     const _plMargin = _plotLinesSpacingRight();
-    if (_plMargin) cfg.chart.spacingRight = _plMargin;
+    if (_plMargin && cfg.chart.spacingRight == null) cfg.chart.spacingRight = _plMargin;
 
     // xAxis overrides
     if (cfg.xAxis && !Array.isArray(cfg.xAxis)) {
@@ -7956,8 +7963,11 @@ function _cleanConfigForCopy(cfg) {
   if (state.zoom) out.chart.zoomType = state.zoom; else delete out.chart.zoomType;
   const _pinMarginOut = _annotationsMarginRight();
   if (_pinMarginOut) out.chart.marginRight = _pinMarginOut;
+  // See the matching comment in _reapplyFromRawConfig() — respect a
+  // spacingRight the user explicitly typed into the pasted/edited config
+  // instead of unconditionally overwriting it with our own auto-calc.
   const _plMarginOut = _plotLinesSpacingRight();
-  if (_plMarginOut) out.chart.spacingRight = _plMarginOut;
+  if (_plMarginOut && out.chart.spacingRight == null) out.chart.spacingRight = _plMarginOut;
 
   if (!out.tooltip) out.tooltip = {};
   out.tooltip.enabled = state.tooltip !== false;
@@ -10177,7 +10187,9 @@ function _unwrapPlotLineLabel(text) {
 // the tooltip to win that race regardless of the surrounding page's own
 // stacking context.
 const REFLINE_LABEL_WIDTH = 170;
-const REFLINE_LABEL_GAP = 28;
+// Reduced from 28 — reported live as visibly too large a gap between the
+// dashed line and the label text on desktop.
+const REFLINE_LABEL_GAP = 10;
 
 // Builds the useHTML label options object for one labelled reference line.
 // The visible text goes inside a fixed-width div (text-align:left) so it
@@ -10226,7 +10238,10 @@ function _plotLineLabelOptions(pl, colors) {
     // overflowing text on the live Sitecore page. This inner div's own
     // style is real HTML parsed via innerHTML, so !important here is
     // reliable regardless of what happens to the outer wrapper's style.
-    text: `<div style="width:${REFLINE_LABEL_WIDTH}px !important;text-align:left !important;color:${plCol} !important;font-size:${pl.fontSize ?? 12}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.3 !important;white-space:normal !important;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
+    // 700 (true bold), not 500 (medium) — 500 vs 400 is too subtle a step
+    // at this font size to read as "bold" at all, reported live as
+    // "not working" when it was actually applying, just imperceptibly.
+    text: `<div style="width:${REFLINE_LABEL_WIDTH}px !important;text-align:left !important;color:${plCol} !important;font-size:${pl.fontSize ?? 12}px !important;font-weight:${pl.bold ? 700 : 400} !important;line-height:1.3 !important;white-space:normal !important;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,
   };
 }
 
@@ -10258,9 +10273,13 @@ function _plotLinesSpacingRight() {
 // label width/gap/font-size and matching spacingRight via one `responsive`
 // rule, with no risk of the desktop and mobile labels rendering together.
 const REFLINE_MOBILE_MAX_WIDTH = 500;
-const REFLINE_LABEL_WIDTH_MOBILE = 100;
-// Near-zero on purpose — the desktop gap (28px, a comfortable buffer) eats
-// too much of a mobile-width chart. Accepting that a short label can touch
+// Reduced further (110 -> 100 -> 85) per direct feedback that the mobile
+// chart still wasn't wide enough — every px shaved off the label's own
+// width shrinks the reserved margin by the same amount (see
+// _plotLinesSpacingRightMobile), directly widening the plot.
+const REFLINE_LABEL_WIDTH_MOBILE = 85;
+// Near-zero on purpose — the desktop gap (a comfortable buffer) eats too
+// much of a mobile-width chart. Accepting that a short label can touch
 // the plot's edge (per direct instruction) in exchange for a genuinely
 // wide plot area, rather than reserving real breathing room like desktop.
 const REFLINE_LABEL_GAP_MOBILE = 4;
@@ -10288,7 +10307,8 @@ function _plotLineLabelOptionsMobile(pl, colors) {
     y: pl.offsetY || 0,
     style: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset' },
     // !important — see the matching comment in _plotLineLabelOptions().
-    text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px !important;text-align:left !important;color:${plCol} !important;font-size:${Math.min(pl.fontSize ?? 12, 11)}px !important;font-weight:${pl.bold ? 500 : 400} !important;line-height:1.25 !important;white-space:normal !important;user-select:none;-webkit-user-select:none;">${_stripBrTags(pl.label)}</div>`,
+    // See the matching comment in _plotLineLabelOptions() — 700, not 500.
+    text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px !important;text-align:left !important;color:${plCol} !important;font-size:${Math.min(pl.fontSize ?? 12, 11)}px !important;font-weight:${pl.bold ? 700 : 400} !important;line-height:1.25 !important;white-space:normal !important;user-select:none;-webkit-user-select:none;">${_stripBrTags(pl.label)}</div>`,
   };
 }
 

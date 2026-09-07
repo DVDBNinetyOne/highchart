@@ -6716,6 +6716,39 @@ function syncStateFromConfig(cfg) {
   // Legend position/layout: a freshly pasted config's own layout should win
   // until the user explicitly picks a position from the sidebar dropdown.
   _legendPosTouched = false;
+
+  // Mobile panel toggles — same bleed reason as every other field above:
+  // an unconditional reset (to false) when the incoming config's own
+  // `responsive` rule doesn't carry the matching shape, not a
+  // conditional-only "set true, leave everything else alone" — otherwise
+  // loading a chart with no mobile overrides right after one that had
+  // "Hide legend" on would leave the toggle showing on for a chart that
+  // never asked for it. Detected by matching the EXACT shape
+  // _mobileResponsive() itself generates for each toggle, the same
+  // approach _unwrapPlotLineLabel() uses for its own markup convention.
+  const _mobRule = cfg.responsive?.rules?.[0]?.chartOptions;
+  state.mobile = {
+    hideLegend: _mobRule?.legend?.enabled === false,
+    reduceXAxisLabels: _mobRule?.xAxis?.labels?.step === 2,
+    smallerFonts: _mobRule?.title?.style?.fontSize === '16px',
+  };
+  _syncMobilePanelUI();
+}
+
+// Reflects state.mobile onto the Mobile panel's toggle-pills — called
+// after syncStateFromConfig() so a freshly loaded/pasted chart's own
+// mobile settings show correctly instead of the sidebar silently
+// disagreeing with what schedUpdate()/generateConfig() will actually
+// export. toggleMobileSetting() keeps these in sync on every click, but
+// nothing else was updating them for a chart LOAD (paste/template/saved
+// chart), only for a manual toggle click.
+function _syncMobilePanelUI() {
+  const m = state.mobile || {};
+  const map = { hideLegend: 'toggle-mob-legend', reduceXAxisLabels: 'toggle-mob-xlabels', smallerFonts: 'toggle-mob-fonts' };
+  Object.keys(map).forEach(key => {
+    const el = document.getElementById(map[key]);
+    if (el) el.classList.toggle('on', !!m[key]);
+  });
 }
 
 function applyConfigEdit() {
@@ -10115,11 +10148,16 @@ function _plotLineColor(pl, themeColors) {
   return themeColors[_plotLineColorIndex(pl, themeColors)];
 }
 
-// Reverses the old <div style="width:...px;..."> wrapper a previous
-// version of this feature used, so a chart saved/exported back then still
-// imports its plain label text correctly instead of literal markup.
+// Reverses the <div style="width:...px..."> wrapper _plotLineLabelOptions()
+// generates, so re-pasting a chart's own previously-exported config imports
+// the plain label text correctly instead of literal markup. Deliberately
+// tolerant of what's between "width:" and "px" and what follows it (e.g.
+// "170px !important" — confirmed live that adding !important to the
+// generated style broke a strict "width:(\d+)px;" match, silently storing
+// the whole raw <div> as the label text on re-import instead of unwrapping
+// it), and doesn't assume width is the first property in the style string.
 function _unwrapPlotLineLabel(text) {
-  const m = /^\s*<div\s+style="width:(\d+)px;[^"]*">([\s\S]*)<\/div>\s*$/i.exec(text || '');
+  const m = /^\s*<div\s+style="[^"]*\bwidth:\s*(\d+)px\b[^"]*">([\s\S]*)<\/div>\s*$/i.exec(text || '');
   return m ? { label: m[2], width: parseFloat(m[1]) } : { label: text || '', width: null };
 }
 

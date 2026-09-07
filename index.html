@@ -10076,7 +10076,17 @@ function _plotLineLabelOptions(pl, colors) {
     useHTML: true,
     align: 'right',
     verticalAlign: 'middle',
-    x: REFLINE_LABEL_GAP + (pl.offsetX || 0),
+    // align:'right' anchors this x to the box's RIGHT edge, which then
+    // extends LEFTWARD by the box's own width to find its left edge — so
+    // the offset from the plot's edge to where the box actually STARTS
+    // (its left edge, where the reader's eye lands) is (x - width), not x.
+    // Confirmed live (via plot-background vs. label getBoundingClientRect)
+    // that using just REFLINE_LABEL_GAP here left the box's left edge
+    // ~142px inside the plot area — genuinely overlapping the data on a
+    // narrow chart, just not always visible depending on the data's shape.
+    // Adding the width here moves the box far enough right that its LEFT
+    // edge, not its right edge, sits the intended GAP past the plot.
+    x: REFLINE_LABEL_GAP + REFLINE_LABEL_WIDTH + (pl.offsetX || 0),
     y: pl.offsetY || 0,
     // Highcharts' own label CSS forces white-space:nowrap, overflow:hidden
     // and text-overflow:ellipsis on the OUTER useHTML wrapper it creates
@@ -10127,7 +10137,10 @@ function _plotLineLabelOptionsMobile(pl, colors) {
     useHTML: true,
     align: 'right',
     verticalAlign: 'middle',
-    x: REFLINE_LABEL_GAP_MOBILE + (pl.offsetX || 0),
+    // See the matching comment in _plotLineLabelOptions() — align:'right'
+    // needs (gap + width) here, not just gap, or the box's left edge lands
+    // inside the plot area instead of past it.
+    x: REFLINE_LABEL_GAP_MOBILE + REFLINE_LABEL_WIDTH_MOBILE + (pl.offsetX || 0),
     y: pl.offsetY || 0,
     style: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset' },
     text: `<div style="width:${REFLINE_LABEL_WIDTH_MOBILE}px;text-align:left;color:${plCol};font-size:${Math.min(pl.fontSize ?? 12, 11)}px;font-weight:${pl.bold ? 500 : 400};line-height:1.25;user-select:none;-webkit-user-select:none;">${pl.label}</div>`,

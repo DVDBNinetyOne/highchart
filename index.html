@@ -4039,6 +4039,10 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
           <div style="font-size:10px;color:#999;margin-bottom:6px">A line with a label shows its text in the margin to the right — turn on Edit mode (below, in Text labels) and drag it to reposition.</div>
           <div id="y-plotlines-list"></div>
           <button onclick="addYPlotLine()" style="font-size:11px;color:#009d80;background:none;border:1px dashed #009d80;border-radius:4px;padding:4px 10px;cursor:pointer;width:100%;margin-top:4px">+ Add reference line</button>
+          <div class="field-row" style="margin-top:8px">
+            <label>Gap from chart (px)</label>
+            <input class="field-input" id="sb-refline-gap" type="number" min="0" placeholder="10" oninput="updateRefLineGap(this.value)" style="width:64px">
+          </div>
         </div>
       </div>
     </div>
@@ -4580,6 +4584,11 @@ let state = {
   // (see _mobileResponsive()) — off by default so an existing chart's
   // mobile rendering doesn't change just because this feature shipped.
   mobile: { hideLegend: false, reduceXAxisLabels: false, smallerFonts: false },
+  // null = use REFLINE_LABEL_GAP's own default; a sidebar number field
+  // (Reference lines > "Gap from chart") so adjusting the space between a
+  // reference-line label and the plot is a plain number, not a source
+  // code constant only Claude can change.
+  refLineGap: null,
 };
 
 let cmsAvailability = {};
@@ -6616,6 +6625,13 @@ function syncStateFromConfig(cfg) {
     // onto the matching theme colour slot so switching themes still moves
     // them, instead of just carrying the literal hex over verbatim.
     const themeColors = _plotLineThemeColors();
+    // First labelled line's own (x - width) reverses the gap this app's
+    // own _refLineGap()/_plotLineLabelOptions() baked into x — a single
+    // sidebar field applies to every reference line, so one match is
+    // enough. Reset to null (fall back to the built-in default) rather
+    // than silently keeping whatever the PREVIOUS chart had, same bleed
+    // reason as every other field in this function.
+    state.refLineGap = null;
     state.yPlotLines = plotLines.filter(pl => pl.value !== 0).map(pl => {
       // A previously-exported config's label.text is our own
       // `<div style="width:...px;...">` wrapper (see _plotLineLabelOptions),
@@ -6624,11 +6640,31 @@ function syncStateFromConfig(cfg) {
       // in, and re-wrapped it again on the next render. Unwrap it back to
       // the plain text + width that produced it.
       const { label, width } = _unwrapPlotLineLabel(pl.label?.text);
+      // Reverse the rest of _plotLineLabelOptions()'s own generated shape
+      // too — bold/fontSize/offsetX/offsetY previously silently reset to
+      // their defaults on every re-paste of a chart's own exported config,
+      // even though the label text and colour DID round-trip; a non-coder
+      // pasting a chart back in to make one small tweak would otherwise
+      // lose their prior styling choices without any indication why.
+      const styleStr = /^\s*<div\s+style="([^"]*)"/i.exec(pl.label?.text || '')?.[1] || '';
+      const fwMatch = /font-weight:\s*(\d+)/i.exec(styleStr);
+      const fsMatch = /font-size:\s*([\d.]+)px/i.exec(styleStr);
+      const labelX = pl.label?.x;
+      if (state.refLineGap == null && typeof labelX === 'number' && typeof width === 'number') {
+        const gap = labelX - width;
+        if (gap >= 0) state.refLineGap = gap;
+      }
       return {
         value: pl.value,
         label, width,
         dashStyle: pl.dashStyle || 'Solid',
         colorIndex: _plotLineColorIndex(pl, themeColors),
+        lineWidth: pl.width || 1,
+        bold: fwMatch ? parseInt(fwMatch[1], 10) >= 700 : false,
+        fontSize: fsMatch ? parseFloat(fsMatch[1]) : null,
+        offsetX: (typeof labelX === 'number' && state.refLineGap != null && typeof width === 'number')
+          ? labelX - width - state.refLineGap : 0,
+        offsetY: pl.label?.y || 0,
       };
     });
   }
@@ -10187,9 +10223,15 @@ function _unwrapPlotLineLabel(text) {
 // the tooltip to win that race regardless of the surrounding page's own
 // stacking context.
 const REFLINE_LABEL_WIDTH = 170;
-// Reduced from 28 — reported live as visibly too large a gap between the
-// dashed line and the label text on desktop.
+// Default only — the sidebar's "Gap from chart" number field
+// (state.refLineGap) overrides this when set, via _refLineGap() below, so
+// adjusting the space between a reference-line label and the plot is a
+// plain number field, not a source-code constant.
 const REFLINE_LABEL_GAP = 10;
+
+function _refLineGap() {
+  return state.refLineGap != null && !isNaN(state.refLineGap) ? state.refLineGap : REFLINE_LABEL_GAP;
+}
 
 // Builds the useHTML label options object for one labelled reference line.
 // The visible text goes inside a fixed-width div (text-align:left) so it
@@ -10212,7 +10254,7 @@ function _plotLineLabelOptions(pl, colors) {
     // narrow chart, just not always visible depending on the data's shape.
     // Adding the width here moves the box far enough right that its LEFT
     // edge, not its right edge, sits the intended GAP past the plot.
-    x: REFLINE_LABEL_GAP + REFLINE_LABEL_WIDTH + (pl.offsetX || 0),
+    x: _refLineGap() + REFLINE_LABEL_WIDTH + (pl.offsetX || 0),
     y: pl.offsetY || 0,
     // Highcharts' own label CSS forces white-space:nowrap, overflow:hidden
     // and text-overflow:ellipsis on the OUTER useHTML wrapper it creates
@@ -10252,14 +10294,12 @@ function _plotLineLabelOptions(pl, colors) {
 function _plotLinesSpacingRight() {
   const labelled = (state.yPlotLines || []).filter(pl => pl.label);
   if (!labelled.length) return 0;
-  // The +40 (not the offset itself) covers a reasonable "Move left/right"
-  // nudge without clipping — growing this 1:1 with offsetX instead would
-  // shrink the plot by the exact amount the label moves, since x is
-  // measured from plotRight, which is itself chartWidth minus this value:
-  // the two cancel out and the label's on-screen position never actually
-  // changes. A genuinely extreme nudge can still clip, same as dragging
-  // any element far enough off-canvas elsewhere.
-  return REFLINE_LABEL_WIDTH + REFLINE_LABEL_GAP + 40;
+  // Reduced from +40 — reported live as a visibly large empty gap between
+  // the label text and the chart's own right edge, since that buffer is
+  // reserved unconditionally whether or not "Move left/right" is ever
+  // used. +12 still covers a small nudge; a bigger manual offsetX than
+  // that can clip, same as dragging any element far enough off-canvas.
+  return REFLINE_LABEL_WIDTH + _refLineGap() + 12;
 }
 
 // Narrow-chart variant of the reference-line label/margin — a fixed 170px
@@ -10378,6 +10418,11 @@ function addYPlotLine() {
   schedUpdate(); persist();
 }
 
+function updateRefLineGap(val) {
+  state.refLineGap = val === '' ? null : parseFloat(val);
+  schedUpdate(); persist();
+}
+
 function removeYPlotLine(i) {
   state.yPlotLines.splice(i, 1);
   renderYPlotLines();
@@ -10458,6 +10503,8 @@ function renderYPlotLines() {
       </div>` : ''}
     </div>`;
   }).join('');
+  const gapEl = document.getElementById('sb-refline-gap');
+  if (gapEl) gapEl.value = state.refLineGap ?? '';
 }
 
 let _plotLineColorPickerCleanup = null;

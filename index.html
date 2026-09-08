@@ -3690,6 +3690,11 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
                 Export CSV
               </button>
               <div class="btn-ghost-divider"></div>
+              <button class="btn-ghost-light" onclick="openScaleValuesModal()" title="Multiply/divide every series' values by a factor — e.g. ÷1000 to convert $millions to $billions">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+                Scale values
+              </button>
+              <div class="btn-ghost-divider"></div>
               <button class="btn-ghost-light" onclick="addSeries()">+ Series</button>
             </div>
           </div>
@@ -3701,6 +3706,8 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
               <button class="btn-ghost-light" onclick="triggerPasteData()">Paste data</button>
               <input type="file" id="csv-upload-input-raw" accept=".csv,.tsv,.txt" style="display:none" onchange="handleDirectCsvUpload(this)">
               <button class="btn-ghost-light" onclick="document.getElementById('csv-upload-input-raw').click()">Upload CSV</button>
+              <div class="btn-ghost-divider"></div>
+              <button class="btn-ghost-light" onclick="openScaleValuesModal()" title="Multiply/divide every series' values by a factor — e.g. ÷1000 to convert $millions to $billions">Scale values</button>
               <div class="btn-ghost-divider"></div>
               <button class="btn-ghost-light" onclick="exportGridCsv()">↓ Export CSV</button>
               <div class="btn-ghost-divider"></div>
@@ -3728,11 +3735,11 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
         <div id="data-url-mode" style="display:none;padding:12px 16px">
           <div class="csv-url-field">
             <label class="csv-url-label">Sitecore media URL</label>
-            <input class="csv-url-input" id="csv-url-input" placeholder="/-/media/documents/highcharts/filename.csv" oninput="persist()">
+            <input class="csv-url-input" id="csv-url-input" placeholder="/-/media/documents/highcharts/filename.csv" oninput="onField('csvUrl',this.value)">
           </div>
           <div class="csv-url-field" style="display:flex;align-items:center;gap:12px">
             <label class="polling-toggle">
-              <input type="checkbox" id="csv-polling-toggle" onchange="persist()">
+              <input type="checkbox" id="csv-polling-toggle" onchange="onCsvPollingToggle(this.checked)">
               Enable polling (auto-refresh)
             </label>
             <button class="csv-url-test-btn" onclick="testCsvUrl()">Test URL</button>
@@ -3779,6 +3786,36 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
       </button>
       <div class="accordion-body open" id="acc-body-colours">
         <div id="series-colour-rows"></div>
+        <!-- Area/areaspline only (see show('fill-row', isArea) in updateFieldVisibility) —
+             lives here rather than in Line style so it sits next to the color you're
+             already picking, instead of a separate collapsed section. -->
+        <div class="field-row" id="fill-row">
+          <label>Fill strength</label>
+          <input type="range" min="0" max="1" step="0.05" value="0.3" style="flex:1;--fill:30%" id="fill-opacity-slider" oninput="onFillOpacity(this.value); _syncSliderFill(this)">
+        </div>
+        <!-- Moved out of "More options" — directly relevant to how the
+             series colours/fills above actually render once there's more
+             than one series, not a rarely-touched advanced setting. -->
+        <div class="field-row" id="fr-stacking">
+          <label>Stacking</label>
+          <div class="seg-group">
+            <button class="seg-btn active" data-stack="" onclick="setStack('')">Off</button>
+            <button class="seg-btn" data-stack="normal" onclick="setStack('normal')">Stack</button>
+            <button class="seg-btn" data-stack="percent" onclick="setStack('percent')">%</button>
+          </div>
+        </div>
+        <!-- Only meaningful once Stacking is on — see show('fr-stack-order', ...)
+             in updateFieldVisibility(). Spells out literally where the FIRST
+             series in the list above ends up, since "reversed"/"normal" as
+             Highcharts calls it is exactly the kind of jargon that caused
+             the original confusion this field exists to fix. -->
+        <div class="field-row" id="fr-stack-order" style="display:none">
+          <label>First series is</label>
+          <div class="seg-group">
+            <button class="seg-btn active" data-stackorder="top" onclick="setStackOrder(true)">On top</button>
+            <button class="seg-btn" data-stackorder="bottom" onclick="setStackOrder(false)">At the bottom</button>
+          </div>
+        </div>
         <!-- Fallback home for "Edit individual bars" when the preview panel
              is too short to show the floating version without it covering
              the chart itself — see _updateColorPointPlacement(). -->
@@ -3836,10 +3873,6 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
             <button class="seg-btn" data-ds="Dash" onclick="setDashStyle('Dash')">Dashed</button>
             <button class="seg-btn" data-ds="Dot" onclick="setDashStyle('Dot')">Dotted</button>
           </div>
-        </div>
-        <div class="field-row" id="fill-row">
-          <label>Fill strength</label>
-          <input type="range" min="0" max="1" step="0.05" value="0.3" style="flex:1;--fill:30%" id="fill-opacity-slider" oninput="onFillOpacity(this.value); _syncSliderFill(this)">
         </div>
         <div class="field-row" id="fr-connectnulls">
           <label>Connect gaps</label>
@@ -3971,7 +4004,12 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
                     style="width:22px;height:22px;border-radius:3px;border:1px solid rgba(0,0,0,0.2);background:#cbc8c8;cursor:pointer;padding:0;flex:none"></button>
           </div>
         </div>
-        <div class="field-row">
+        <!-- Datetime axis only — "years" as a unit is meaningless for a
+             Category/Numeric axis, and applying it there anyway used to
+             convert e.g. "2" into ~63 billion (years-to-ms) and hand
+             Highcharts a tickInterval so large it dropped every label but
+             one. See show('fr-xtick', ...) in setXAxisType(). -->
+        <div class="field-row" id="fr-xtick">
           <label>Tick interval (yrs)</label>
           <input class="field-input" id="sb-xtick" placeholder="Auto" type="number" step="0.25" min="0.25" oninput="onField('xTickInterval',this.value)">
         </div>
@@ -4060,9 +4098,9 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
         <div class="field-row">
           <label>Position</label>
           <div class="seg-group">
-            <button class="seg-btn" onclick="setLegendPos('top')">Top</button>
-            <button class="seg-btn active" onclick="setLegendPos('bottom')">Bottom</button>
-            <button class="seg-btn" onclick="setLegendPos('right')">Right</button>
+            <button class="seg-btn" data-legendpos="top" onclick="setLegendPos('top')">Top</button>
+            <button class="seg-btn active" data-legendpos="bottom" onclick="setLegendPos('bottom')">Bottom</button>
+            <button class="seg-btn" data-legendpos="right" onclick="setLegendPos('right')">Right</button>
           </div>
         </div>
       </div>
@@ -4081,8 +4119,8 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
         <div class="field-row">
           <label>Mode</label>
           <div class="seg-group">
-            <button class="seg-btn active" onclick="setTooltipMode('single')">Single</button>
-            <button class="seg-btn" onclick="setTooltipMode('shared')">Shared</button>
+            <button class="seg-btn active" data-ttmode="single" onclick="setTooltipMode('single')">Single</button>
+            <button class="seg-btn" data-ttmode="shared" onclick="setTooltipMode('shared')">Shared</button>
           </div>
         </div>
         <div class="field-row">
@@ -4140,14 +4178,6 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
         <div class="field-row">
           <label>Chart height</label>
           <input class="field-input" id="sb-height" type="number" value="450" placeholder="450" oninput="onField('chartHeight',this.value)">
-        </div>
-        <div class="field-row" id="fr-stacking">
-          <label>Stacking</label>
-          <div class="seg-group">
-            <button class="seg-btn active" data-stack="" onclick="setStack('')">Off</button>
-            <button class="seg-btn" data-stack="normal" onclick="setStack('normal')">Stack</button>
-            <button class="seg-btn" data-stack="percent" onclick="setStack('percent')">%</button>
-          </div>
         </div>
         <div class="field-row" id="fr-zoom">
           <label>Allow zoom</label>
@@ -4295,7 +4325,78 @@ input[type=range]::-moz-range-thumb:hover { transform: scale(1.1); }
 /* ═══════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════ */
-const N1_PALETTE = ['#164848','#009d80','#7ab5b5','#c8e0e0','#fbaa96','#d83949','#4f6266','#fcaa28','#221b3b','#571b39','#0a3323','#cf6f13','#e8e5ce','#b2a896','#74908d','#116e62'];
+// Confirmed against the official Ninety One Frontify "Web colour themes"
+// page — each family's primary + 3 tints, transcribed from that page's RGB
+// values (more reliable than its HEX column, which had a few OCR-unfriendly
+// digits). Frontify itself marks Galjoen Grey "no longer in use due to
+// accessibility failures", but it's included anyway per direct request —
+// kept last in the list since it's the one exception to "current" colours.
+const N1_COLOR_FAMILIES = [
+  { name: 'Leatherback Green', primary: '#164848', tints: ['#1d4f4f','#114141','#0d3232'] },
+  { name: 'Ocean Teal',        primary: '#009d80', tints: ['#19c68c','#008d75','#026e62'] },
+  { name: 'Cape Coral',        primary: '#fbaa96', tints: ['#ffb5a3','#e89587','#b6746d'] },
+  { name: 'Protea Red',        primary: '#d83949', tints: ['#db4857','#c33345','#9a293d'] },
+  { name: 'Vervet Grey',       primary: '#4f6266', tints: ['#586b6f','#415154','#384749'] },
+  { name: 'Warm Yellowwood',   primary: '#fcaa28', tints: ['#ffb43d','#e79820','#c87a1b'] },
+  { name: 'Agulhas Indigo',    primary: '#221b3b', tints: ['#292047','#1e1834','#181329'] },
+  { name: 'Pinotage Burgundy', primary: '#571b39', tints: ['#6d2043','#551d38','#411330'] },
+  { name: 'Murula Green',      primary: '#0a3323', tints: ['#0e3d2a','#092e20','#072419'] },
+  { name: 'Gazania Gold',      primary: '#cf6f13', tints: ['#d27c28','#bb6414','#944f17'] },
+  { name: 'Springbok Cream',   primary: '#e8e5ce', tints: ['#eeebda','#dbd8c0','#b2a896'] },
+  { name: 'Galjoen Grey',      primary: '#76908d', tints: ['#809a96','#699982','#54666d'] },
+];
+// Flat primaries-only list, derived from the families above — every other
+// N1_PALETTE consumer (theme preview swatches, default series-colour
+// cycling, etc.) keeps working unchanged, now sourced from one place.
+const N1_PALETTE = N1_COLOR_FAMILIES.map(f => f.primary);
+// Used specifically as the PPTX import's default series-colour cycle (a
+// series with no explicit <c:solidFill> in the source XML) — per direct
+// request, defaults to each family's Tint 1 rather than its Primary shade.
+const N1_PALETTE_TINT1 = N1_COLOR_FAMILIES.map(f => f.tints[0]);
+
+// Finds which family (and which shade within it — 0 = primary, 1-3 = tint)
+// a given hex belongs to, so the picker can show the right family swatch as
+// selected and pre-select the right shade in its dropdown.
+function _n1FindColorFamily(hex) {
+  if (!hex) return null;
+  const h = hex.toLowerCase();
+  for (const f of N1_COLOR_FAMILIES) {
+    if (f.primary.toLowerCase() === h) return { family: f, shade: 0 };
+    const ti = f.tints.findIndex(t => t.toLowerCase() === h);
+    if (ti !== -1) return { family: f, shade: ti + 1 };
+  }
+  return null;
+}
+
+// Shared markup for a series' colour picker: one swatch per brand colour
+// family (title = the family name, e.g. "Ocean Teal", instead of a bare hex)
+// plus — once a family is selected — a "Shade" dropdown for its primary/3
+// tints, so picking a colour never requires typing a hex value by hand.
+// setterFnName is either 'setSeriesColour' or 'setRawSeriesColour' (both
+// take (i, hex)); i is that series' index. The dropdown is full-width and
+// on its own line (see renderColourRows()'s layout) — an earlier version
+// let it shrink-wrap next to the swatches/hex input, which wrapped long
+// labels like "Vervet Grey — Tint 2" across three lines.
+function _renderColorFamilyPicker(currentHex, setterFnName, i) {
+  const match = _n1FindColorFamily(currentHex);
+  const swatches = N1_COLOR_FAMILIES.map(f => {
+    const isSelected = match && match.family === f;
+    return `<div class="colour-swatch${isSelected ? ' selected' : ''}" style="background:${f.primary}" onclick="${setterFnName}(${i},'${f.primary}')" title="${f.name}"></div>`;
+  }).join('');
+  if (!match) return `<div class="colour-swatches">${swatches}</div>`;
+  const f = match.family;
+  const shadeOptions = [['Primary', f.primary], ...f.tints.map((t, ti) => [`Tint ${ti + 1}`, t])];
+  // Plain <select>, enhanced into the app's own custom-dropdown look
+  // (enhanceSelect(), same component the "Desktop — full width" viewport
+  // picker uses) right after this HTML is inserted — see the
+  // querySelectorAll('.shade-select') calls in renderColourRows().
+  const selectId = `shade-select-${setterFnName}-${i}`;
+  const shadeSelect = `
+    <select class="field-input shade-select" id="${selectId}" style="width:100%;font-size:11px;margin-top:6px" onchange="${setterFnName}(${i},this.value)">
+      ${shadeOptions.map(([label, hex]) => `<option value="${hex}"${hex.toLowerCase() === (currentHex || '').toLowerCase() ? ' selected' : ''}>${f.name} — ${label}</option>`).join('')}
+    </select>`;
+  return `<div class="colour-swatches">${swatches}</div>${shadeSelect}`;
+}
 
 // Brand typeface for all chart text — title, axes, legend, data labels.
 // Loaded via @font-face (fonts/) so it renders correctly both live and in
@@ -4555,15 +4656,25 @@ let state = {
   ttSuffix: '',
   chartHeight: 450,
   stacking: '',
+  // Highcharts' own default (true) puts the FIRST series in the list at the
+  // TOP of a stack and the LAST at the bottom — the opposite of what most
+  // people expect. false flips it so the first series becomes the base
+  // instead. Only meaningful while stacking is on.
+  reversedStacks: true,
   zoom: '',
   innerSize: 60,
   csvUrl: '',
+  csvPolling: false,
   theme: 'light',
   yScale: 'linear',
   yAxis2: false,
   connectNulls: false,
   stepLine: '',
-  decimals: null,
+  // 2 as a sensible starting point for real-world data (revenue, ratios,
+  // etc. rarely land on whole numbers) — per-chart, "Auto" is still one
+  // click away in Chart labels > Decimal places for anything that doesn't
+  // need it (counts, years, index values).
+  decimals: 2,
   tooltipMode: 'single',
   yPlotLines: [],
   annotations: [],
@@ -4755,6 +4866,23 @@ function onField(key, val) {
   // is deliberately off for routine sidebar edits (_allowNextRenderAnimation()'s
   // comment), so this one field gets a one-shot re-animate to show the change.
   if (key === 'animationEasing') _allowNextRenderAnimation();
+  // Two separate CSV URL inputs exist (More options, and the Data tab's own
+  // "CSV URL" mode) — keep them mirrored so editing either one is reflected
+  // in both, instead of only whichever field happens to be wired up.
+  if (key === 'csvUrl') {
+    const other1 = document.getElementById('sb-csv-url');
+    const other2 = document.getElementById('csv-url-input');
+    if (other1 && other1.value !== val) other1.value = val;
+    if (other2 && other2.value !== val) other2.value = val;
+  }
+  schedUpdate();
+  persist();
+}
+
+function onCsvPollingToggle(checked) {
+  state.csvPolling = checked;
+  const toggle = document.getElementById('csv-polling-toggle');
+  if (toggle && toggle.checked !== checked) toggle.checked = checked;
   schedUpdate();
   persist();
 }
@@ -4903,6 +5031,8 @@ function onSeriesOpacity(v) {
 function setXAxisType(t) {
   state.xAxisType = t;
   document.querySelectorAll('[data-xtype]').forEach(b => b.classList.toggle('active', b.dataset.xtype === t));
+  const tickRow = document.getElementById('fr-xtick');
+  if (tickRow) tickRow.style.display = t === 'datetime' ? '' : 'none';
   schedUpdate(); persist();
 }
 
@@ -5080,12 +5210,24 @@ let _legendPosTouched = false;
 function setLegendPos(pos) {
   state.legendPos = pos;
   _legendPosTouched = true;
+  document.querySelectorAll('[data-legendpos]').forEach(b => b.classList.toggle('active', b.dataset.legendpos === pos));
   schedUpdate(); persist();
 }
 
 function setStack(s) {
   state.stacking = s;
   document.querySelectorAll('[data-stack]').forEach(b => b.classList.toggle('active', b.dataset.stack === s));
+  const orderRow = document.getElementById('fr-stack-order');
+  if (orderRow) orderRow.style.display = s ? '' : 'none';
+  schedUpdate(); persist();
+}
+
+// isTop: true = first series in the list ends up on top of the stack
+// (Highcharts' own default, reversedStacks:true); false = first series
+// becomes the bottom/base instead (reversedStacks:false).
+function setStackOrder(isTop) {
+  state.reversedStacks = isTop;
+  document.querySelectorAll('[data-stackorder]').forEach(b => b.classList.toggle('active', (b.dataset.stackorder === 'top') === isTop));
   schedUpdate(); persist();
 }
 
@@ -5194,12 +5336,17 @@ function syncSidebarToState() {
   if (g('sb-ymin'))       g('sb-ymin').value = s.yMin ?? '';
   if (g('sb-ymax'))       g('sb-ymax').value = s.yMax ?? '';
   if (g('sb-ytick'))      g('sb-ytick').value = s.yTickInterval ?? '';
-  if (g('sb-xtick'))      g('sb-xtick').value = s.xTickInterval ?? '';
+  // Rounded for display only — auto-derived values (e.g. a 1-month PPTX
+  // interval expressed in years, 1/12) are otherwise a long repeating
+  // decimal; state.xTickInterval itself stays full-precision for calculations.
+  if (g('sb-xtick'))      g('sb-xtick').value = s.xTickInterval != null ? Math.round(s.xTickInterval * 10000) / 10000 : '';
   _syncYFormatSel(s.yFormat || '');
   if (g('sb-val-suffix')) g('sb-val-suffix').value = s.valSuffix || '';
   _syncValFmtButtons(s.valSuffix || '');
   if (g('sb-height'))     g('sb-height').value = s.chartHeight || 450;
   if (g('sb-csv-url'))    g('sb-csv-url').value = s.csvUrl || '';
+  if (g('csv-url-input')) g('csv-url-input').value = s.csvUrl || '';
+  if (g('csv-polling-toggle')) g('csv-polling-toggle').checked = !!s.csvPolling;
   if (g('sb-tt-prefix'))  g('sb-tt-prefix').value = s.ttPrefix || '';
   if (g('sb-tt-suffix'))  g('sb-tt-suffix').value = s.ttSuffix || '';
   if (g('sb-easing'))     { g('sb-easing').value = s.animationEasing || 'swing'; if (typeof _syncEnhancedLabel === 'function') _syncEnhancedLabel('sb-easing'); }
@@ -5222,7 +5369,14 @@ function syncSidebarToState() {
   document.querySelectorAll('[data-ds]').forEach(b => b.classList.toggle('active', b.dataset.ds === (s.dashStyle || 'Solid')));
   document.querySelectorAll('[data-step]').forEach(b => b.classList.toggle('active', b.dataset.step === (s.stepLine || '')));
   document.querySelectorAll('[data-stack]').forEach(b => b.classList.toggle('active', b.dataset.stack === (s.stacking || '')));
+  document.querySelectorAll('[data-stackorder]').forEach(b => b.classList.toggle('active', (b.dataset.stackorder === 'top') === (s.reversedStacks !== false)));
   document.querySelectorAll('[data-zoom]').forEach(b => b.classList.toggle('active', b.dataset.zoom === (s.zoom || '')));
+  document.querySelectorAll('[data-ttmode]').forEach(b => b.classList.toggle('active', b.dataset.ttmode === (s.tooltipMode || 'single')));
+  document.querySelectorAll('[data-legendpos]').forEach(b => b.classList.toggle('active', b.dataset.legendpos === (s.legendPos || 'bottom')));
+  document.getElementById('seg-linear')?.classList.toggle('active', (s.yScale || 'linear') === 'linear');
+  document.getElementById('seg-log')?.classList.toggle('active', s.yScale === 'logarithmic');
+  const fillSlider = document.getElementById('fill-opacity-slider');
+  if (fillSlider) { fillSlider.value = s.fillOpacity ?? 0.3; _syncSliderFill(fillSlider); }
   const opSlider = document.getElementById('series-opacity-slider');
   if (opSlider) { opSlider.value = s.seriesOpacity ?? 1; _syncSliderFill(opSlider); }
   const opVal = document.getElementById('opacity-val');
@@ -5270,6 +5424,7 @@ function updateFieldVisibility() {
   // Horizontal / Vertical axis accordions — hide for pie/donut
   show('acc-haxis', !isNoAxis);
   show('acc-vaxis', !isNoAxis);
+  show('fr-xtick', state.xAxisType === 'datetime');
 
   // Annotations — only chart types with a meaningful point/axis position
   // support a point-anchored label (not pie/donut/bubble).
@@ -5279,6 +5434,7 @@ function updateFieldVisibility() {
 
   // Advanced fields
   show('fr-stacking', isLineLike || isColBar);
+  show('fr-stack-order', (isLineLike || isColBar) && !!state.stacking);
   show('fr-zoom',     !isNoAxis);
   show('donut-row',   t === 'donut');
   show('col-padding-row', isColBar);
@@ -5308,6 +5464,28 @@ function _dashStyleRowHtml(i, current, setterFn) {
   </div>`;
 }
 
+// Series order = stacking order (and z-order generally) — Highcharts stacks
+// the LAST series in the array at the bottom/base, and the FIRST at the
+// top, so moving a series earlier moves it toward the top of the stack and
+// vice versa. Same chevron SVGs the app's own dropdowns use (e.g.
+// enhanceSelect(), 13238) rather than the bare ▲▼ glyphs this used at
+// first — those read as too small/low-contrast next to everything else
+// here being a proper icon button. There's no drag-and-drop, just move-one-
+// step, disabled at either end.
+function _reorderButtonsHtml(i, len, upFn, downFn) {
+  const isFirst = i === 0, isLast = i === len - 1;
+  const btn = (disabled, onclick, title, points) => `
+    <button ${disabled ? 'disabled' : ''} onclick="${onclick}" title="${title}"
+      style="width:16px;height:14px;border:none;border-radius:3px;background:none;padding:0;display:flex;align-items:center;justify-content:center;color:#888;cursor:${disabled ? 'default' : 'pointer'};opacity:${disabled ? '.3' : '1'}"
+      ${disabled ? '' : `onmouseover="this.style.background='#eee'" onmouseout="this.style.background='none'"`}>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="${points}"/></svg>
+    </button>`;
+  return `<span style="display:flex;flex-direction:column;flex-shrink:0">
+    ${btn(isFirst, `${upFn}(${i})`, 'Move up — stacks higher', '6 15 12 9 18 15')}
+    ${btn(isLast, `${downFn}(${i})`, 'Move down — stacks lower', '6 9 12 15 18 9')}
+  </span>`;
+}
+
 function renderColourRows() {
   const container = document.getElementById('series-colour-rows');
   if (!container) return;
@@ -5329,16 +5507,15 @@ function renderColourRows() {
       return `
       <div class="series-colour-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          ${_reorderButtonsHtml(i, rawSeries.length, 'moveRawSeriesUp', 'moveRawSeriesDown')}
           <input class="series-name-input" value="${escHtml(s.name || '')}" placeholder="Series ${i+1}" onchange="renameRawSeries(${i},this.value)" style="flex:1;font-size:11px;font-weight:600;color:#333;border:none;border-bottom:1px solid #e0e0e0;background:transparent;padding:1px 2px;margin-right:8px;outline:none;min-width:0">
           ${isOverride
             ? `<button onclick="clearRawSeriesColour(${i})" style="font-size:10px;color:#009d80;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;white-space:nowrap">✕ Clear</button>`
             : `<span style="font-size:10px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:${themeCol};display:inline-block"></span>Theme</span>`
           }
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="colour-swatches">
-            ${N1_PALETTE.map(c => `<div class="colour-swatch${isOverride&&s._colorOverride===c?' selected':''}" style="background:${c}" onclick="setRawSeriesColour(${i},'${c}')" title="${c}"></div>`).join('')}
-          </div>
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="flex:1;min-width:0">${_renderColorFamilyPicker(isOverride ? s._colorOverride : themeCol, 'setRawSeriesColour', i)}</div>
           <input class="hex-input" value="${isOverride?s._colorOverride:''}" maxlength="7" placeholder="${themeCol}" onchange="setRawSeriesColour(${i},this.value)">
         </div>
         ${_dashStyleRowHtml(i, s.dashStyle, 'setRawSeriesDashStyle')}
@@ -5351,6 +5528,7 @@ function renderColourRows() {
       sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
       sec.addEventListener('mouseleave', () => clearChartHighlight());
     });
+    container.querySelectorAll('select.shade-select').forEach(sel => enhanceSelect(sel.id));
     return;
   }
 
@@ -5378,16 +5556,17 @@ function renderColourRows() {
     return `
     <div class="series-colour-section">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div class="series-name-label" style="margin-bottom:0">${escHtml(s.name)}</div>
+        <div style="display:flex;align-items:center;gap:4px;min-width:0;flex:1">
+          ${_reorderButtonsHtml(i, state.series.length, 'moveSeriesUp', 'moveSeriesDown')}
+          <div class="series-name-label" style="margin-bottom:0">${escHtml(s.name)}</div>
+        </div>
         ${isOverride
-          ? `<button onclick="clearSeriesColour(${i})" style="font-size:10px;color:#009d80;background:none;border:none;cursor:pointer;padding:0;font-family:inherit">✕ Clear override</button>`
-          : `<span style="font-size:10px;color:#888;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${themeCol};display:inline-block"></span>Theme colour</span>`
+          ? `<button onclick="clearSeriesColour(${i})" style="font-size:10px;color:#009d80;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;white-space:nowrap">✕ Clear override</button>`
+          : `<span style="font-size:10px;color:#888;display:flex;align-items:center;gap:4px;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:${themeCol};display:inline-block"></span>Theme colour</span>`
         }
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="colour-swatches">
-          ${N1_PALETTE.map(c => `<div class="colour-swatch${isOverride&&s.color===c?' selected':''}" style="background:${c}" onclick="setSeriesColour(${i},'${c}')" title="${c}"></div>`).join('')}
-        </div>
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">${_renderColorFamilyPicker(isOverride ? s.color : themeCol, 'setSeriesColour', i)}</div>
         <input class="hex-input" value="${isOverride?s.color:''}" maxlength="7" placeholder="${themeCol}" onchange="setSeriesColour(${i},this.value)">
       </div>
       ${_dashStyleRowHtml(i, s.dashStyle, 'setSeriesDashStyle')}
@@ -5402,6 +5581,7 @@ function renderColourRows() {
     sec.addEventListener('mouseenter', () => highlightSeriesEl(i));
     sec.addEventListener('mouseleave', () => clearChartHighlight());
   });
+  container.querySelectorAll('select.shade-select').forEach(sel => enhanceSelect(sel.id));
 }
 
 function setSeriesColour(i, colour) {
@@ -5427,6 +5607,37 @@ function setRawSeriesColour(i, colour) {
   _lastRawConfig.series[i]._colorOverride = colour;
   _lastRawConfig.series[i].color = colour;
   renderColourRows();
+  _reapplyFromRawConfig();
+}
+
+function moveSeriesUp(i) {
+  if (i <= 0 || !state.series[i - 1]) return;
+  [state.series[i - 1], state.series[i]] = [state.series[i], state.series[i - 1]];
+  renderColourRows(); renderGrid();
+  _allowNextRenderAnimation();
+  schedUpdate(); persist();
+}
+function moveSeriesDown(i) {
+  if (i >= state.series.length - 1) return;
+  [state.series[i + 1], state.series[i]] = [state.series[i], state.series[i + 1]];
+  renderColourRows(); renderGrid();
+  _allowNextRenderAnimation();
+  schedUpdate(); persist();
+}
+function moveRawSeriesUp(i) {
+  const arr = _lastRawConfig?.series;
+  if (!arr || i <= 0) return;
+  [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+  renderColourRows(); renderRawDataPreview();
+  _allowNextRenderAnimation();
+  _reapplyFromRawConfig();
+}
+function moveRawSeriesDown(i) {
+  const arr = _lastRawConfig?.series;
+  if (!arr || i >= arr.length - 1) return;
+  [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+  renderColourRows(); renderRawDataPreview();
+  _allowNextRenderAnimation();
   _reapplyFromRawConfig();
 }
 
@@ -5846,6 +6057,20 @@ function selectChartType(type) {
     if (_glEl) _glEl.classList.toggle('on', state.gridLines);
     updateAxisColorVisibility();
   }
+  // Smart defaults for newly-picked area/areaspline charts: solid fill (a
+  // "background colour" should read as solid, not a translucent tint) and,
+  // since fully-opaque overlapping series would otherwise paint over each
+  // other, auto-stack whenever there's more than one series. Both stay
+  // fully editable afterwards via Fill strength / Stacking — this only sets
+  // the starting point once, the moment area/areaspline is first chosen
+  // (not on every re-render), and never touches any other chart type.
+  const _wasArea = ['area','areaspline'].includes(_prevType);
+  const _isArea  = ['area','areaspline'].includes(type);
+  if (_isArea && !_wasArea) {
+    state.fillOpacity = 1;
+    const _seriesCount = state.series?.length || _lastRawConfig?.series?.length || 0;
+    if (_seriesCount >= 2) state.stacking = 'normal';
+  }
   // For raw-config charts, propagate the new type into the stored config
   if (_lastRawConfig) {
     if (!_lastRawConfig.chart) _lastRawConfig.chart = {};
@@ -5869,6 +6094,7 @@ function selectChartType(type) {
   // animate smoothly, and only on the two cards that actually changed.
   _updateChartTypeBarActive(type);
   updateChartTypeUI();
+  syncSidebarToState();
   _allowNextRenderAnimation();
   schedUpdate(); persist();
 }
@@ -6075,7 +6301,11 @@ function update() {
       lineWidth: s.xLine ? 1 : 0,
       tickWidth: 0,
       lineColor: s.xLine ? (s.xLineColor || '#cbc8c8') : 'transparent',
-      tickInterval: s.xTickInterval ? s.xTickInterval * 365.25 * 24 * 3600 * 1000 : undefined,
+      // "years" only means anything on a real datetime axis — applying the
+      // same years-to-ms conversion to a Category/Numeric axis turned a
+      // small number like 2 into ~63 billion, a tickInterval so large
+      // Highcharts dropped every label but one.
+      tickInterval: (s.xAxisType === 'datetime' && s.xTickInterval) ? s.xTickInterval * 365.25 * 24 * 3600 * 1000 : undefined,
     },
     yAxis: isNoAxis ? undefined : [
       {
@@ -6086,6 +6316,9 @@ function update() {
         type: s.yScale === 'logarithmic' ? 'logarithmic' : 'linear',
         gridLineColor: s.gridLines ? (s.gridLineColor || '#cbc8c8') : 'transparent',
         labels: { format: s.yFormat || undefined, style: { color: textCol } },
+        // Only meaningful once stacking is actually on — see the "First
+        // series is" field next to Stacking in the sidebar.
+        reversedStacks: s.stacking ? (s.reversedStacks !== false) : undefined,
         plotLines: [
           ...(s.yZeroLine ? [{ value: 0, color: s.yZeroLineColor || '#b2a896', width: 1, zIndex: 4 }] : []),
           ...s.yPlotLines.map(pl => ({
@@ -6221,7 +6454,9 @@ function generateConfig() {
     // the next escalation is useHTML:true on the axis labels themselves.
     lblOpts.style = { fontSize: '11px' };
     xa.labels = lblOpts;
-    if (s.xTickInterval != null) xa.tickInterval = s.xTickInterval * 365.25 * 24 * 3600 * 1000;
+    // See the matching comment in update()'s xAxis block — "years" only
+    // applies to a real datetime axis.
+    if (s.xAxisType === 'datetime' && s.xTickInterval != null) xa.tickInterval = s.xTickInterval * 365.25 * 24 * 3600 * 1000;
     xa.lineWidth = s.xLine ? 1 : 0;
     // Same reason as gridLineColor/zero-line colour above — no Sitecore-side
     // default to fall back to, so always export it when the line is on.
@@ -6260,6 +6495,9 @@ function generateConfig() {
       _cleanPL.push(entry);
     });
     if (_cleanPL.length) ya.plotLines = _cleanPL;
+    // Only meaningful once stacking is actually on — see the "First series
+    // is" field next to Stacking in the sidebar.
+    if (s.stacking) ya.reversedStacks = s.reversedStacks !== false;
     cfg.yAxis = s.yAxis2 ? [ya, { opposite: true, title: { text: '' } }] : ya;
   }
 
@@ -6342,7 +6580,7 @@ function generateConfig() {
 
   // ── data (CSV) ──
   if (s.csvUrl) {
-    cfg.data = { csvURL: s.csvUrl, enablePolling: false };
+    cfg.data = { csvURL: s.csvUrl, enablePolling: !!s.csvPolling };
   }
 
   // ── series ──
@@ -6571,6 +6809,13 @@ function syncStateFromConfig(cfg) {
   // like every other field above: to the new config's own csvURL if it set
   // one, otherwise back to empty.
   state.csvUrl = cfg.data?.csvURL || '';
+  state.csvPolling = !!cfg.data?.enablePolling;
+  // Switch the Data tab to whichever mode this newly-applied config actually
+  // uses — otherwise a pasted config with a data.csvURL fills in the CSV
+  // URL field on a tab the switcher is still leaving hidden ("Inline data"
+  // stays selected). Scoped to this one-time apply, not a general sync, so
+  // it never fights a user who's mid-edit on either tab afterwards.
+  if (typeof setDataMode === 'function' && document.getElementById('data-mode-inline-btn')) setDataMode(state.csvUrl ? 'url' : 'inline');
   const ya = Array.isArray(cfg.yAxis) ? cfg.yAxis[0] : cfg.yAxis;
   // For col/bar charts with no explicit gridLineWidth, default to OFF
   // rather than the usual ON.
@@ -7625,18 +7870,15 @@ function _reapplyFromRawConfig() {
       if (state.xRotation != null) { if (!cfg.xAxis.labels) cfg.xAxis.labels = {}; cfg.xAxis.labels.rotation = state.xRotation; cfg.xAxis.labels.style = axStyle; }
       cfg.xAxis.lineWidth = state.xLine ? 1 : 0;
       cfg.xAxis.lineColor = state.xLine ? (state.xLineColor || '#cbc8c8') : 'transparent';
-      if (state.xTickInterval != null) {
+      // Datetime-only: everything below (years-to-ms conversion, anchored
+      // tick positions, date-format labels) is meaningless — and previously
+      // actively harmful — on a Category/Numeric axis. A plain "2" typed
+      // into "Tick interval (yrs)" on a category axis used to become a
+      // ~63-billion tickInterval, which made Highcharts drop every label
+      // but one.
+      if (state.xAxisType === 'datetime' && state.xTickInterval != null) {
         const oneYear = 365.25 * 24 * 3600 * 1000;
         cfg.xAxis.tickInterval = state.xTickInterval * oneYear;
-        // Update label format to match the interval granularity — mirrors the
-        // same tiers the datetime-import path uses (applyAIConfig), so a
-        // sidebar-triggered re-render doesn't change the format away from
-        // what was originally imported.
-        if (!cfg.xAxis.labels) cfg.xAxis.labels = {};
-        cfg.xAxis.labels.format = state.xTickInterval >= 2 ? '{value:%y}'
-          : state.xTickInterval >= 1 ? '{value:%d/%m/%y}'
-          : state.xTickInterval >= 0.5 ? '{value:%b %y}'
-          : '{value:%e %b}';
         // Recompute explicit tick positions from the actual data range so a
         // manually-entered tick interval stays immune to the same
         // container-width issue as the import path — anchored at the first
@@ -7651,8 +7893,22 @@ function _reapplyFromRawConfig() {
         const pts = Array.isArray(cfg.series) ? cfg.series[0]?.data : null;
         const firstTs = pts?.length ? (Array.isArray(pts[0]) ? pts[0][0] : null) : null;
         const lastTs  = pts?.length ? (Array.isArray(pts[pts.length - 1]) ? pts[pts.length - 1][0] : null) : null;
+        // Update label format to match the interval granularity — mirrors the
+        // same tiers the datetime-import path uses (applyAIConfig), so a
+        // sidebar-triggered re-render doesn't change the format away from
+        // what was originally imported.
+        if (!cfg.xAxis.labels) cfg.xAxis.labels = {};
+        cfg.xAxis.labels.format = _dtLabelFormat(state.xTickInterval, firstTs, lastTs);
         const ticks = _dtTicksFromAnchor(firstTs, lastTs, Math.round(state.xTickInterval * 12));
-        if (ticks) cfg.xAxis.tickPositions = ticks; else delete cfg.xAxis.tickPositions;
+        // Anchor the axis's own min to the first tick (== firstTs, see
+        // _dtTicksFromAnchor) rather than leaving it on Highcharts' own
+        // auto-scale — otherwise auto-min matches the raw data extremes
+        // anyway in this case, but relying on that silently breaks if it
+        // ever didn't. max is set to the real lastTs, not the last tick
+        // (which stays on a 1st-of-month boundary for even spacing) — this
+        // way the line still draws flush to the true end without clipping.
+        if (ticks) { cfg.xAxis.tickPositions = ticks; cfg.xAxis.min = ticks[0]; cfg.xAxis.max = lastTs; }
+        else { delete cfg.xAxis.tickPositions; delete cfg.xAxis.min; delete cfg.xAxis.max; }
       }
       // else: leave cfg.xAxis.tickInterval, tickPositions and label format
       // from _lastRawConfig (auto-calculated on import)
@@ -7682,6 +7938,10 @@ function _reapplyFromRawConfig() {
         });
       });
       if (_allPL.length) yaOverride.plotLines = _allPL; else delete yaOverride.plotLines;
+      // Only meaningful once stacking is actually on — see the "First
+      // series is" field next to Stacking in the sidebar.
+      if (state.stacking) yaOverride.reversedStacks = state.reversedStacks !== false;
+      else delete yaOverride.reversedStacks;
     }
 
     // Legend — a pasted config's own layout/align/verticalAlign wins until
@@ -7787,6 +8047,11 @@ function _reapplyFromRawConfig() {
     _updateColorPointBtn();
     if (_colorPointMode) _attachColorPointListeners();
     _attachAnnotationInteractions();
+    // Without this, the "Series colours" sidebar panel keeps showing
+    // whatever series were there before this config was applied/edited —
+    // clicking those stale swatches then does nothing visible, since they
+    // don't correspond to any series actually on the chart anymore.
+    renderColourRows();
     _commitSettledSnapshot();
     _reapplyRetried = false;
   } catch(e) {
@@ -7929,7 +8194,7 @@ function _cleanConfigForCopy(cfg) {
 
   // If a Sitecore CSV URL is set, replace inline series with a data.csvURL reference
   if (state.csvUrl) {
-    out.data = { csvURL: state.csvUrl, enablePolling: false };
+    out.data = { csvURL: state.csvUrl, enablePolling: !!state.csvPolling };
     delete out.series;
   }
 
@@ -8866,6 +9131,23 @@ function _dtYearTicks(firstTs, lastTs, yrs) {
 // no explicit min) starts ticking exactly from the first data point, not a
 // rounded year. Used when we know the source's exact majorUnit interval
 // (e.g. 48 months) rather than guessing one from the overall date span.
+// Shared tier logic for the datetime x-axis label format, used by both the
+// PPTX-import builder and the sidebar/re-render path so the two never drift.
+// Below the 0.5yr tier, the interval alone used to pick a day+month format
+// with no year at all ('{value:%e %b}') — fine for data confined to one
+// calendar year, but wrong for a range like Jul 25 → Jun 26: only ~11 months
+// of *elapsed* time (so a spanYrs>=1 check misses it) yet it still crosses a
+// New Year, which a day+month-only label can't show. Compare the actual
+// calendar years of the endpoints instead of elapsed duration.
+function _dtLabelFormat(intervalYrs, firstTs, lastTs) {
+  if (intervalYrs != null && intervalYrs >= 2)   return '{value:%y}';
+  if (intervalYrs != null && intervalYrs >= 1)   return '{value:%d/%m/%y}';
+  if (intervalYrs != null && intervalYrs >= 0.5) return '{value:%b %y}';
+  const crossesYear = firstTs != null && lastTs != null
+    && new Date(firstTs).getUTCFullYear() !== new Date(lastTs).getUTCFullYear();
+  return crossesYear ? '{value:%b %y}' : '{value:%e %b}';
+}
+
 function _dtTicksFromAnchor(firstTs, lastTs, stepMonths) {
   if (!stepMonths || firstTs == null || lastTs == null) return null;
   const d0 = new Date(firstTs), d1 = new Date(lastTs);
@@ -8873,6 +9155,17 @@ function _dtTicksFromAnchor(firstTs, lastTs, stepMonths) {
   const endIdx = d1.getUTCFullYear() * 12 + d1.getUTCMonth();
   const ticks = [];
   for (let m = anchorIdx; m <= endIdx; m += stepMonths) ticks.push(Date.UTC(Math.floor(m / 12), m % 12, 1));
+  // Snap only the *first* tick to the exact first-data timestamp rather than
+  // the 1st-of-month boundary — closes the lead-in gap so the line starts
+  // flush, matching the source PPT chart. Safe to do without changing what
+  // the label reads: the month+year format ('%b %y') has no day component,
+  // so "1 Jul" and "15 Jul" render identically. Deliberately NOT done to the
+  // last tick too: unlike firstTs (usually just days into its month), lastTs
+  // can fall near the END of its month, which would stretch that final gap
+  // (e.g. 1 May → 30 Jun looks like a skipped month next to evenly-spaced
+  // 1st-of-month ticks everywhere else). The trailing gap is instead closed
+  // via axis max (set to lastTs by the caller) without moving this tick.
+  if (ticks.length) ticks[0] = firstTs;
   return ticks;
 }
 
@@ -8933,18 +9226,20 @@ function applyAIConfig(cfg) {
           : spanYrs > 60 ? 10 : spanYrs > 25 ? 5 : spanYrs > 8 ? 2 : spanYrs > 3 ? 1 : spanYrs > 1 ? 0.5 : null;
         // '%y' (2-digit year, e.g. "86") to match the source PPT's own axis
         // style, per direct request.
-        xa.labels = { format:
-          dtTickIntervalYrs == null    ? '{value:%e %b}'
-          : dtTickIntervalYrs >= 2     ? '{value:%y}'
-          : dtTickIntervalYrs >= 1     ? '{value:%d/%m/%y}'
-          : dtTickIntervalYrs >= 0.5   ? '{value:%b %y}'
-          :                              '{value:%e %b}'
-        };
+        xa.labels = { format: _dtLabelFormat(dtTickIntervalYrs, firstTs, lastTs) };
         if (dtTickIntervalYrs != null) xa.tickInterval = dtTickIntervalYrs * oneYear;
         const ticks = exactStepMonths
           ? _dtTicksFromAnchor(firstTs, lastTs, exactStepMonths)
           : _dtYearTicks(firstTs, lastTs, dtTickIntervalYrs);
-        if (ticks) xa.tickPositions = ticks;
+        // Same anchor-vs-data-extremes fix as the sidebar re-render path
+        // below: without an explicit min/max, Highcharts scales to the raw
+        // data extremes, which can fall after/before the first/last anchored
+        // tick and silently drop it. For the exact-interval (anchor) case,
+        // max uses the real lastTs rather than the last tick — that tick
+        // stays on a 1st-of-month boundary for even spacing (see
+        // _dtTicksFromAnchor), while max still extends far enough that the
+        // line draws flush to the true end instead of getting clipped.
+        if (ticks) { xa.tickPositions = ticks; xa.min = ticks[0]; xa.max = exactStepMonths ? lastTs : ticks[ticks.length - 1]; }
         return xa;
       })(),
       yAxis: {
@@ -9326,8 +9621,10 @@ async function parsePPTX(file) {
       }
     }
 
-    // Colour
-    let color = N1_PALETTE[i % N1_PALETTE.length];
+    // Colour — default to each family's Tint 1, not its Primary, per direct
+    // request. Only used when the source PPTX didn't specify its own colour
+    // below (a real <c:solidFill>/<c:schemeClr> always wins).
+    let color = N1_PALETTE_TINT1[i % N1_PALETTE_TINT1.length];
     const spPrNodes = getNodes(ser, 'spPr');
     if (spPrNodes.length) {
       const solidFill = getNodes(spPrNodes[0], 'solidFill')[0];
@@ -9868,6 +10165,79 @@ function applyPasteOverlay() {
   showPasteReview(parsed);
 }
 
+// Multiplies/divides every series' data values by a factor in one step —
+// built specifically for the "re-import from source keeps bringing back
+// $millions when the chart needs $billions" problem: rather than hand-
+// editing dozens of values after every fresh PPTX/CSV import, one click
+// here rescales whatever's currently loaded, in either data model (the
+// plain grid's state.series, or a raw/PPTX-imported chart's
+// _lastRawConfig.series).
+function openScaleValuesModal() {
+  const existing = document.getElementById('scale-values-overlay');
+  if (existing) { existing.querySelector('#scale-factor').focus(); return; }
+  const overlay = document.createElement('div');
+  overlay.id = 'scale-values-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+      <div style="font-weight:600;font-size:14px;color:#222;margin-bottom:6px">Scale values</div>
+      <div style="font-size:12px;color:#666;margin-bottom:12px">Multiply or divide every series' values by a factor — e.g. divide by 1000 to convert $millions to $billions.</div>
+      <div style="display:flex;gap:8px">
+        <select id="scale-op" style="border:1.5px solid #ddd;border-radius:8px;padding:8px;font-size:13px;font-family:inherit">
+          <option value="divide">Divide by</option>
+          <option value="multiply">Multiply by</option>
+        </select>
+        <input id="scale-factor" type="number" value="1000" min="0" step="any" style="flex:1;min-width:0;border:1.5px solid #009d80;border-radius:8px;padding:8px;font-size:13px;font-family:inherit" placeholder="1000">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+        <button onclick="document.getElementById('scale-values-overlay').remove()" style="padding:7px 16px;border-radius:7px;border:1px solid #ddd;background:#fff;cursor:pointer;font-size:12px;font-family:inherit">Cancel</button>
+        <button onclick="applyScaleValues()" style="padding:7px 16px;border-radius:7px;border:none;background:#009d80;color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">Apply</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const factorInput = overlay.querySelector('#scale-factor');
+  factorInput.focus();
+  factorInput.select();
+  factorInput.addEventListener('keydown', e => { if (e.key === 'Enter') applyScaleValues(); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function applyScaleValues() {
+  const op = document.getElementById('scale-op')?.value;
+  const factor = parseFloat(document.getElementById('scale-factor')?.value);
+  document.getElementById('scale-values-overlay')?.remove();
+  if (!factor || factor <= 0) { showToast('Enter a factor greater than 0'); return; }
+  const mult = op === 'multiply' ? factor : 1 / factor;
+
+  // Handles every point shape the app's data models use: a plain number
+  // (normal grid), a [x, y] datetime pair, or a {y, ...} / {x, y, ...}
+  // per-point styled object (color overrides etc. survive untouched).
+  const scalePoint = (pt) => {
+    if (pt == null) return pt;
+    if (typeof pt === 'number') return pt * mult;
+    if (Array.isArray(pt)) return pt.map((v, i) => (i === pt.length - 1 && typeof v === 'number') ? v * mult : v);
+    if (typeof pt === 'object' && typeof pt.y === 'number') return { ...pt, y: pt.y * mult };
+    return pt;
+  };
+
+  if (_lastRawConfig?.series?.length) {
+    _lastRawConfig.series.forEach(s => { s.data = (s.data || []).map(scalePoint); });
+    renderColourRows(); renderRawDataPreview();
+    _allowNextRenderAnimation();
+    _reapplyFromRawConfig();
+    persist();
+  } else if (state.series?.length) {
+    state.series.forEach(s => { s.data = (s.data || []).map(v => typeof v === 'number' ? v * mult : v); });
+    renderColourRows(); renderGrid();
+    _allowNextRenderAnimation();
+    schedUpdate(); persist();
+  } else {
+    showToast('No data to scale yet');
+    return;
+  }
+  showToast(`Values ${op === 'multiply' ? 'multiplied' : 'divided'} by ${factor}`);
+}
+
 // Quick-paste (Excel/Sheets clipboard). If a chart/template is already active,
 // update its data in place (no need to re-pick a chart type). Otherwise this
 // feeds into the same import wizard used for files/config, so a first-time
@@ -10167,7 +10537,11 @@ function setDecimals(n) {
   document.querySelectorAll('[data-dec]').forEach(b => b.classList.toggle('active', b.dataset.dec === (n === null ? 'auto' : String(n))));
   schedUpdate(); persist();
 }
-function setTooltipMode(m) { state.tooltipMode = m; schedUpdate(); persist(); }
+function setTooltipMode(m) {
+  state.tooltipMode = m;
+  document.querySelectorAll('[data-ttmode]').forEach(b => b.classList.toggle('active', b.dataset.ttmode === m));
+  schedUpdate(); persist();
+}
 
 // Reference-line colours are always resolved live from the active theme's
 // palette by index, never stored as a frozen hex — this is what makes them
@@ -10708,8 +11082,13 @@ function addCalloutArrow() {
     tailY = Math.round((ya.min + ya.max * 0.3) * 100) / 100;
   }
   state.calloutArrows.push({
-    text: `Callout ${idx + 1}`,
+    // Blank by default — a callout arrow is often just a decorative pointer
+    // with no text (e.g. recreating a plain arrow shape from a source
+    // PPTX), and the label box already renders invisibly (transparent,
+    // borderless) when empty, so there's no need to force text on anyone.
+    text: '',
     x, y,
+    strokeWidth: 1,
     shapes: [{ points: [{ x: tailX, y: tailY }, { x, y }] }],
   });
   renderCalloutArrowsSection();
@@ -10728,6 +11107,28 @@ function updateCalloutArrowText(j, val) {
   schedUpdate(); persist();
 }
 
+function updateCalloutArrowWidth(j, val) {
+  const a = state.calloutArrows?.[j];
+  if (!a) return;
+  const n = parseFloat(val);
+  a.strokeWidth = isNaN(n) || n <= 0 ? 1 : n;
+  schedUpdate(); persist();
+}
+
+// end: 0 = tail (arrow start), 1 = head (arrow tip, also the label anchor —
+// they share one point, same as the drag-on-chart behaviour already does).
+function updateCalloutArrowPoint(j, end, axis, val) {
+  const a = state.calloutArrows?.[j];
+  const pt = a?.shapes?.[0]?.points?.[end];
+  if (!pt) return;
+  const n = parseFloat(val);
+  if (isNaN(n)) return;
+  pt[axis] = n;
+  if (end === 1) a[axis] = n; // keep the label-anchor field mirrored to the head point
+  renderCalloutArrowsSection();
+  schedUpdate(); persist();
+}
+
 function renderCalloutArrowsSection() {
   const listEl = document.getElementById('calloutarrows-list');
   if (!listEl) return;
@@ -10737,19 +11138,40 @@ function renderCalloutArrowsSection() {
   // tip once one actually exists, instead of always taking up space.
   const tipEl = document.getElementById('calloutarrows-tip');
   if (tipEl) tipEl.style.display = arrows.length ? '' : 'none';
-  listEl.innerHTML = arrows.map((a, j) => `
+  listEl.innerHTML = arrows.map((a, j) => {
+    const pts = a.shapes?.[0]?.points || [];
+    const tail = pts[0] || { x: 0, y: 0 };
+    const head = pts[1] || { x: a.x || 0, y: a.y || 0 };
+    const coordField = (label, end, axis, val) => `
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+        <label style="font-size:10px;color:#888">${label}</label>
+        <input class="field-input" id="calloutarrow-pt-${j}-${end}-${axis}" type="number" step="any" value="${val}" style="width:100%" onchange="updateCalloutArrowPoint(${j},${end},'${axis}',this.value)">
+      </div>`;
+    return `
     <div class="annotation-card calloutarrow-card" data-i="${j}" onmouseenter="_hoverAnnotation(${(state.annotations||[]).length + j},true)" onmouseleave="_hoverAnnotation(${(state.annotations||[]).length + j},false)">
       <div class="field-row" style="flex-direction:column;align-items:stretch;gap:5px">
-        <label style="min-width:auto">Label text</label>
-        <textarea class="field-input" style="height:52px;resize:vertical;font-family:inherit;padding:8px 10px" placeholder="Type your callout..." oninput="updateCalloutArrowText(${j},this.value)">${escHtml(a.text)}</textarea>
+        <label style="min-width:auto">Label text (optional — leave blank for an arrow with no label)</label>
+        <textarea class="field-input" style="height:52px;resize:vertical;font-family:inherit;padding:8px 10px" placeholder="Leave blank for arrow only, or type a callout..." oninput="updateCalloutArrowText(${j},this.value)">${escHtml(a.text)}</textarea>
       </div>
-      <div class="annotation-helper">${(a.shapes || []).length} arrow leg${(a.shapes || []).length === 1 ? '' : 's'} attached — drag the label on the chart in edit mode and they move with it.</div>
-      <div class="annotation-helper" id="calloutarrow-pos-${j}">Anchor: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}</div>
+      <div class="annotation-helper" style="margin-top:8px;margin-bottom:2px">Arrow start (tail)</div>
+      <div style="display:flex;gap:6px">
+        ${coordField('X', 0, 'x', tail.x)}
+        ${coordField('Y', 0, 'y', tail.y)}
+      </div>
+      <div class="annotation-helper" style="margin-top:8px;margin-bottom:2px">Arrow end (head — also the label anchor)</div>
+      <div style="display:flex;gap:6px">
+        ${coordField('X', 1, 'x', head.x)}
+        ${coordField('Y', 1, 'y', head.y)}
+      </div>
+      <div class="annotation-helper" style="margin-top:8px;margin-bottom:2px">Line width</div>
+      <input class="field-input" type="number" step="0.5" min="0.5" value="${a.strokeWidth ?? 1}" style="width:70px" onchange="updateCalloutArrowWidth(${j},this.value)">
+      <div class="annotation-helper" style="margin-top:8px">${(a.shapes || []).length} arrow leg${(a.shapes || []).length === 1 ? '' : 's'} attached — drag the label on the chart in edit mode, or use the fields above to set position/length/angle precisely.</div>
       <div style="text-align:right;margin-top:6px">
         <button class="annotation-remove-btn" onclick="removeCalloutArrow(${j})">🗑 Remove</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // Imports any pre-existing Highcharts `annotations` array found on a pasted/
@@ -10961,7 +11383,7 @@ function buildCalloutArrowsConfig() {
     }],
     shapes: (a.shapes || []).map(sh => ({
       type: 'path',
-      strokeWidth: 1,
+      strokeWidth: a.strokeWidth || 1,
       stroke: a.color || '#000000',
       fill: 'none',
       // Imported multi-segment legs only mark one segment (the true tip) as
@@ -11036,8 +11458,12 @@ function _refreshAnnotationSidebarFields() {
     if (rowyEl) rowyEl.textContent = `y ${_fmtAnnPos(a.y)}`;
   });
   (state.calloutArrows || []).forEach((a, j) => {
-    const posEl = document.getElementById(`calloutarrow-pos-${j}`);
-    if (posEl) posEl.textContent = `Anchor: x ${_fmtAnnPos(a.x)}, y ${_fmtAnnPos(a.y)}`;
+    (a.shapes?.[0]?.points || []).forEach((pt, end) => {
+      const xEl = document.getElementById(`calloutarrow-pt-${j}-${end}-x`);
+      if (xEl) xEl.value = pt.x;
+      const yEl = document.getElementById(`calloutarrow-pt-${j}-${end}-y`);
+      if (yEl) yEl.value = pt.y;
+    });
   });
 }
 
@@ -13834,8 +14260,8 @@ function renderRawDataPreview() {
   html += '</colgroup><thead><tr>';
   html += '<th class="row-num-col"></th>';
   html += `<th><div class="col-header-wrap"><div class="col-type-badge">ABC</div><input class="col-name-input" value="${isDatetime ? 'Date' : 'Category'}" readonly></div></th>`;
-  series.forEach(s => {
-    html += `<th style="text-align:right"><div class="col-header-wrap" style="justify-content:flex-end"><div class="col-type-badge">123</div><input class="col-name-input" style="text-align:right" value="${escHtml(s.name || '')}" readonly></div></th>`;
+  series.forEach((s, si) => {
+    html += `<th style="text-align:right"><div class="col-header-wrap" style="justify-content:flex-end"><div class="col-type-badge">123</div><input class="col-name-input" style="text-align:right" value="${escHtml(s.name || '')}" onchange="_editRawSeriesName(${si}, this.value)"></div></th>`;
   });
   html += '</tr></thead><tbody>';
 
@@ -13867,6 +14293,14 @@ function renderRawDataPreview() {
   }
   html += '</tbody>';
   table.innerHTML = html;
+}
+
+function _editRawSeriesName(si, value) {
+  const s = _lastRawConfig?.series?.[si];
+  if (!s) return;
+  s.name = value;
+  _reapplyFromRawConfig();
+  persist();
 }
 
 function _editRawCategory(r, value) {
@@ -13932,9 +14366,28 @@ function _mergeDataIntoRawConfig(parsed) {
 }
 
 function clearRawImport() {
-  if (!confirm('This will clear the imported chart and let you start fresh with the editable grid. Continue?')) return;
+  if (!confirm('This converts the imported chart into the manually-editable grid, keeping your current data. Continue?')) return;
+  // Carry the raw config's data over into the plain category/series model
+  // instead of discarding it — the button's own label promises "edit
+  // manually" (i.e. keep editing this data), not "delete everything".
+  const rc = _lastRawConfig;
+  if (rc) {
+    const firstData = rc.series?.[0]?.data || [];
+    const isDatetime = rc.xAxis?.type === 'datetime' || Array.isArray(firstData[0]);
+    state.categories = isDatetime
+      ? firstData.map(pt => {
+          const ts = Array.isArray(pt) ? pt[0] : pt?.x;
+          return ts != null ? new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        })
+      : (rc.xAxis?.categories || firstData.map((_, i) => String(i + 1)));
+    state.series = (rc.series || []).map(s => ({
+      name: s.name || '',
+      data: (s.data || []).map(d => Array.isArray(d) ? d[1] : (d && typeof d === 'object' ? d.y : d)),
+      color: s.color || null,
+      colorOverride: !!s.color,
+    }));
+  }
   _lastRawConfig = null;
-  state.series = []; state.categories = [];
   renderRawDataPreview();
   renderColourRows();
   renderGrid();
@@ -14051,6 +14504,8 @@ How the merge patch works (this is important — it keeps responses small and fa
 - Arrays (annotations, yAxis.plotLines) are NOT merged — if you include one, you must return its ENTIRE new contents, since it fully replaces the existing array. When the user only wants to change an existing annotation's style (colour/width/dash) and NOT its position, copy every "points" array and "text" verbatim from the current config's annotations and change ONLY the style key (e.g. shapes[].stroke for line/arrow colour, labels[].backgroundColor for label colour) — never recompute or re-guess point coordinates for a style-only request.
 - series is a special case: if you're touching a series (color, name, dashStyle, type, stacking) WITHOUT changing its actual data values, return that series entry WITHOUT a "data" key at all — the app will keep the existing data for that series automatically. Only include "data" for a series if the user explicitly asked to change its values. This is the single most important rule — data arrays can be very large, and repeating them wastes time.
 - To remove/reset a key, set its value to null.
+- To remove a category entirely (e.g. "remove KOSPI" from a chart with categories ["TSMC","KOSPI","Samsung Electronics","SK Hynix"]): this counts as changing data values, so return xAxis: { categories: [...] } with that entry deleted, AND a full series array where EVERY series includes its "data" array with the corresponding index deleted (not set to null — the array must shrink by one, so the remaining bars/points close the gap). Do this for every series, even ones the user didn't name, since they all share the same category axis.
+- To remove a whole series instead (e.g. "remove the 2-year series"), delete that entry from the series array and shrink base.series accordingly — leave categories and the other series' data untouched.
 
 Rules:
 - Chart type options: line, spline, area, areaspline, column, bar, pie, scatter, bubble.
@@ -14169,7 +14624,11 @@ function _mergeConfigPatch(base, patch) {
     if (key === 'series' && Array.isArray(val)) {
       if (!Array.isArray(base.series)) base.series = [];
       val.forEach((s, i) => {
-        if (s && typeof s === 'object' && !Array.isArray(s) && !('data' in s) && base.series[i]) {
+        // Always merge onto the existing series (not just when 'data' is
+        // absent) — a patch that legitimately needs to update data (e.g.
+        // removing a point) would otherwise silently wipe that series' name/
+        // color/etc. by falling into a full replace instead of a merge.
+        if (s && typeof s === 'object' && !Array.isArray(s) && base.series[i]) {
           base.series[i] = { ...base.series[i], ...s };
         } else {
           base.series[i] = s;
@@ -14254,7 +14713,12 @@ async function aiSend() {
     // Extract the merge patch object from the response
     const cfgMatch = jsonSource.match(/\{[\s\S]*\}/);
     if (!cfgMatch) {
-      aiAddMessage('assistant', 'Could not find a chart config in the response. Try rephrasing.', 'error');
+      // Show what the model actually said instead of a dead-end generic
+      // message — the model often explains WHY it couldn't produce a patch
+      // (e.g. asking a clarifying question), which "try rephrasing" alone
+      // hides from the user.
+      const preview = rawText.trim().slice(0, 300);
+      aiAddMessage('assistant', 'Could not find a chart config in the response.' + (preview ? `\n\nModel said: "${preview}${rawText.length > 300 ? '…' : ''}"` : ' Try rephrasing.'), 'error');
       if (sendBtn) sendBtn.disabled = false;
       return;
     }
